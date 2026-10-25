@@ -41,7 +41,7 @@ Les providers disponibles et leurs paramètres sont décrits dans [Comment le se
    | `dev/` | Profil développement | [Développement](windows/development.md) |
    | `apps/` | Logiciels courants | [Logiciels](windows/apps.md) |
 
-3. **Nom** (`name`) sous la forme « Sujet : état » ou « Logiciel : précision » (ex. « Localisation : désactivée », « jq : traitement de JSON en ligne de commande ») ; un logiciel seul garde son nom (« Firefox »). Le sujet vient en premier ; les menus affichent en couleur la partie après « : ». Les conséquences à connaître vont dans `uncheckedWarning` ou `checkedWarning`, pas dans le nom.
+3. **Nom** (`name`) sous la forme « Sujet : état » ou « Logiciel : précision » (ex. « Localisation : désactivée », « lazygit : interface Git dans le terminal ») ; un logiciel seul garde son nom (« Firefox »). Le sujet vient en premier ; les menus affichent en couleur la partie après « : ». Les conséquences à connaître vont dans `uncheckedWarning` ou `checkedWarning`, pas dans le nom.
 4. **PATH** : le moteur recharge le PATH de la session après chaque installation. Si l'installeur n'ajoute pas lui-même le logiciel au PATH, ajouter une action `path`.
 5. **Dépendances** (`dependsOn`), **conditions** (`when`), **redémarrage** (`requiresReboot`) ou **fermeture de session** (`requiresLogoff`) : voir [Architecture](architecture.md#concepts).
 6. **Le proposer dans un profil** (`profiles/`) : tout ce qui s'installe ou se supprime va dans un groupe de choix, jamais dans `items` (vérifié au chargement).

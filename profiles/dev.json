@@ -92,8 +92,8 @@
       "id": "claude-options",
       "prompt": "Claude Code : options",
       "mode": "multi",
-      "options": ["claude-bypass-permissions", "claude-statusline"],
-      "default": ["claude-bypass-permissions", "claude-statusline"],
+      "options": ["claude-bypass-permissions", "claude-dx"],
+      "default": ["claude-bypass-permissions", "claude-dx"],
       "min": 0
     },
     {

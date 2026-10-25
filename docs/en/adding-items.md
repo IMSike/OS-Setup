@@ -41,7 +41,7 @@ The available providers and their parameters are described in [How the setup cha
    | `dev/` | Development profile | [Development](windows/development.md) |
    | `apps/` | Common software | [Apps](windows/apps.md) |
 
-3. **Name** (`name`) in the form "Subject : state" or "Software : detail" (the setup's UI is French, so names are in French; e.g. "Localisation : désactivée" ("Location: disabled"), "jq : traitement de JSON en ligne de commande" ("jq: command-line JSON processing")); a piece of software on its own keeps its name ("Firefox"). The subject comes first; the menus display the part after ":" in color. Consequences worth knowing go in `uncheckedWarning` or `checkedWarning`, not in the name.
+3. **Name** (`name`) in the form "Subject : state" or "Software : detail" (the setup's UI is French, so names are in French; e.g. "Localisation : désactivée" ("Location: disabled"), "lazygit : interface Git dans le terminal" ("lazygit: Git interface in the terminal")); a piece of software on its own keeps its name ("Firefox"). The subject comes first; the menus display the part after ":" in color. Consequences worth knowing go in `uncheckedWarning` or `checkedWarning`, not in the name.
 4. **PATH**: the engine reloads the session PATH after each installation. If the installer does not add the software to the PATH itself, add a `path` action.
 5. **Dependencies** (`dependsOn`), **conditions** (`when`), **reboot** (`requiresReboot`) or **logoff** (`requiresLogoff`): see [Architecture](architecture.md#concepts).
 6. **Offer it in a profile** (`profiles/`): everything that is installed or removed goes in a choice group, never in `items` (checked at load time).

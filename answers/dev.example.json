@@ -11,7 +11,7 @@
     "cursor-extensions": ["cursor-eslint", "cursor-prettier", "cursor-remote-wsl", "cursor-remote-ssh", "cursor-remote-containers"],
     "javascript": ["node-lts", "pnpm"],
     "agents": ["claude-code", "rtk", "cursor-cli", "herdr", "playwright-cli"],
-    "claude-options": ["claude-bypass-permissions", "claude-statusline"],
+    "claude-options": ["claude-bypass-permissions", "claude-dx"],
     "herdr-plugins": ["herdr-explorer"],
     "playwright-browser": ["playwright-chromium"],
     "dev-apps": ["postman", "pgadmin"],
