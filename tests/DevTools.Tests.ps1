@@ -180,3 +180,53 @@ Describe 'Plafonds selon le disque' {
         Should -Invoke -ModuleName OSSetup -CommandName Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Level -eq 'Warning' }
     }
 }
+
+Describe 'Provider claude-plugin' {
+    BeforeAll {
+        $script:action = @{ plugin = 'dx'; marketplace = 'cc-plugins'; source = 'IMSike/CC-Plugins' }
+    }
+
+    It 'est conforme seulement quand le plugin est installé et activé' {
+        InModuleScope OSSetup -Parameters @{ Action = $action } {
+            param($Action)
+            $provider = Get-OSSetupProvider -Name 'claude-plugin'
+            Mock -CommandName Get-OSSetupClaudePlugin -MockWith { [pscustomobject]@{ Id = 'dx@cc-plugins'; Enabled = $true } }
+            & $provider.Test $Action @{} | Should -BeTrue
+            Mock -CommandName Get-OSSetupClaudePlugin -MockWith { [pscustomobject]@{ Id = 'dx@cc-plugins'; Enabled = $false } }
+            & $provider.Test $Action @{} | Should -BeFalse
+            Mock -CommandName Get-OSSetupClaudePlugin -MockWith { [pscustomobject]@{ Id = 'other@cc-plugins'; Enabled = $true } }
+            & $provider.Test $Action @{} | Should -BeFalse
+        }
+    }
+
+    It 'installe depuis la marketplace, et réactive un plugin désactivé' {
+        InModuleScope OSSetup -Parameters @{ Action = $action } {
+            param($Action)
+            $provider = Get-OSSetupProvider -Name 'claude-plugin'
+            Mock -CommandName Write-OSSetupLog
+            Mock -CommandName claude -MockWith { $global:LASTEXITCODE = 0 }
+            Mock -CommandName Get-OSSetupClaudePlugin -MockWith { [pscustomobject]@{ Id = 'dx@cc-plugins'; Enabled = $false } }
+            & $provider.Invoke $Action @{}
+            Should -Invoke -CommandName claude -Times 1 -Exactly -ParameterFilter { ($args -join ' ') -eq 'plugin install dx --marketplace IMSike/CC-Plugins --scope user' }
+            Should -Invoke -CommandName claude -Times 1 -Exactly -ParameterFilter { ($args -join ' ') -eq 'plugin enable dx@cc-plugins' }
+
+            Mock -CommandName claude -MockWith { $global:LASTEXITCODE = 1 }
+            { & $provider.Invoke $Action @{} } | Should -Throw '*claude plugin install*'
+        }
+    }
+
+    It 'lit la liste des plugins de claude plugin list --json' {
+        InModuleScope OSSetup {
+            Mock -CommandName Get-Command -MockWith { [pscustomobject]@{ Name = 'claude.exe' } } -ParameterFilter { $Name -eq 'claude' }
+            Mock -CommandName claude -MockWith {
+                $global:LASTEXITCODE = 0
+                '[{ "id": "dx@cc-plugins", "scope": "user", "enabled": true }, { "id": "x@y", "enabled": false }]'
+            }
+            $plugins = @(Get-OSSetupClaudePlugin)
+            $plugins.Count | Should -Be 2
+            $plugins[0].Id | Should -Be 'dx@cc-plugins'
+            $plugins[0].Enabled | Should -BeTrue
+            $plugins[1].Enabled | Should -BeFalse
+        }
+    }
+}

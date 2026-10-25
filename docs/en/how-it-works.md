@@ -48,6 +48,7 @@ Each provider gives the engine:
 | `gh-extension` | Installs a GitHub CLI extension. | gh must be signed in. | — |
 | `rtk-init` | Hooks rtk into Claude Code (`rtk init --global`). | Statistics refusal recorded beforehand, otherwise a question would block the setup. | — |
 | `herdr-plugin` | Installs a herdr plugin published on GitHub (`herdr plugin install`). | Presence read from `%APPDATA%\herdr\plugins.json`. | — |
+| `claude-plugin` | Installs a Claude Code plugin from a GitHub marketplace (`claude plugin install`, which adds the marketplace), and enables it again if it was disabled. | Per account; presence read with `claude plugin list --json`. | — |
 | `playwright-cli` | Configures Playwright CLI: an agent's skill (`install --skills`) or the browser provided by Playwright (`install-browser`). | Launched from the user's profile (no `.playwright` folder created elsewhere); presence read from disk. | — |
 | `logon-task` | Creates a scheduled task that runs a PowerShell script at logon (highest privileges, no UAC prompt). | Script deployed outside the repository (which may be deleted at the end of the setup); Windows PowerShell 5.1, always present. | — |
 | `docker-build-cache` | Cap on Docker's build cache (`builder.gc` in `daemon.json`). | JSON merge; cap reduced to a percentage of the system disk when it is small (hardware safety). | previous content |
