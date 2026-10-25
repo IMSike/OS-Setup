@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "wsl-config",
+  "name": "WSL : plafond mémoire selon la machine",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["wsl"],
+  "notes": "Docker Desktop tourne dans la même VM : le plafond le concerne aussi.",
+  "actions": [
+    {
+      "provider": "wsl-config",
+      "description": "WSL 2 : mémoire limitée à 40 % de la RAM (au moins 2 Go, au moins 4 Go laissés à Windows)",
+      "section": "wsl2",
+      "key": "memory",
+      "memoryPercent": 40
+    }
+  ]
+}

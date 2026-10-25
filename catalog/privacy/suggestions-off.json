@@ -1,0 +1,81 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "suggestions-off",
+  "name": "Suggestions et publicités de Windows : désactivées",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "requiresLogoff": true,
+  "notes": "338388 : suggestions du menu Démarrer ; 338389 : astuces ; 338387 et RotatingLockScreenOverlay : informations de l'écran de verrouillage ; 310093 : « Bienvenue » après les mises à jour ; 353694 et 353696 : contenus suggérés dans Paramètres ; Scoobe : « Terminer la configuration de l'appareil ».",
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "name": "SystemPaneSuggestionsEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "name": "SubscribedContent-338388Enabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "name": "SubscribedContent-338389Enabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "name": "SubscribedContent-338387Enabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "name": "RotatingLockScreenOverlayEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "name": "SubscribedContent-310093Enabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "name": "SubscribedContent-353694Enabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "name": "SubscribedContent-353696Enabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "name": "SoftLandingEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\UserProfileEngagement",
+      "name": "ScoobeSystemSettingEnabled",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

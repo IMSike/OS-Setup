@@ -1,0 +1,15 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "git-vscode",
+  "name": "Git : VS Code comme éditeur et outil de comparaison",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["git", "vscode"],
+  "actions": [
+    { "provider": "git-config", "key": "core.editor", "value": "code --wait" },
+    { "provider": "git-config", "key": "diff.tool", "value": "vscode" },
+    { "provider": "git-config", "key": "difftool.vscode.cmd", "value": "code --wait --diff \"$LOCAL\" \"$REMOTE\"" },
+    { "provider": "git-config", "key": "merge.tool", "value": "vscode" },
+    { "provider": "git-config", "key": "mergetool.vscode.cmd", "value": "code --wait --merge \"$REMOTE\" \"$LOCAL\" \"$BASE\" \"$MERGED\"" }
+  ]
+}

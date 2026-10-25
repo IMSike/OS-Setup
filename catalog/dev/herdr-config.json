@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "herdr-config",
+  "name": "herdr : réglages",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["herdr", "pwsh"],
+  "actions": [
+    {
+      "provider": "file",
+      "description": "herdr : thème gruvbox, PowerShell 7, barre latérale, défilement, notifications système",
+      "source": "herdr/config.toml",
+      "target": "{{AppData}}\\herdr\\config.toml",
+      "mode": "copy",
+      "unlessSelected": "herdr-explorer"
+    }
+  ]
+}

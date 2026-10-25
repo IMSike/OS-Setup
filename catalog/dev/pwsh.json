@@ -1,0 +1,12 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "pwsh",
+  "name": "PowerShell 7",
+  "category": "dev",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "notes": "Le paquet par défaut est un MSIX, non installable pour toute la machine sous Windows 10 : on force le MSI (wix).",
+  "actions": [
+    { "provider": "winget", "id": "Microsoft.PowerShell", "scope": "machine", "installerType": "wix" }
+  ]
+}

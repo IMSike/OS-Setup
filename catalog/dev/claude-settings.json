@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "claude-settings",
+  "name": "Claude Code : réglages",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["claude-code"],
+  "actions": [
+    {
+      "provider": "file",
+      "description": "Claude Code : modèle, effort, langue, thème, compaction, sans télémétrie ni attribution",
+      "source": "claude/settings.json",
+      "target": "{{UserProfile}}\\.claude\\settings.json",
+      "mode": "merge-json"
+    }
+  ]
+}

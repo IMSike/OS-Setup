@@ -1,0 +1,8 @@
+{
+  "workbench.colorTheme": "Cursor Dark High Contrast",
+  "window.autoDetectColorScheme": false,
+  "window.commandCenter": true,
+  "crashReporting.enabled": "off",
+  "cursor.cpp.enablePartialAccepts": true,
+  "cursor.composer.usageSummaryDisplay": "always"
+}

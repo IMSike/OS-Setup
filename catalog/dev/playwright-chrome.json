@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "playwright-chrome",
+  "name": "Google Chrome : celui de la machine",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["playwright-cli", "chrome"],
+  "actions": [
+    {
+      "provider": "file",
+      "description": "Playwright CLI : Google Chrome installé sur la machine",
+      "source": "playwright/chrome.json",
+      "target": "{{UserProfile}}\\.playwright\\cli.config.json",
+      "mode": "copy"
+    }
+  ]
+}

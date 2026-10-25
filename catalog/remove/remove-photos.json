@@ -1,0 +1,15 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-photos",
+  "name": "Photos",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "checkedWarning": "Plus de visionneuse d'images par défaut : les images s'ouvriront avec Paint, ou une visionneuse installée par un profil.",
+  "actions": [
+    {
+      "provider": "appx",
+      "name": "Microsoft.Windows.Photos"
+    }
+  ]
+}

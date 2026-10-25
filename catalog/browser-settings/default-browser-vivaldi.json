@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "default-browser-vivaldi",
+  "name": "Navigateur par défaut : Vivaldi",
+  "category": "browser-settings",
+  "platforms": ["windows"],
+  "dependsOn": ["vivaldi"],
+  "actions": [
+    {
+      "provider": "manual",
+      "description": "navigateur par défaut : Vivaldi (étape manuelle)",
+      "check": "default-browser",
+      "value": "VivaldiHTM*",
+      "instructions": "dans la page « Applications par défaut » qui s'ouvre, cliquer sous « Navigateur web » et choisir Vivaldi (Windows ne permet pas de le faire par script)."
+    }
+  ]
+}

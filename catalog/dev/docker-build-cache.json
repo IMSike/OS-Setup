@@ -1,0 +1,16 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "docker-build-cache",
+  "name": "Docker : cache de build plafonné selon le disque",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["docker-desktop"],
+  "actions": [
+    {
+      "provider": "docker-build-cache",
+      "description": "Docker : cache de build nettoyé automatiquement au-delà de 30 Go (10 % du disque au plus)",
+      "maxGB": 30,
+      "diskPercent": 10
+    }
+  ]
+}

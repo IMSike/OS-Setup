@@ -1,0 +1,16 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "brave-no-autostart",
+  "name": "Brave : mise à jour non lancée à l'ouverture de session",
+  "category": "browser-settings",
+  "platforms": ["windows"],
+  "dependsOn": ["brave"],
+  "notes": "Les mises à jour de Brave continuent par ses tâches planifiées.",
+  "actions": [
+    {
+      "provider": "startup-entry",
+      "name": "BraveSoftware Update",
+      "enabled": false
+    }
+  ]
+}

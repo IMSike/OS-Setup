@@ -1,0 +1,21 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "display-off",
+  "name": "Écran : extinction après 4 min 30 (avant le verrouillage)",
+  "category": "power",
+  "platforms": ["windows"],
+  "actions": [
+    {
+      "provider": "power",
+      "setting": "display",
+      "source": "ac",
+      "seconds": 270
+    },
+    {
+      "provider": "power",
+      "setting": "display",
+      "source": "dc",
+      "seconds": 270
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "cursor-remote-wsl",
+  "name": "Remote - WSL : ouvrir un dossier de WSL",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["cursor", "wsl"],
+  "actions": [
+    { "provider": "vscode-extension", "editor": "cursor", "id": "anysphere.remote-wsl" }
+  ]
+}

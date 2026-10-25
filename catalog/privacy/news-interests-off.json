@@ -1,0 +1,19 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "news-interests-off",
+  "name": "Actualités et centres d'intérêt : retirés de la barre des tâches",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "requiresLogoff": true,
+  "notes": "Stratégie de groupe : la valeur utilisateur ShellFeedsTaskbarViewMode est protégée par Windows sur 22H2.",
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Feeds",
+      "name": "EnableFeeds",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

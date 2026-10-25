@@ -1,0 +1,44 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "inking-typing-off",
+  "name": "Personnalisation de l'écriture et de la saisie : désactivée",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\InputPersonalization",
+      "name": "RestrictImplicitInkCollection",
+      "type": "DWord",
+      "value": 1
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\InputPersonalization",
+      "name": "RestrictImplicitTextCollection",
+      "type": "DWord",
+      "value": 1
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\InputPersonalization\\TrainedDataStore",
+      "name": "HarvestContacts",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Personalization\\Settings",
+      "name": "AcceptedPrivacyPolicy",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Input\\TIPC",
+      "name": "Enabled",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

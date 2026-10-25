@@ -1,0 +1,13 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "wsl-platform",
+  "name": "WSL : fonctionnalités Windows",
+  "category": "dev",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "notes": "Activation des fonctionnalités nécessaires à WSL 2 ; Windows demande un redémarrage avant de pouvoir les utiliser.",
+  "actions": [
+    { "provider": "windows-feature", "name": "Microsoft-Windows-Subsystem-Linux" },
+    { "provider": "windows-feature", "name": "VirtualMachinePlatform" }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "cursor-prettier",
+  "name": "Prettier",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["cursor"],
+  "actions": [
+    { "provider": "vscode-extension", "editor": "cursor", "id": "esbenp.prettier-vscode" },
+    {
+      "provider": "file",
+      "description": "Cursor : Prettier formateur par défaut, style des projets sans .prettierrc",
+      "source": "vscode/prettier.json",
+      "target": "{{AppData}}\\Cursor\\User\\settings.json",
+      "mode": "merge-json"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "explorer-show-extensions",
+  "name": "Explorateur : extensions de fichiers affichées",
+  "category": "system",
+  "platforms": ["windows"],
+  "notes": "Pris en compte au redémarrage de l'Explorateur ou à la prochaine session.",
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "name": "HideFileExt",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

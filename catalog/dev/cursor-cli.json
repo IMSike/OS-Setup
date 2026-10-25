@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "cursor-cli",
+  "name": "Cursor CLI : agent",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["git"],
+  "actions": [
+    { "provider": "install-script", "url": "https://cursor.com/install?win32=true", "command": "cursor-agent" }
+  ]
+}

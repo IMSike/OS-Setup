@@ -1,0 +1,67 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "firefox-privacy",
+  "name": "Firefox : télémétrie, études et contenus sponsorisés désactivés",
+  "category": "browser-settings",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "dependsOn": ["firefox"],
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Mozilla\\Firefox",
+      "name": "DisableTelemetry",
+      "type": "DWord",
+      "value": 1
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Mozilla\\Firefox",
+      "name": "DisableFirefoxStudies",
+      "type": "DWord",
+      "value": 1
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Mozilla\\Firefox",
+      "name": "DisableDefaultBrowserAgent",
+      "type": "DWord",
+      "value": 1
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Mozilla\\Firefox",
+      "name": "DisablePocket",
+      "type": "DWord",
+      "value": 1
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Mozilla\\Firefox\\FirefoxHome",
+      "name": "SponsoredTopSites",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Mozilla\\Firefox\\FirefoxHome",
+      "name": "SponsoredPocket",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Mozilla\\Firefox\\UserMessaging",
+      "name": "ExtensionRecommendations",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Mozilla\\Firefox\\UserMessaging",
+      "name": "FeatureRecommendations",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

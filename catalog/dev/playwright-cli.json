@@ -1,0 +1,12 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "playwright-cli",
+  "name": "Playwright CLI : navigateur piloté par les agents",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["node-lts"],
+  "notes": "Commande playwright-cli commune à tous les agents ; chaque session nommée a son propre navigateur.",
+  "actions": [
+    { "provider": "npm-global", "package": "@playwright/cli" }
+  ]
+}

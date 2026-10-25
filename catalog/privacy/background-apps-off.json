@@ -1,0 +1,23 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "background-apps-off",
+  "name": "Applications du Store en arrière-plan : bloquées",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications",
+      "name": "GlobalUserDisabled",
+      "type": "DWord",
+      "value": 1
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search",
+      "name": "BackgroundAppGlobalToggle",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

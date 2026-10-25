@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "cursor-terminal-font",
+  "name": "Cursor : police Nerd Font dans le terminal",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["cursor", "nerd-font"],
+  "actions": [
+    {
+      "provider": "file",
+      "description": "Cursor : terminal intégré en JetBrainsMono Nerd Font",
+      "source": "vscode/terminal-font.json",
+      "target": "{{AppData}}\\Cursor\\User\\settings.json",
+      "mode": "merge-json"
+    }
+  ]
+}

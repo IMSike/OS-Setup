@@ -1,0 +1,12 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "windows-update-drivers",
+  "name": "Windows Update : pilotes proposés",
+  "category": "drivers",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "notes": "Recherche, téléchargement et installation par l'API intégrée de Windows Update ; fonctionne sur Windows non activé.",
+  "actions": [
+    { "provider": "windows-update", "category": "drivers" }
+  ]
+}

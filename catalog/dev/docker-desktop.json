@@ -1,0 +1,14 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "docker-desktop",
+  "name": "Docker Desktop",
+  "category": "dev",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "dependsOn": ["wsl"],
+  "requiresLogoff": true,
+  "notes": "L'installeur ajoute le compte au groupe docker-users, pris en compte à l'ouverture de session suivante : sans elle, docker ne joint pas le moteur.",
+  "actions": [
+    { "provider": "winget", "id": "Docker.DockerDesktop" }
+  ]
+}

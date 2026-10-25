@@ -1,0 +1,24 @@
+{
+  "theme": "dark",
+  "launchMode": "maximized",
+  "firstWindowPreference": "persistedLayoutAndContent",
+  "copyOnSelect": true,
+  "compatibility.enableUnfocusedAcrylic": true,
+  "disabledProfileSources": ["Windows.Terminal.Azure"],
+  "keybindings": [
+    { "id": "Terminal.CopyToClipboard", "keys": "ctrl+c" },
+    { "id": "Terminal.PasteFromClipboard", "keys": "ctrl+v" },
+    { "id": "Terminal.DuplicatePaneAuto", "keys": "alt+shift+d" }
+  ],
+  "profiles": {
+    "defaults": {
+      "font": { "size": 8 },
+      "useAcrylic": true,
+      "opacity": 80,
+      "colorScheme": "One Half Dark",
+      "padding": "1",
+      "bellStyle": "taskbar",
+      "historySize": 20000
+    }
+  }
+}

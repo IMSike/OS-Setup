@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "taskbar-hide-people",
+  "name": "Bouton « Contacts » : masqué",
+  "category": "desktop",
+  "platforms": ["windows"],
+  "requiresLogoff": true,
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced\\People",
+      "name": "PeopleBand",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

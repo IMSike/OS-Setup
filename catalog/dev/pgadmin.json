@@ -1,0 +1,10 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "pgadmin",
+  "name": "pgAdmin 4",
+  "category": "dev",
+  "platforms": ["windows"],
+  "actions": [
+    { "provider": "winget", "id": "PostgreSQL.pgAdmin" }
+  ]
+}

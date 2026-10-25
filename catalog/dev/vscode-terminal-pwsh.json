@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "vscode-terminal-pwsh",
+  "name": "VS Code : PowerShell 7 dans le terminal",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["vscode", "pwsh"],
+  "actions": [
+    {
+      "provider": "file",
+      "description": "VS Code : terminal intégré sur le profil PowerShell (PowerShell 7 quand il est installé)",
+      "source": "vscode/terminal-pwsh.json",
+      "target": "{{AppData}}\\Code\\User\\settings.json",
+      "mode": "merge-json"
+    }
+  ]
+}

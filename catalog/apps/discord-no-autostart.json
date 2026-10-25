@@ -1,0 +1,15 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "discord-no-autostart",
+  "name": "Discord : pas de lancement à l'ouverture de session",
+  "category": "apps",
+  "platforms": ["windows"],
+  "dependsOn": ["discord"],
+  "actions": [
+    {
+      "provider": "startup-entry",
+      "name": "Discord",
+      "enabled": false
+    }
+  ]
+}

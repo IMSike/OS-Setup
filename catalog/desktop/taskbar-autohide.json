@@ -1,0 +1,13 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "taskbar-autohide",
+  "name": "Barre des tâches : masquée automatiquement",
+  "category": "desktop",
+  "platforms": ["windows"],
+  "actions": [
+    {
+      "provider": "taskbar",
+      "autoHide": true
+    }
+  ]
+}

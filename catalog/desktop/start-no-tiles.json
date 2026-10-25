@@ -1,0 +1,8 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "start-no-tiles",
+  "name": "Menu Démarrer : sans vignette",
+  "category": "desktop",
+  "platforms": ["windows"],
+  "startLayout": "empty"
+}

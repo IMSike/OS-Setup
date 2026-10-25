@@ -1,0 +1,21 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "wsl",
+  "name": "Sous-système Windows pour Linux (WSL)",
+  "category": "dev",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "dependsOn": ["wsl-platform"],
+  "notes": "Version distribuée hors Windows (paquet Microsoft.WSL), installée après le redémarrage qui active les fonctionnalités. Distribution Linux : à ajouter plus tard.",
+  "actions": [
+    { "provider": "winget", "id": "Microsoft.WSL" },
+    {
+      "provider": "registry",
+      "description": "pas de fenêtre « Bienvenue dans WSL » au premier démarrage (ex. lancé par Docker Desktop)",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Lxss",
+      "name": "OOBEComplete",
+      "type": "DWord",
+      "value": 1
+    }
+  ]
+}

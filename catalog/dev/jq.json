@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "jq",
+  "name": "jq : traitement de JSON en ligne de commande",
+  "category": "dev",
+  "platforms": ["windows"],
+  "notes": "Dépendance technique de la barre d'état de Claude Code.",
+  "actions": [
+    { "provider": "winget", "id": "jqlang.jq", "scope": "user" }
+  ]
+}

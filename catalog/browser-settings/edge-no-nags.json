@@ -1,0 +1,73 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "edge-no-nags",
+  "name": "Edge : incitations désactivées (bienvenue, navigateur par défaut, recommandations, achats, Rewards, barre latérale, Copilot)",
+  "category": "browser-settings",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge",
+      "name": "HideFirstRunExperience",
+      "type": "DWord",
+      "value": 1
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge",
+      "name": "DefaultBrowserSettingEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge",
+      "name": "ShowRecommendationsEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge",
+      "name": "SpotlightExperiencesAndRecommendationsEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge",
+      "name": "EdgeShoppingAssistantEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge",
+      "name": "ShowMicrosoftRewards",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge",
+      "name": "HubsSidebarEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge",
+      "name": "PromotionalTabsEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge",
+      "name": "Microsoft365CopilotChatIconEnabled",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

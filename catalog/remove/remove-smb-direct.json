@@ -1,0 +1,15 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-smb-direct",
+  "name": "SMB Direct : partage réseau RDMA",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "actions": [
+    {
+      "provider": "windows-feature",
+      "name": "SmbDirect",
+      "enabled": false
+    }
+  ]
+}

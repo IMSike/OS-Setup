@@ -1,0 +1,15 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "desktop-vivaldi",
+  "name": "Vivaldi",
+  "category": "desktop",
+  "platforms": ["windows"],
+  "dependsOn": ["vivaldi"],
+  "actions": [
+    {
+      "provider": "shortcut",
+      "path": "{{Desktop}}\\Vivaldi.lnk",
+      "from": "{{StartMenu}}\\Vivaldi.lnk"
+    }
+  ]
+}

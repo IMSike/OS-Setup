@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "claude-bypass-permissions",
+  "name": "Claude Code : sans demande d'autorisation",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["claude-code"],
+  "actions": [
+    {
+      "provider": "file",
+      "description": "Claude Code : mode bypassPermissions par défaut, sans confirmation",
+      "source": "claude/bypass-permissions.json",
+      "target": "{{UserProfile}}\\.claude\\settings.json",
+      "mode": "merge-json"
+    }
+  ]
+}

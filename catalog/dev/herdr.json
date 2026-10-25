@@ -1,0 +1,10 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "herdr",
+  "name": "herdr : multiplexeur de terminal pour agents",
+  "category": "dev",
+  "platforms": ["windows"],
+  "actions": [
+    { "provider": "install-script", "url": "https://herdr.dev/install.ps1", "command": "herdr" }
+  ]
+}

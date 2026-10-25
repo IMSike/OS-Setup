@@ -1,0 +1,32 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "crash-dumps-local",
+  "name": "Vidages des plantages : conservés en local (débogage)",
+  "category": "system",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "notes": "LocalDumps : un mini-vidage .dmp par plantage de programme, gardé en local (jamais envoyé), 10 au plus. Fonctionne même avec le rapport d'erreurs Windows désactivé (vérifié).",
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting\\LocalDumps",
+      "name": "DumpFolder",
+      "type": "ExpandString",
+      "value": "%LOCALAPPDATA%\\CrashDumps"
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting\\LocalDumps",
+      "name": "DumpCount",
+      "type": "DWord",
+      "value": 10
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting\\LocalDumps",
+      "name": "DumpType",
+      "type": "DWord",
+      "value": 1
+    }
+  ]
+}

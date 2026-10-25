@@ -1,0 +1,12 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "lenovo-system-update",
+  "name": "Lenovo System Update : pilotes et BIOS des PC Lenovo",
+  "category": "drivers",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "when": { "Manufacturer": "lenovo" },
+  "actions": [
+    { "provider": "winget", "id": "Lenovo.SystemUpdate" }
+  ]
+}

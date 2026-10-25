@@ -1,0 +1,15 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-fax-scan",
+  "name": "Télécopie et numérisation Windows",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "checkedWarning": "Certains scanners ne fonctionnent qu'avec cet outil.",
+  "actions": [
+    {
+      "provider": "windows-capability",
+      "name": "Print.Fax.Scan"
+    }
+  ]
+}

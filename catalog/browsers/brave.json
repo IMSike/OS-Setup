@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "brave",
+  "name": "Brave",
+  "category": "browsers",
+  "platforms": ["windows"],
+  "actions": [
+    { "provider": "winget", "id": "Brave.Brave" },
+    {
+      "provider": "shortcut",
+      "description": "retirer du bureau le raccourci posé par l'installeur (Brave.lnk)",
+      "path": "{{Desktop}}\\Brave.lnk",
+      "present": false,
+      "unlessSelected": "desktop-brave"
+    }
+  ]
+}

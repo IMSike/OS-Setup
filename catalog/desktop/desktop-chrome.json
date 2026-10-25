@@ -1,0 +1,15 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "desktop-chrome",
+  "name": "Google Chrome",
+  "category": "desktop",
+  "platforms": ["windows"],
+  "dependsOn": ["chrome"],
+  "actions": [
+    {
+      "provider": "shortcut",
+      "path": "{{PublicDesktop}}\\Google Chrome.lnk",
+      "from": "{{CommonStartMenu}}\\Google Chrome.lnk"
+    }
+  ]
+}

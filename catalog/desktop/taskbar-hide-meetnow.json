@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "taskbar-hide-meetnow",
+  "name": "Bouton « Conversation instantanée » (Meet Now) : masqué",
+  "category": "desktop",
+  "platforms": ["windows"],
+  "requiresLogoff": true,
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer",
+      "name": "HideSCAMeetNow",
+      "type": "DWord",
+      "value": 1
+    }
+  ]
+}

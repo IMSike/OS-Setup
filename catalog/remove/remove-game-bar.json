@@ -1,0 +1,23 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-game-bar",
+  "name": "Xbox Game Bar et superpositions",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "checkedWarning": "Win+G (captures et enregistrements de jeu) ne fonctionnera plus.",
+  "actions": [
+    {
+      "provider": "appx",
+      "name": "Microsoft.XboxGamingOverlay"
+    },
+    {
+      "provider": "appx",
+      "name": "Microsoft.XboxGameOverlay"
+    },
+    {
+      "provider": "appx",
+      "name": "Microsoft.XboxSpeechToTextOverlay"
+    }
+  ]
+}

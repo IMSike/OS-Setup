@@ -1,0 +1,27 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "edge-no-desktop-shortcut",
+  "name": "Edge : pas de raccourci sur le bureau",
+  "category": "browser-settings",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\EdgeUpdate",
+      "name": "CreateDesktopShortcutDefault",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "shortcut",
+      "path": "{{Desktop}}\\Microsoft Edge.lnk",
+      "present": false
+    },
+    {
+      "provider": "shortcut",
+      "path": "{{PublicDesktop}}\\Microsoft Edge.lnk",
+      "present": false
+    }
+  ]
+}

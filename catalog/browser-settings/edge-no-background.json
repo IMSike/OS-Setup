@@ -1,0 +1,29 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "edge-no-background",
+  "name": "Edge : pas d'exécution en arrière-plan",
+  "category": "browser-settings",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge",
+      "name": "StartupBoostEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge",
+      "name": "BackgroundModeEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "startup-entry",
+      "name": "MicrosoftEdgeAutoLaunch_*",
+      "enabled": false
+    }
+  ]
+}

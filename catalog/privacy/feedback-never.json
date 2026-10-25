@@ -1,0 +1,16 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "feedback-never",
+  "name": "Demandes de commentaires : jamais",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Siuf\\Rules",
+      "name": "NumberOfSIUFInPeriod",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

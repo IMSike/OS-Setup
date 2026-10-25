@@ -1,0 +1,25 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "activity-history-off",
+  "name": "Historique d'activité : désactivé",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "notes": "Stratégie de groupe : pas d'équivalent utilisateur fiable.",
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System",
+      "name": "PublishUserActivities",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System",
+      "name": "UploadUserActivities",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

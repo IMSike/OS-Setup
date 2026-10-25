@@ -1,0 +1,15 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "desktop-discord",
+  "name": "Discord",
+  "category": "desktop",
+  "platforms": ["windows"],
+  "dependsOn": ["discord"],
+  "actions": [
+    {
+      "provider": "shortcut",
+      "path": "{{Desktop}}\\Discord.lnk",
+      "from": "{{StartMenu}}\\Discord Inc\\Discord.lnk"
+    }
+  ]
+}

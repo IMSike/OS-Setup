@@ -1,0 +1,15 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-screen-sketch",
+  "name": "Capture d'écran et croquis",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "checkedWarning": "Win+Maj+S n'ouvrira plus l'outil d'annotation des captures.",
+  "actions": [
+    {
+      "provider": "appx",
+      "name": "Microsoft.ScreenSketch"
+    }
+  ]
+}

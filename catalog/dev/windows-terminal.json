@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "windows-terminal",
+  "name": "Windows Terminal",
+  "category": "dev",
+  "platforms": ["windows"],
+  "notes": "Application du Store (MSIX), installée pour le compte : l'installation pour toute la machine n'est pas prise en charge sous Windows 10.",
+  "actions": [
+    { "provider": "winget", "id": "Microsoft.WindowsTerminal" }
+  ]
+}

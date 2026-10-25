@@ -1,0 +1,12 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "hp-support-assistant",
+  "name": "HP Support Assistant : pilotes et BIOS des PC HP",
+  "category": "drivers",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "when": { "Manufacturer": "hp" },
+  "actions": [
+    { "provider": "winget", "id": "HP.SupportAssistant" }
+  ]
+}

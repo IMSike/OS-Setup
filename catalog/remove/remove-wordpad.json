@@ -1,0 +1,14 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-wordpad",
+  "name": "WordPad",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "actions": [
+    {
+      "provider": "windows-capability",
+      "name": "Microsoft.Windows.WordPad"
+    }
+  ]
+}

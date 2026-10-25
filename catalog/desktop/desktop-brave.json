@@ -1,0 +1,15 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "desktop-brave",
+  "name": "Brave",
+  "category": "desktop",
+  "platforms": ["windows"],
+  "dependsOn": ["brave"],
+  "actions": [
+    {
+      "provider": "shortcut",
+      "path": "{{Desktop}}\\Brave.lnk",
+      "from": "{{StartMenu}}\\Brave.lnk"
+    }
+  ]
+}

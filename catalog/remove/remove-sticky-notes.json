@@ -1,0 +1,15 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-sticky-notes",
+  "name": "Pense-bêtes",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "checkedWarning": "Les notes non synchronisées avec un compte Microsoft sont effacées.",
+  "actions": [
+    {
+      "provider": "appx",
+      "name": "Microsoft.MicrosoftStickyNotes"
+    }
+  ]
+}

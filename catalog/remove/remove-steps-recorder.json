@@ -1,0 +1,14 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-steps-recorder",
+  "name": "Enregistreur d'actions",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "actions": [
+    {
+      "provider": "windows-capability",
+      "name": "App.StepsRecorder"
+    }
+  ]
+}

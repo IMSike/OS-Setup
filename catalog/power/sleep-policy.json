@@ -1,0 +1,27 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "sleep-policy",
+  "name": "Mise en veille : jamais sur secteur, après 20 min sur batterie",
+  "category": "power",
+  "platforms": ["windows"],
+  "actions": [
+    {
+      "provider": "power",
+      "setting": "standby",
+      "source": "ac",
+      "seconds": 0
+    },
+    {
+      "provider": "power",
+      "setting": "hibernate",
+      "source": "ac",
+      "seconds": 0
+    },
+    {
+      "provider": "power",
+      "setting": "standby",
+      "source": "dc",
+      "seconds": 1200
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "online-speech-off",
+  "name": "Reconnaissance vocale en ligne : désactivée",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Speech_OneCore\\Settings\\OnlineSpeechPrivacy",
+      "name": "HasAccepted",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "perm-camera",
+  "name": "Caméra : accès refusé",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "checkedWarning": "Bloque aussi la caméra des logiciels classiques (Discord, navigateurs, Zoom…) : constaté sous Windows 10.",
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\webcam",
+      "name": "Value",
+      "type": "String",
+      "value": "Deny"
+    }
+  ]
+}

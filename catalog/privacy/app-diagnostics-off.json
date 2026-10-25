@@ -1,0 +1,16 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "app-diagnostics-off",
+  "name": "Diagnostics des autres applications : accès refusé",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\appDiagnostics",
+      "name": "Value",
+      "type": "String",
+      "value": "Deny"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "dell-command-update",
+  "name": "Dell Command | Update : pilotes et BIOS des PC Dell",
+  "category": "drivers",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "when": { "Manufacturer": "dell" },
+  "actions": [
+    { "provider": "winget", "id": "Dell.CommandUpdate" }
+  ]
+}

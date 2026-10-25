@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "wsl-fedora",
+  "name": "Fedora dans WSL : compte Linux en étape guidée",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["wsl"],
+  "actions": [
+    {
+      "provider": "manual",
+      "description": "Fedora installé dans WSL, avec un compte Linux (étape manuelle)",
+      "check": "wsl-user",
+      "value": "FedoraLinux-44",
+      "instructions": "installation de Fedora dans une nouvelle fenêtre, puis création du compte Linux : choisir un nom (minuscules) et un mot de passe (demandé par sudo). Fermer la fenêtre (exit) une fois l'invite Linux affichée."
+    }
+  ]
+}

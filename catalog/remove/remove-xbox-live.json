@@ -1,0 +1,19 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-xbox-live",
+  "name": "Composants Xbox Live",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "checkedWarning": "Certains jeux (Store, Game Pass, jeux Microsoft) ne pourront plus se connecter à Xbox Live.",
+  "actions": [
+    {
+      "provider": "appx",
+      "name": "Microsoft.Xbox.TCUI"
+    },
+    {
+      "provider": "appx",
+      "name": "Microsoft.XboxIdentityProvider"
+    }
+  ]
+}

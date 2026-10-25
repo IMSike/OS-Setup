@@ -1,0 +1,12 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "git-identity",
+  "name": "Git : identité",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["git"],
+  "actions": [
+    { "provider": "git-config", "key": "user.name", "value": "{{GitUserName}}", "description": "git config --global user.name (information personnelle)" },
+    { "provider": "git-config", "key": "user.email", "value": "{{GitUserEmail}}", "description": "git config --global user.email (information personnelle)" }
+  ]
+}

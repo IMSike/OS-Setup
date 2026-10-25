@@ -1,0 +1,24 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "vscode-settings",
+  "name": "VS Code : réglages de l'éditeur",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["vscode"],
+  "actions": [
+    {
+      "provider": "file",
+      "description": "VS Code : formatage et corrections à l'enregistrement, tabulations, sans minimap",
+      "source": "vscode/settings.json",
+      "target": "{{AppData}}\\Code\\User\\settings.json",
+      "mode": "merge-json"
+    },
+    {
+      "provider": "file",
+      "description": "VS Code : rapports de plantage désactivés",
+      "source": "vscode/argv.json",
+      "target": "{{UserProfile}}\\.vscode\\argv.json",
+      "mode": "merge-json"
+    }
+  ]
+}

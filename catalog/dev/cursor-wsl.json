@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "cursor-wsl",
+  "name": "Cursor : fichiers de WSL autorisés",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["cursor", "wsl"],
+  "actions": [
+    {
+      "provider": "file",
+      "description": "Cursor : ouverture des fichiers de WSL (\\\\wsl.localhost) sans avertissement",
+      "source": "vscode/wsl.json",
+      "target": "{{AppData}}\\Cursor\\User\\settings.json",
+      "mode": "merge-json"
+    }
+  ]
+}

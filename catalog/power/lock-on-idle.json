@@ -1,0 +1,39 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "lock-on-idle",
+  "name": "Verrouillage : après 5 min d'inactivité (écran de veille)",
+  "category": "power",
+  "platforms": ["windows"],
+  "requiresLogoff": true,
+  "notes": "Écran de veille vide, mot de passe à la reprise. Choisi plutôt que la stratégie InactivityTimeoutSecs : réglage par utilisateur, modifiable dans le panneau classique.",
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Control Panel\\Desktop",
+      "name": "SCRNSAVE.EXE",
+      "type": "String",
+      "value": "{{Windows}}\\System32\\scrnsave.scr"
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Control Panel\\Desktop",
+      "name": "ScreenSaveActive",
+      "type": "String",
+      "value": "1"
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Control Panel\\Desktop",
+      "name": "ScreenSaverIsSecure",
+      "type": "String",
+      "value": "1"
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Control Panel\\Desktop",
+      "name": "ScreenSaveTimeOut",
+      "type": "String",
+      "value": "300"
+    }
+  ]
+}

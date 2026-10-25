@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "rtk-claude",
+  "name": "rtk : crochet Claude Code",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["rtk", "claude-code"],
+  "actions": [
+    { "provider": "rtk-init" }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-powershell-v2",
+  "name": "Windows PowerShell 2.0 : moteur obsolète",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "actions": [
+    {
+      "provider": "windows-feature",
+      "name": "MicrosoftWindowsPowerShellV2Root",
+      "enabled": false
+    }
+  ]
+}

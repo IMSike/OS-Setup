@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "git-config",
+  "name": "Git : configuration",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["git"],
+  "actions": [
+    { "provider": "git-config", "key": "init.defaultBranch", "value": "main" },
+    { "provider": "git-config", "key": "core.autocrlf", "value": "input" },
+    { "provider": "git-config", "key": "core.longpaths", "value": "true" },
+    { "provider": "git-config", "key": "pull.rebase", "value": "true" },
+    { "provider": "git-config", "key": "rebase.autoStash", "value": "true" },
+    { "provider": "git-config", "key": "push.autoSetupRemote", "value": "true" },
+    { "provider": "git-config", "key": "fetch.prune", "value": "true" },
+    { "provider": "git-config", "key": "merge.conflictStyle", "value": "zdiff3" }
+  ]
+}

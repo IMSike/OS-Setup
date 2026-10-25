@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "vscode-terminal-font",
+  "name": "VS Code : police Nerd Font dans le terminal",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["vscode", "nerd-font"],
+  "actions": [
+    {
+      "provider": "file",
+      "description": "VS Code : terminal intégré en JetBrainsMono Nerd Font",
+      "source": "vscode/terminal-font.json",
+      "target": "{{AppData}}\\Code\\User\\settings.json",
+      "mode": "merge-json"
+    }
+  ]
+}

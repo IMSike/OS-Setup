@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "profile.schema.json",
+  "title": "Profil",
+  "description": "Composition d'éléments obligatoires, de groupes de choix et de variables. Les profils sont cumulables.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "extends": {
+      "description": "Profils inclus automatiquement.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" }
+    },
+    "items": {
+      "description": "Éléments toujours installés avec ce profil.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" }
+    },
+    "choices": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/choice" }
+    },
+    "variables": {
+      "description": "Variables demandées à l'utilisateur, avec valeur par défaut.",
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9]*$" },
+      "additionalProperties": { "$ref": "#/definitions/variable" }
+    }
+  },
+  "definitions": {
+    "choice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "prompt", "mode", "options"],
+      "properties": {
+        "id": { "description": "Identifiant global du groupe (clé dans le fichier de réponses).", "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "prompt": { "type": "string", "minLength": 1 },
+        "mode": { "enum": ["single", "multi"] },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" }
+        },
+        "default": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string" }
+        },
+        "min": { "type": "integer", "minimum": 0 },
+        "max": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "variable": {
+      "oneOf": [
+        {
+          "description": "Emplacement : valeur par défaut, modifiable avec « Personnaliser les emplacements ».",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["prompt", "default"],
+          "properties": {
+            "prompt": { "type": "string", "minLength": 1 },
+            "default": { "description": "Valeur par défaut (peut référencer d'autres variables).", "type": "string" }
+          }
+        },
+        {
+          "description": "Information personnelle (ex. nom pour Git) : jamais de valeur dans le dépôt, demandée à chaque session interactive ; non renseignée, les actions qui l'utilisent sont ignorées.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["prompt", "personal"],
+          "properties": {
+            "prompt": { "type": "string", "minLength": 1 },
+            "personal": { "const": true }
+          }
+        }
+      ]
+    }
+  }
+}

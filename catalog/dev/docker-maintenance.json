@@ -1,0 +1,23 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "docker-maintenance",
+  "name": "Docker : entretien hebdomadaire du disque",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["docker-desktop"],
+  "actions": [
+    {
+      "provider": "file",
+      "description": "script d'entretien (compactage du disque virtuel, images orphelines)",
+      "source": "docker/docker-maintenance.ps1",
+      "target": "{{LocalAppData}}\\OS-Setup\\docker-maintenance.ps1",
+      "mode": "copy"
+    },
+    {
+      "provider": "logon-task",
+      "name": "OS-Setup - Docker (entretien)",
+      "script": "{{LocalAppData}}\\OS-Setup\\docker-maintenance.ps1",
+      "description": "Une fois par semaine au plus : compacte le disque virtuel de Docker avant son démarrage, puis supprime les images orphelines. Démarre Docker Desktop à la place de son lancement automatique (déployé par OS-Setup)."
+    }
+  ]
+}

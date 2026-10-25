@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "perm-email",
+  "name": "E-mail : accès refusé",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "notes": "Ne concerne pas les applications de bureau classiques (navigateurs, Zoom…), réglées à part dans Paramètres.",
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\email",
+      "name": "Value",
+      "type": "String",
+      "value": "Deny"
+    }
+  ]
+}

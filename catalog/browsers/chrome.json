@@ -1,0 +1,30 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "chrome",
+  "name": "Google Chrome",
+  "category": "browsers",
+  "platforms": ["windows"],
+  "actions": [
+    { "provider": "winget", "id": "Google.Chrome" },
+    {
+      "provider": "file",
+      "description": "préférences de Chrome : pas de raccourci sur le bureau ni dans la barre des tâches (installation et configuration de chaque compte)",
+      "source": "chrome/initial_preferences.json",
+      "target": "{{ProgramFiles}}\\Google\\Chrome\\Application\\initial_preferences",
+      "mode": "merge-json"
+    },
+    {
+      "provider": "shortcut",
+      "description": "retirer du bureau le raccourci posé par l'installeur (Google Chrome.lnk)",
+      "path": "{{PublicDesktop}}\\Google Chrome.lnk",
+      "present": false,
+      "unlessSelected": "desktop-chrome"
+    },
+    {
+      "provider": "shortcut",
+      "description": "retirer le raccourci que Chrome ajoute ensuite sur le bureau du compte (Google Chrome.lnk)",
+      "path": "{{Desktop}}\\Google Chrome.lnk",
+      "present": false
+    }
+  ]
+}

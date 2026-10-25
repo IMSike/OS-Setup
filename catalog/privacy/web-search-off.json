@@ -1,0 +1,32 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "web-search-off",
+  "name": "Recherche web Bing dans Démarrer : retirée",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "requiresLogoff": true,
+  "notes": "Depuis Windows 10 2004, BingSearchEnabled ne suffit plus : la stratégie utilisateur DisableSearchBoxSuggestions est nécessaire.",
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search",
+      "name": "BingSearchEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search",
+      "name": "CortanaConsent",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Policies\\Microsoft\\Windows\\Explorer",
+      "name": "DisableSearchBoxSuggestions",
+      "type": "DWord",
+      "value": 1
+    }
+  ]
+}

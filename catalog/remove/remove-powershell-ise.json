@@ -1,0 +1,14 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-powershell-ise",
+  "name": "PowerShell ISE",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "actions": [
+    {
+      "provider": "windows-capability",
+      "name": "Microsoft.Windows.PowerShell.ISE"
+    }
+  ]
+}

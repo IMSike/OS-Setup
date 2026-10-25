@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "perm-microphone",
+  "name": "Microphone : accès refusé",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "checkedWarning": "Bloque aussi le micro des logiciels classiques (Discord, navigateurs, Zoom…) : constaté sous Windows 10.",
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone",
+      "name": "Value",
+      "type": "String",
+      "value": "Deny"
+    }
+  ]
+}

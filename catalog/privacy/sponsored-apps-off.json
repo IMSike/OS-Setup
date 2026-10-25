@@ -1,0 +1,31 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "sponsored-apps-off",
+  "name": "Applications sponsorisées : installation bloquée",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "notes": "La stratégie DisableWindowsConsumerFeatures est ignorée sur Pro : réglages du Content Delivery Manager.",
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "name": "SilentInstalledAppsEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "name": "PreInstalledAppsEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+      "name": "OemPreInstalledAppsEnabled",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

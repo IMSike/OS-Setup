@@ -1,0 +1,15 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-xps-printer",
+  "name": "Imprimante Microsoft XPS Document Writer",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "actions": [
+    {
+      "provider": "windows-feature",
+      "name": "Printing-XPSServices-Features",
+      "enabled": false
+    }
+  ]
+}

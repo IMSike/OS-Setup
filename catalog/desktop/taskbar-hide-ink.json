@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "taskbar-hide-ink",
+  "name": "Bouton « Espace de travail Windows Ink » : masqué",
+  "category": "desktop",
+  "platforms": ["windows"],
+  "requiresLogoff": true,
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\PenWorkspace",
+      "name": "PenWorkspaceButtonDesiredVisibility",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

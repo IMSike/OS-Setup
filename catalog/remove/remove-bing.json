@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-bing",
+  "name": "Recherche Bing et Actualités",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "actions": [
+    {
+      "provider": "appx",
+      "name": "Microsoft.BingSearch"
+    },
+    {
+      "provider": "appx",
+      "name": "Microsoft.BingNews"
+    }
+  ]
+}

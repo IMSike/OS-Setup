@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "cursor-remote-containers",
+  "name": "Dev Containers : travailler dans un conteneur Docker",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["cursor", "docker-desktop"],
+  "actions": [
+    { "provider": "vscode-extension", "editor": "cursor", "id": "anysphere.remote-containers" }
+  ]
+}

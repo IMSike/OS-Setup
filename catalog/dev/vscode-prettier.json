@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "vscode-prettier",
+  "name": "Prettier",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["vscode"],
+  "actions": [
+    { "provider": "vscode-extension", "id": "esbenp.prettier-vscode" },
+    {
+      "provider": "file",
+      "description": "VS Code : Prettier formateur par défaut, style des projets sans .prettierrc",
+      "source": "vscode/prettier.json",
+      "target": "{{AppData}}\\Code\\User\\settings.json",
+      "mode": "merge-json"
+    }
+  ]
+}

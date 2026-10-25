@@ -1,0 +1,12 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "claude-code",
+  "name": "Claude Code",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["git"],
+  "actions": [
+    { "provider": "path", "path": "{{UserProfile}}\\.local\\bin", "description": "PATH du compte : dossier de Claude Code (le script officiel ne l'ajoute pas)" },
+    { "provider": "install-script", "url": "https://claude.ai/install.ps1", "command": "claude" }
+  ]
+}

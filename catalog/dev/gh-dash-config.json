@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "gh-dash-config",
+  "name": "gh-dash : sections et affichage",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["gh-dash"],
+  "actions": [
+    {
+      "provider": "file",
+      "description": "gh-dash : sections des PR, issues et notifications, colonnes, aperçu",
+      "source": "gh-dash/config.yml",
+      "target": "{{UserProfile}}\\.config\\gh-dash\\config.yml",
+      "mode": "copy"
+    }
+  ]
+}

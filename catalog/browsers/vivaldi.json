@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "vivaldi",
+  "name": "Vivaldi",
+  "category": "browsers",
+  "platforms": ["windows"],
+  "actions": [
+    { "provider": "winget", "id": "Vivaldi.Vivaldi" },
+    {
+      "provider": "shortcut",
+      "description": "retirer du bureau le raccourci posé par l'installeur (Vivaldi.lnk)",
+      "path": "{{Desktop}}\\Vivaldi.lnk",
+      "present": false,
+      "unlessSelected": "desktop-vivaldi"
+    }
+  ]
+}

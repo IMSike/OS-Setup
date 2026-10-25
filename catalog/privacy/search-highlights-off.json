@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "search-highlights-off",
+  "name": "Points forts de la recherche : désactivés",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "requiresLogoff": true,
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\SearchSettings",
+      "name": "IsDynamicSearchBoxEnabled",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

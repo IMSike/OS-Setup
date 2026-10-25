@@ -1,0 +1,15 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-mail-calendar",
+  "name": "Courrier et Calendrier",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "checkedWarning": "Les comptes et les mails, rendez-vous et contacts enregistrés seulement dans l'application sont effacés.",
+  "actions": [
+    {
+      "provider": "appx",
+      "name": "microsoft.windowscommunicationsapps"
+    }
+  ]
+}

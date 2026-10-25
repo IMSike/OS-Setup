@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "desktop-this-pc",
+  "name": "Bureau : icône « Ce PC »",
+  "category": "desktop",
+  "platforms": ["windows"],
+  "requiresLogoff": true,
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\HideDesktopIcons\\NewStartPanel",
+      "name": "{20D04FE0-3AEA-1069-A2D8-08002B30309D}",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

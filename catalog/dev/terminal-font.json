@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "terminal-font",
+  "name": "Windows Terminal : police Nerd Font",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["windows-terminal", "nerd-font"],
+  "actions": [
+    {
+      "provider": "file",
+      "description": "Windows Terminal : police JetBrainsMono Nerd Font pour tous les profils",
+      "source": "windows-terminal/font.json",
+      "target": "{{LocalAppData}}\\Packages\\Microsoft.WindowsTerminal_8wekyb3d8bbwe\\LocalState\\settings.json",
+      "mode": "merge-json"
+    }
+  ]
+}

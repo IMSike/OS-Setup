@@ -1,0 +1,16 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "pwsh-profile",
+  "name": "Profil PowerShell 7",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["pwsh", "dev-root"],
+  "actions": [
+    {
+      "provider": "file",
+      "source": "powershell/Microsoft.PowerShell_profile.ps1",
+      "target": "{{Documents}}\\PowerShell\\Microsoft.PowerShell_profile.ps1",
+      "mode": "template"
+    }
+  ]
+}

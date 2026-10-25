@@ -1,0 +1,379 @@
+{
+  "$schema": "../schemas/profile.schema.json",
+  "id": "base",
+  "name": "Base",
+  "description": "Réglages et logiciels communs à toutes les machines.",
+  "items": [
+    "explorer-show-extensions",
+    "explorer-show-hidden",
+    "dark-theme",
+    "desktop-layout"
+  ],
+  "choices": [
+    {
+      "id": "browsers",
+      "prompt": "Navigateurs à installer",
+      "mode": "multi",
+      "options": ["firefox", "chrome", "brave", "vivaldi"],
+      "default": ["vivaldi"],
+      "min": 0
+    },
+    {
+      "id": "browser-settings",
+      "prompt": "Navigateurs : réglages",
+      "mode": "multi",
+      "options": [
+        "edge-no-background",
+        "edge-no-desktop-shortcut",
+        "edge-telemetry-off",
+        "edge-no-nags",
+        "firefox-privacy",
+        "chrome-privacy",
+        "brave-privacy",
+        "brave-no-autostart"
+      ],
+      "default": [
+        "edge-no-background",
+        "edge-no-desktop-shortcut",
+        "edge-telemetry-off",
+        "edge-no-nags",
+        "firefox-privacy",
+        "chrome-privacy",
+        "brave-privacy",
+        "brave-no-autostart"
+      ],
+      "min": 0
+    },
+    {
+      "id": "default-browser",
+      "prompt": "Navigateur par défaut (étape manuelle guidée)",
+      "mode": "single",
+      "options": ["default-browser-vivaldi", "default-browser-firefox", "default-browser-chrome", "default-browser-brave"],
+      "default": ["default-browser-vivaldi"],
+      "min": 0,
+      "max": 1
+    },
+    {
+      "id": "apps",
+      "prompt": "Logiciels courants",
+      "mode": "multi",
+      "options": ["discord"],
+      "default": ["discord"],
+      "min": 0
+    },
+    {
+      "id": "apps-settings",
+      "prompt": "Logiciels courants : réglages",
+      "mode": "multi",
+      "options": ["discord-no-autostart"],
+      "default": [],
+      "min": 0
+    },
+    {
+      "id": "taskbar-pins",
+      "prompt": "Épinglés à la barre des tâches",
+      "mode": "multi",
+      "options": [
+        "pin-explorer",
+        "pin-firefox",
+        "pin-chrome",
+        "pin-brave",
+        "pin-vivaldi",
+        "pin-discord"
+      ],
+      "default": [
+        "pin-explorer",
+        "pin-firefox",
+        "pin-chrome",
+        "pin-brave",
+        "pin-vivaldi",
+        "pin-discord"
+      ],
+      "min": 0
+    },
+    {
+      "id": "desktop-shortcuts",
+      "prompt": "Raccourcis sur le bureau",
+      "mode": "multi",
+      "options": [
+        "desktop-firefox",
+        "desktop-chrome",
+        "desktop-brave",
+        "desktop-vivaldi",
+        "desktop-discord"
+      ],
+      "default": [],
+      "min": 0
+    },
+    {
+      "id": "taskbar-start",
+      "prompt": "Barre des tâches et menu Démarrer",
+      "mode": "multi",
+      "options": [
+        "start-no-tiles",
+        "taskbar-autohide",
+        "taskbar-search-icon",
+        "taskbar-hide-taskview",
+        "taskbar-hide-people",
+        "taskbar-hide-meetnow",
+        "taskbar-hide-ink",
+        "tray-show-all",
+        "start-hide-recent",
+        "desktop-this-pc"
+      ],
+      "default": [
+        "start-no-tiles",
+        "taskbar-autohide",
+        "taskbar-search-icon",
+        "taskbar-hide-people",
+        "taskbar-hide-meetnow",
+        "taskbar-hide-ink"
+      ],
+      "min": 0
+    },
+    {
+      "id": "privacy",
+      "prompt": "Confidentialité et télémétrie",
+      "mode": "multi",
+      "options": [
+        "telemetry-required",
+        "diagtrack-off",
+        "telemetry-tasks-off",
+        "advertising-id-off",
+        "tailored-experiences-off",
+        "activity-history-off",
+        "suggestions-off",
+        "sponsored-apps-off",
+        "web-search-off",
+        "cortana-off",
+        "feedback-never",
+        "inking-typing-off",
+        "online-speech-off",
+        "delivery-optimization-lan",
+        "language-list-optout",
+        "search-cloud-off",
+        "search-highlights-off",
+        "app-diagnostics-off",
+        "news-interests-off",
+        "dmwappush-off",
+        "app-launch-tracking-off",
+        "location-off",
+        "error-reporting-off",
+        "background-apps-off",
+        "cross-device-clipboard-off"
+      ],
+      "default": [
+        "telemetry-required",
+        "diagtrack-off",
+        "telemetry-tasks-off",
+        "advertising-id-off",
+        "tailored-experiences-off",
+        "activity-history-off",
+        "suggestions-off",
+        "sponsored-apps-off",
+        "web-search-off",
+        "cortana-off",
+        "feedback-never",
+        "inking-typing-off",
+        "online-speech-off",
+        "delivery-optimization-lan",
+        "language-list-optout",
+        "search-cloud-off",
+        "search-highlights-off",
+        "app-diagnostics-off",
+        "news-interests-off",
+        "dmwappush-off",
+        "location-off",
+        "error-reporting-off",
+        "background-apps-off",
+        "cross-device-clipboard-off"
+      ],
+      "min": 0
+    },
+    {
+      "id": "app-permissions",
+      "prompt": "Permissions refusées aux applications du Store",
+      "mode": "multi",
+      "options": [
+        "perm-camera",
+        "perm-microphone",
+        "perm-account-info",
+        "perm-contacts",
+        "perm-calendar",
+        "perm-call-history",
+        "perm-email",
+        "perm-messaging",
+        "perm-tasks",
+        "perm-radios",
+        "perm-notifications"
+      ],
+      "default": [
+        "perm-account-info",
+        "perm-contacts",
+        "perm-calendar",
+        "perm-call-history",
+        "perm-email",
+        "perm-messaging",
+        "perm-tasks",
+        "perm-radios",
+        "perm-notifications"
+      ],
+      "min": 0
+    },
+    {
+      "id": "power",
+      "prompt": "Alimentation et verrouillage",
+      "mode": "multi",
+      "options": ["sleep-policy", "display-off", "lock-on-idle", "fast-startup-off"],
+      "default": ["sleep-policy", "display-off", "lock-on-idle", "fast-startup-off"],
+      "min": 0
+    },
+    {
+      "id": "remove-apps",
+      "prompt": "Applications préinstallées à supprimer",
+      "mode": "multi",
+      "options": [
+        "remove-cortana",
+        "remove-weather",
+        "remove-bing",
+        "remove-get-help",
+        "remove-tips",
+        "remove-feedback-hub",
+        "remove-maps",
+        "remove-office-hub",
+        "remove-onenote-uwp",
+        "remove-solitaire",
+        "remove-3d-viewer",
+        "remove-paint-3d",
+        "remove-mixed-reality",
+        "remove-people",
+        "remove-skype",
+        "remove-wallet",
+        "remove-your-phone",
+        "remove-mail-calendar",
+        "remove-new-outlook",
+        "remove-groove",
+        "remove-movies-tv",
+        "remove-dev-home",
+        "remove-onedrive"
+      ],
+      "default": [
+        "remove-cortana",
+        "remove-weather",
+        "remove-bing",
+        "remove-get-help",
+        "remove-tips",
+        "remove-feedback-hub",
+        "remove-maps",
+        "remove-office-hub",
+        "remove-onenote-uwp",
+        "remove-solitaire",
+        "remove-3d-viewer",
+        "remove-paint-3d",
+        "remove-mixed-reality",
+        "remove-people",
+        "remove-skype",
+        "remove-wallet",
+        "remove-your-phone",
+        "remove-mail-calendar",
+        "remove-new-outlook",
+        "remove-groove",
+        "remove-movies-tv",
+        "remove-dev-home",
+        "remove-onedrive"
+      ],
+      "min": 0
+    },
+    {
+      "id": "remove-useful-apps",
+      "prompt": "Applications utiles à supprimer",
+      "mode": "multi",
+      "options": [
+        "remove-sticky-notes",
+        "remove-alarms",
+        "remove-camera",
+        "remove-sound-recorder",
+        "remove-calculator",
+        "remove-screen-sketch",
+        "remove-photos"
+      ],
+      "default": [],
+      "min": 0
+    },
+    {
+      "id": "remove-xbox",
+      "prompt": "Xbox à supprimer",
+      "mode": "multi",
+      "options": [
+        "remove-xbox-app",
+        "remove-game-bar",
+        "remove-xbox-live"
+      ],
+      "default": [],
+      "min": 0
+    },
+    {
+      "id": "remove-components",
+      "prompt": "Composants Windows à retirer",
+      "mode": "multi",
+      "options": [
+        "remove-internet-explorer",
+        "remove-powershell-v2",
+        "remove-steps-recorder",
+        "remove-wordpad",
+        "remove-powershell-ise",
+        "remove-math-input",
+        "remove-hello-face",
+        "remove-quick-assist",
+        "remove-fax-scan",
+        "remove-print-management",
+        "remove-work-folders",
+        "remove-smb-direct",
+        "remove-xps-printer"
+      ],
+      "default": [
+        "remove-internet-explorer",
+        "remove-powershell-v2",
+        "remove-steps-recorder",
+        "remove-powershell-ise",
+        "remove-quick-assist",
+        "remove-print-management",
+        "remove-work-folders",
+        "remove-smb-direct",
+        "remove-xps-printer",
+        "remove-wordpad",
+        "remove-hello-face"
+      ],
+      "min": 0
+    },
+    {
+      "id": "drivers",
+      "prompt": "Pilotes",
+      "mode": "multi",
+      "options": [
+        "windows-update-drivers",
+        "dell-command-update",
+        "lenovo-system-update",
+        "hp-support-assistant",
+        "intel-driver-assistant"
+      ],
+      "default": [
+        "windows-update-drivers",
+        "dell-command-update",
+        "lenovo-system-update",
+        "hp-support-assistant"
+      ],
+      "min": 0
+    },
+    {
+      "id": "advanced",
+      "prompt": "Options avancées",
+      "mode": "multi",
+      "options": [
+        "crash-dumps-local"
+      ],
+      "default": [],
+      "min": 0
+    }
+  ]
+}

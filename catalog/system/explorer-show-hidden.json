@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "explorer-show-hidden",
+  "name": "Explorateur : fichiers cachés affichés",
+  "category": "system",
+  "platforms": ["windows"],
+  "notes": "Pris en compte au redémarrage de l'Explorateur ou à la prochaine session.",
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "name": "Hidden",
+      "type": "DWord",
+      "value": 1
+    }
+  ]
+}

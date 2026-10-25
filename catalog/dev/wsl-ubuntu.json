@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "wsl-ubuntu",
+  "name": "Ubuntu dans WSL : compte Linux en étape guidée",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["wsl"],
+  "actions": [
+    {
+      "provider": "manual",
+      "description": "Ubuntu installé dans WSL, avec un compte Linux (étape manuelle)",
+      "check": "wsl-user",
+      "value": "Ubuntu",
+      "instructions": "installation d'Ubuntu dans une nouvelle fenêtre, puis création du compte Linux : choisir un nom (minuscules) et un mot de passe (demandé par sudo). Fermer la fenêtre (exit) une fois l'invite Linux affichée."
+    }
+  ]
+}

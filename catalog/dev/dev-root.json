@@ -1,0 +1,10 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "dev-root",
+  "name": "Dossier racine des projets",
+  "category": "dev",
+  "platforms": ["windows"],
+  "actions": [
+    { "provider": "directory", "path": "{{DevRoot}}" }
+  ]
+}

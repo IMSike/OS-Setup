@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "gh-dash",
+  "name": "gh-dash : tableau de bord GitHub dans le terminal",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["gh-auth"],
+  "actions": [
+    { "provider": "gh-extension", "repo": "dlvhdr/gh-dash" }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "cortana-off",
+  "name": "Cortana : désactivée",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "requiresLogoff": true,
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search",
+      "name": "AllowCortana",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

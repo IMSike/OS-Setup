@@ -1,0 +1,12 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "nerd-font",
+  "name": "Police JetBrainsMono Nerd Font",
+  "category": "dev",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "notes": "Police à chasse fixe avec les icônes Nerd Fonts, utilisée par Windows Terminal, VS Code, lazygit et herdr.",
+  "actions": [
+    { "provider": "winget", "id": "DEVCOM.JetBrainsMonoNerdFont" }
+  ]
+}

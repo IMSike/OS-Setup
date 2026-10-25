@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "taskbar-search-icon",
+  "name": "Recherche de la barre des tâches : icône seule",
+  "category": "desktop",
+  "platforms": ["windows"],
+  "requiresLogoff": true,
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Search",
+      "name": "SearchboxTaskbarMode",
+      "type": "DWord",
+      "value": 1
+    }
+  ]
+}

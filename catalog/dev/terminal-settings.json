@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "terminal-settings",
+  "name": "Windows Terminal : apparence et comportement",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["windows-terminal"],
+  "actions": [
+    {
+      "provider": "file",
+      "description": "Windows Terminal : thème sombre, fenêtre agrandie, onglets restaurés, copie à la sélection, Ctrl+C/Ctrl+V, transparence, police 8, historique 20 000 lignes",
+      "source": "windows-terminal/settings.json",
+      "target": "{{LocalAppData}}\\Packages\\Microsoft.WindowsTerminal_8wekyb3d8bbwe\\LocalState\\settings.json",
+      "mode": "merge-json"
+    }
+  ]
+}

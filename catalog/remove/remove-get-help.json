@@ -1,0 +1,14 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-get-help",
+  "name": "Obtenir de l'aide",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "actions": [
+    {
+      "provider": "appx",
+      "name": "Microsoft.GetHelp"
+    }
+  ]
+}

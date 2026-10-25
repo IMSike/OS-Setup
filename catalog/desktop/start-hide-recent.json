@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "start-hide-recent",
+  "name": "Menu Démarrer : applications récemment ajoutées masquées",
+  "category": "desktop",
+  "platforms": ["windows"],
+  "requiresLogoff": true,
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Policies\\Microsoft\\Windows\\Explorer",
+      "name": "HideRecentlyAddedApps",
+      "type": "DWord",
+      "value": 1
+    }
+  ]
+}

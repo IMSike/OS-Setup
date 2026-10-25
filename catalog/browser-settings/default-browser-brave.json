@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "default-browser-brave",
+  "name": "Navigateur par défaut : Brave",
+  "category": "browser-settings",
+  "platforms": ["windows"],
+  "dependsOn": ["brave"],
+  "actions": [
+    {
+      "provider": "manual",
+      "description": "navigateur par défaut : Brave (étape manuelle)",
+      "check": "default-browser",
+      "value": "BraveHTML",
+      "instructions": "dans la page « Applications par défaut » qui s'ouvre, cliquer sous « Navigateur web » et choisir Brave (Windows ne permet pas de le faire par script)."
+    }
+  ]
+}

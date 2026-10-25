@@ -1,0 +1,586 @@
+{
+	"global": {
+		"icons_enabled": true,
+		"colors_enabled": true,
+		"separator": "  ",
+		"line_separator": "\n"
+	},
+	"lines": [
+		{
+			"id": "line1",
+			"enabled": true,
+			"elements": [
+				{
+					"key": "model",
+					"enabled": true,
+					"icon": "◆",
+					"color": "\u001b[38;5;75m",
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "value",
+					"note": "Model display name, e.g. 'Claude 3.5 Sonnet'."
+				},
+				{
+					"key": "context_used_pct",
+					"enabled": true,
+					"icon": "◫",
+					"color_thresholds": [
+						{ "below": 50, "color": "\u001b[0;32m" },
+						{ "below": 75, "color": "\u001b[0;33m" },
+						{ "below": 100, "color": "\u001b[0;31m" },
+						{ "below": 101, "color": "\u001b[1;31m" }
+					],
+					"reset": "\u001b[0m",
+					"label": "ctx",
+					"format": "percent",
+					"note": "Context window used percentage. Color changes at 50/75/100%."
+				},
+				{
+					"key": "context_used_pct",
+					"enabled": true,
+					"icon": "",
+					"color_thresholds": [
+						{ "below": 50, "color": "\u001b[0;32m" },
+						{ "below": 75, "color": "\u001b[0;33m" },
+						{ "below": 100, "color": "\u001b[0;31m" },
+						{ "below": 101, "color": "\u001b[1;31m" }
+					],
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "progress_bar",
+					"note": "Progress bar for context used. Same thresholds as context_used_pct (green/yellow/red)."
+				},
+				{
+					"key": "rate_limit_5h",
+					"enabled": true,
+					"icon": "⏱",
+					"color_thresholds": [
+						{ "below": 50, "color": "\u001b[0;32m" },
+						{ "below": 75, "color": "\u001b[0;33m" },
+						{ "below": 100, "color": "\u001b[0;31m" },
+						{ "below": 101, "color": "\u001b[1;31m" }
+					],
+					"reset": "\u001b[0m",
+					"label": "session",
+					"format": "percent",
+					"note": "Claude.ai 5-hour rate limit usage. Only present for subscribers."
+				},
+				{
+					"key": "rate_limit_5h",
+					"enabled": true,
+					"icon": "",
+					"color_thresholds": [
+						{ "below": 50, "color": "\u001b[0;32m" },
+						{ "below": 75, "color": "\u001b[0;33m" },
+						{ "below": 100, "color": "\u001b[0;31m" },
+						{ "below": 101, "color": "\u001b[1;31m" }
+					],
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "progress_bar",
+					"note": "Progress bar for 5h rate limit. Same thresholds as rate_limit_5h (green/yellow/red)."
+				},
+				{
+					"key": "rate_limit_7d",
+					"enabled": true,
+					"icon": "⏱",
+					"color_thresholds": [
+						{ "below": 50, "color": "\u001b[0;32m" },
+						{ "below": 75, "color": "\u001b[0;33m" },
+						{ "below": 100, "color": "\u001b[0;31m" },
+						{ "below": 101, "color": "\u001b[1;31m" }
+					],
+					"reset": "\u001b[0m",
+					"label": "week",
+					"format": "percent",
+					"note": "Claude.ai 7-day rate limit usage. Only present for subscribers."
+				},
+				{
+					"key": "rate_limit_7d",
+					"enabled": true,
+					"icon": "",
+					"color_thresholds": [
+						{ "below": 50, "color": "\u001b[0;32m" },
+						{ "below": 75, "color": "\u001b[0;33m" },
+						{ "below": 100, "color": "\u001b[0;31m" },
+						{ "below": 101, "color": "\u001b[1;31m" }
+					],
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "progress_bar",
+					"note": "Progress bar for 7d rate limit. Same thresholds as rate_limit_7d (green/yellow/red)."
+				},
+				{
+					"key": "rate_limit_5h_resets",
+					"enabled": true,
+					"icon": "⏳",
+					"color": "\u001b[38;5;215m",
+					"reset": "\u001b[0m",
+					"label": "5h",
+					"format": "countdown",
+					"note": "Countdown until 5h window resets. Displays e.g. '3h27' or '45m'."
+				},
+				{
+					"key": "rate_limit_7d_resets",
+					"enabled": true,
+					"icon": "⏳",
+					"color": "\u001b[38;5;215m",
+					"reset": "\u001b[0m",
+					"label": "7d",
+					"format": "countdown",
+					"note": "Countdown until 7d window resets. Displays e.g. '2j14h' or '3h27'."
+				}
+			]
+		},
+		{
+			"id": "line2",
+			"enabled": true,
+			"elements": [
+				{
+					"key": "cwd",
+					"enabled": true,
+					"icon": "⌂",
+					"color": "\u001b[0;33m",
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "value",
+					"note": "Current working directory."
+				}
+			]
+		},
+		{
+			"id": "line3",
+			"enabled": true,
+			"elements": [
+				{
+					"key": "context_tokens_input",
+					"enabled": true,
+					"icon": "→",
+					"color": "\u001b[38;5;158m",
+					"reset": "\u001b[0m",
+					"label": "in",
+					"format": "compact_number",
+					"note": "Total input tokens used in session (cumulative). Displayed as X.Xk when >= 1000."
+				},
+				{
+					"key": "context_tokens_output",
+					"enabled": true,
+					"icon": "←",
+					"color": "\u001b[38;5;158m",
+					"reset": "\u001b[0m",
+					"label": "out",
+					"format": "compact_number",
+					"note": "Total output tokens generated in session (cumulative). Displayed as X.Xk when >= 1000."
+				},
+				{
+					"key": "context_cache_creation",
+					"enabled": true,
+					"icon": "⊕",
+					"color": "\u001b[2;37m",
+					"reset": "\u001b[0m",
+					"label": "cache+",
+					"format": "compact_number",
+					"note": "Tokens written to cache in last API call. Displayed as X.Xk when >= 1000."
+				},
+				{
+					"key": "context_cache_read",
+					"enabled": true,
+					"icon": "⊙",
+					"color": "\u001b[2;37m",
+					"reset": "\u001b[0m",
+					"label": "cache↺",
+					"format": "compact_number",
+					"note": "Tokens read from cache in last API call. Displayed as X.Xk when >= 1000."
+				},
+				{
+					"key": "context_window_size",
+					"enabled": true,
+					"icon": "⊟",
+					"color": "\u001b[2;36m",
+					"reset": "\u001b[0m",
+					"label": "win",
+					"format": "compact_number",
+					"note": "Total context window size for current model (e.g. 200000). Displayed as X.Xk when >= 1000."
+				}
+			]
+		},
+		{
+			"id": "line4",
+			"enabled": false,
+			"elements": [
+				{
+					"key": "cwd",
+					"enabled": true,
+					"icon": "⌂",
+					"color": "\u001b[0;33m",
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "value",
+					"note": "Current working directory."
+				},
+				{
+					"key": "git_worktree",
+					"enabled": true,
+					"icon": "⎇",
+					"color": "\u001b[0;36m",
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "value",
+					"note": "Git worktree name when cwd is in a linked worktree."
+				},
+				{
+					"key": "project_dir",
+					"enabled": false,
+					"icon": "⊞",
+					"color": "\u001b[2;33m",
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "value",
+					"note": "Project root directory. Disabled by default (often same as cwd)."
+				},
+				{
+					"key": "added_dirs",
+					"enabled": true,
+					"icon": "+",
+					"color": "\u001b[2;36m",
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "value",
+					"note": "Extra directories added via /add-dir, joined by ':'."
+				},
+				{
+					"key": "worktree_name",
+					"enabled": false,
+					"icon": "⎇",
+					"color": "\u001b[2;36m",
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "value",
+					"note": "Worktree name/slug when in a --worktree session. Disabled by default."
+				},
+				{
+					"key": "worktree_path",
+					"enabled": false,
+					"icon": "⎇",
+					"color": "\u001b[2;36m",
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "value",
+					"note": "Full path to the worktree directory. Disabled by default (verbose)."
+				},
+				{
+					"key": "worktree_orig_cwd",
+					"enabled": false,
+					"icon": "←",
+					"color": "\u001b[2;36m",
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "value",
+					"note": "Directory Claude was in before entering the worktree. Disabled by default."
+				},
+				{
+					"key": "worktree_orig_branch",
+					"enabled": false,
+					"icon": "←",
+					"color": "\u001b[2;36m",
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "value",
+					"note": "Branch checked out before entering the worktree. Disabled by default."
+				}
+			]
+		},
+		{
+			"id": "line5",
+			"enabled": false,
+			"elements": [
+				{
+					"key": "context_used_pct",
+					"enabled": true,
+					"icon": "◫",
+					"color_thresholds": [
+						{ "below": 50, "color": "\u001b[0;32m" },
+						{ "below": 75, "color": "\u001b[0;33m" },
+						{ "below": 100, "color": "\u001b[0;31m" },
+						{ "below": 101, "color": "\u001b[1;31m" }
+					],
+					"reset": "\u001b[0m",
+					"label": "ctx",
+					"format": "percent",
+					"note": "Context window used percentage. Color changes at 50/75/100%."
+				},
+				{
+					"key": "context_used_pct",
+					"enabled": true,
+					"icon": "",
+					"color_thresholds": [
+						{ "below": 50, "color": "\u001b[0;32m" },
+						{ "below": 75, "color": "\u001b[0;33m" },
+						{ "below": 100, "color": "\u001b[0;31m" },
+						{ "below": 101, "color": "\u001b[1;31m" }
+					],
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "progress_bar",
+					"note": "Progress bar for context used. Same thresholds as context_used_pct (green/yellow/red)."
+				},
+				{
+					"key": "context_remaining_pct",
+					"enabled": false,
+					"icon": "░",
+					"color": "\u001b[0;32m",
+					"reset": "\u001b[0m",
+					"label": "rem",
+					"format": "percent",
+					"note": "Context remaining percentage. Disabled: redundant with context_used_pct."
+				},
+				{
+					"key": "context_tokens_input",
+					"enabled": false,
+					"icon": "→",
+					"color": "\u001b[38;5;158m",
+					"reset": "\u001b[0m",
+					"label": "in",
+					"format": "compact_number",
+					"note": "Total input tokens used in session (cumulative). Displayed as X.Xk when >= 1000."
+				},
+				{
+					"key": "context_tokens_output",
+					"enabled": false,
+					"icon": "←",
+					"color": "\u001b[38;5;158m",
+					"reset": "\u001b[0m",
+					"label": "out",
+					"format": "compact_number",
+					"note": "Total output tokens generated in session (cumulative). Displayed as X.Xk when >= 1000."
+				},
+				{
+					"key": "context_cache_creation",
+					"enabled": false,
+					"icon": "⊕",
+					"color": "\u001b[2;37m",
+					"reset": "\u001b[0m",
+					"label": "cache+",
+					"format": "compact_number",
+					"note": "Tokens written to cache in last API call. Displayed as X.Xk when >= 1000."
+				},
+				{
+					"key": "context_cache_read",
+					"enabled": false,
+					"icon": "⊙",
+					"color": "\u001b[2;37m",
+					"reset": "\u001b[0m",
+					"label": "cache↺",
+					"format": "compact_number",
+					"note": "Tokens read from cache in last API call. Displayed as X.Xk when >= 1000."
+				},
+				{
+					"key": "context_window_size",
+					"enabled": false,
+					"icon": "⊟",
+					"color": "\u001b[2;36m",
+					"reset": "\u001b[0m",
+					"label": "win",
+					"format": "compact_number",
+					"note": "Total context window size for current model (e.g. 200000). Displayed as X.Xk when >= 1000."
+				},
+				{
+					"key": "rate_limit_5h",
+					"enabled": true,
+					"icon": "⏱",
+					"color_thresholds": [
+						{ "below": 50, "color": "\u001b[0;32m" },
+						{ "below": 75, "color": "\u001b[0;33m" },
+						{ "below": 100, "color": "\u001b[0;31m" },
+						{ "below": 101, "color": "\u001b[1;31m" }
+					],
+					"reset": "\u001b[0m",
+					"label": "session",
+					"format": "percent",
+					"note": "Claude.ai 5-hour rate limit usage. Only present for subscribers."
+				},
+				{
+					"key": "rate_limit_5h",
+					"enabled": true,
+					"icon": "",
+					"color_thresholds": [
+						{ "below": 50, "color": "\u001b[0;32m" },
+						{ "below": 75, "color": "\u001b[0;33m" },
+						{ "below": 100, "color": "\u001b[0;31m" },
+						{ "below": 101, "color": "\u001b[1;31m" }
+					],
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "progress_bar",
+					"note": "Progress bar for 5h rate limit. Same thresholds as rate_limit_5h (green/yellow/red)."
+				},
+				{
+					"key": "rate_limit_7d",
+					"enabled": true,
+					"icon": "⏱",
+					"color_thresholds": [
+						{ "below": 50, "color": "\u001b[0;32m" },
+						{ "below": 75, "color": "\u001b[0;33m" },
+						{ "below": 100, "color": "\u001b[0;31m" },
+						{ "below": 101, "color": "\u001b[1;31m" }
+					],
+					"reset": "\u001b[0m",
+					"label": "week",
+					"format": "percent",
+					"note": "Claude.ai 7-day rate limit usage. Only present for subscribers."
+				},
+				{
+					"key": "rate_limit_7d",
+					"enabled": true,
+					"icon": "",
+					"color_thresholds": [
+						{ "below": 50, "color": "\u001b[0;32m" },
+						{ "below": 75, "color": "\u001b[0;33m" },
+						{ "below": 100, "color": "\u001b[0;31m" },
+						{ "below": 101, "color": "\u001b[1;31m" }
+					],
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "progress_bar",
+					"note": "Progress bar for 7d rate limit. Same thresholds as rate_limit_7d (green/yellow/red)."
+				},
+				{
+					"key": "rate_limit_5h_resets",
+					"enabled": false,
+					"icon": "⏳",
+					"color": "\u001b[2;35m",
+					"reset": "\u001b[0m",
+					"label": "5h",
+					"format": "countdown",
+					"note": "Countdown until 5h window resets. Displays e.g. '3h27' or '45m'."
+				},
+				{
+					"key": "rate_limit_7d_resets",
+					"enabled": false,
+					"icon": "⏳",
+					"color": "\u001b[2;35m",
+					"reset": "\u001b[0m",
+					"label": "7d",
+					"format": "countdown",
+					"note": "Countdown until 7d window resets. Displays e.g. '2j14h' ou '3h27'."
+				}
+			]
+		},
+		{
+			"id": "line6",
+			"enabled": false,
+			"elements": [
+				{
+					"key": "vim_mode",
+					"enabled": true,
+					"icon": "",
+					"color": "\u001b[1;33m",
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "value",
+					"note": "Shows INSERT/NORMAL when vim mode is active. Hidden if not in vim mode."
+				},
+				{
+					"key": "agent_name",
+					"enabled": true,
+					"icon": "◈",
+					"color": "\u001b[1;35m",
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "value",
+					"note": "Shows agent name when started with --agent flag."
+				},
+				{
+					"key": "worktree_branch",
+					"enabled": true,
+					"icon": "⎇",
+					"color": "\u001b[1;36m",
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "value",
+					"note": "Shows git branch when in a worktree session."
+				},
+				{
+					"key": "session_name",
+					"enabled": true,
+					"icon": "◎",
+					"color": "\u001b[1;34m",
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "value",
+					"note": "Human-readable session name set via /rename. Hidden if not renamed."
+				},
+				{
+					"key": "model",
+					"enabled": true,
+					"icon": "◆",
+					"color": "\u001b[38;5;75m",
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "value",
+					"note": "Model display name, e.g. 'Claude 3.5 Sonnet'."
+				},
+				{
+					"key": "output_style",
+					"enabled": true,
+					"icon": "≡",
+					"color": "\u001b[0;37m",
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "value",
+					"note": "Output style name, e.g. 'default', 'Explanatory'."
+				},
+				{
+					"key": "version",
+					"enabled": false,
+					"icon": "v",
+					"color": "\u001b[2;37m",
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "value",
+					"note": "Claude Code app version, e.g. '1.0.71'. Disabled by default."
+				},
+				{
+					"key": "model_id",
+					"enabled": false,
+					"icon": "",
+					"color": "\u001b[2;37m",
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "value",
+					"note": "Raw model ID, e.g. 'claude-3-5-sonnet-20241022'. Disabled by default."
+				},
+				{
+					"key": "agent_type",
+					"enabled": false,
+					"icon": "◈",
+					"color": "\u001b[2;35m",
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "value",
+					"note": "Agent type identifier. Disabled by default."
+				},
+				{
+					"key": "session_id",
+					"enabled": false,
+					"icon": "#",
+					"color": "\u001b[2;37m",
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "value",
+					"note": "Unique session ID. Disabled by default (verbose)."
+				},
+				{
+					"key": "transcript_path",
+					"enabled": false,
+					"icon": "📄",
+					"color": "\u001b[2;37m",
+					"reset": "\u001b[0m",
+					"label": "",
+					"format": "value",
+					"note": "Path to the conversation transcript file. Disabled by default (verbose)."
+				}
+			]
+		}
+	]
+}

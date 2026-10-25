@@ -1,0 +1,16 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "gh-auth",
+  "name": "GitHub CLI : connexion à GitHub (étape manuelle guidée)",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["gh"],
+  "actions": [
+    {
+      "provider": "manual",
+      "description": "connexion de GitHub CLI à github.com (étape manuelle)",
+      "check": "gh-auth",
+      "instructions": "connexion à GitHub : gh affiche un code à usage unique et ouvre la page de connexion dans le navigateur ; y saisir le code et autoriser GitHub CLI. Répondre « Y » si gh propose de connecter Git avec ce compte."
+    }
+  ]
+}

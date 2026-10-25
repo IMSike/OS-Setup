@@ -1,0 +1,30 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "search-cloud-off",
+  "name": "Recherche : sans contenu cloud ni historique",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\SearchSettings",
+      "name": "IsMSACloudSearchEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\SearchSettings",
+      "name": "IsAADCloudSearchEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\SearchSettings",
+      "name": "IsDeviceSearchHistoryEnabled",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

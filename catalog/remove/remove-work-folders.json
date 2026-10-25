@@ -1,0 +1,15 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-work-folders",
+  "name": "Dossiers de travail : synchronisation d'entreprise",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "actions": [
+    {
+      "provider": "windows-feature",
+      "name": "WorkFolders-Client",
+      "enabled": false
+    }
+  ]
+}

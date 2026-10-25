@@ -1,0 +1,23 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-onedrive",
+  "name": "OneDrive",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "notes": "Désinstallation, puis stratégie DisableFileSyncNGSC : OneDrive ne se réinstalle pas pour les comptes créés ensuite et disparaît de l'Explorateur.",
+  "checkedWarning": "Les fichiers déjà présents dans le dossier OneDrive restent sur le disque ; ceux qui n'étaient qu'en ligne ne sont plus accessibles depuis l'Explorateur (toujours sur onedrive.com).",
+  "actions": [
+    {
+      "provider": "win32-uninstall",
+      "displayName": "Microsoft OneDrive"
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\OneDrive",
+      "name": "DisableFileSyncNGSC",
+      "type": "DWord",
+      "value": 1
+    }
+  ]
+}

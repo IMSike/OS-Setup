@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "cursor-eslint",
+  "name": "ESLint",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["cursor"],
+  "actions": [
+    { "provider": "vscode-extension", "editor": "cursor", "id": "dbaeumer.vscode-eslint" }
+  ]
+}

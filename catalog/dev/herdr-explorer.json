@@ -1,0 +1,26 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "herdr-explorer",
+  "name": "herdr : plugin Explorer (fichiers, recherche, Git)",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["herdr", "pwsh", "git", "node-lts", "nerd-font"],
+  "notes": "Plugin tiers gcaudan/herdr-explorer : nécessite Node.js 20 ou plus et une police Nerd Font.",
+  "actions": [
+    { "provider": "herdr-plugin", "repo": "gcaudan/herdr-explorer", "id": "gcaudan.explorer" },
+    {
+      "provider": "file",
+      "description": "herdr : réglages, plus les raccourcis du plugin (préfixe + f, a, d)",
+      "source": "herdr/config-explorer.toml",
+      "target": "{{AppData}}\\herdr\\config.toml",
+      "mode": "copy"
+    },
+    {
+      "provider": "file",
+      "description": "plugin Explorer : ouverture avec préfixe + f seulement, à droite",
+      "source": "herdr/explorer-settings.json",
+      "target": "{{LocalAppData}}\\herdr\\plugins\\gcaudan.explorer\\settings.json",
+      "mode": "merge-json"
+    }
+  ]
+}

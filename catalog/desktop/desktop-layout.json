@@ -1,0 +1,12 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "desktop-layout",
+  "name": "Barre des tâches et menu Démarrer : disposition",
+  "category": "desktop",
+  "platforms": ["windows"],
+  "notes": "Agrège les épingles (taskbarPin) et la disposition du menu Démarrer (startLayout) des éléments retenus ; traité en dernier car il redémarre l'Explorateur.",
+  "runLast": true,
+  "actions": [
+    { "provider": "desktop-layout" }
+  ]
+}

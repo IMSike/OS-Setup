@@ -1,0 +1,15 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "desktop-firefox",
+  "name": "Firefox",
+  "category": "desktop",
+  "platforms": ["windows"],
+  "dependsOn": ["firefox"],
+  "actions": [
+    {
+      "provider": "shortcut",
+      "path": "{{PublicDesktop}}\\Firefox.lnk",
+      "from": "{{CommonStartMenu}}\\Firefox.lnk"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "pin-firefox",
+  "name": "Firefox",
+  "category": "desktop",
+  "platforms": ["windows"],
+  "dependsOn": ["firefox"],
+  "taskbarPin": { "link": "{{CommonStartMenu}}\\Firefox.lnk" }
+}

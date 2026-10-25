@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "rtk",
+  "name": "rtk : réduit les jetons consommés par les agents",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["vcredist"],
+  "actions": [
+    { "provider": "winget", "id": "rtk-ai.rtk" }
+  ]
+}

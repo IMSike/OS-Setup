@@ -1,0 +1,24 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "dark-theme",
+  "name": "Thème : sombre (applications et système)",
+  "category": "system",
+  "platforms": ["windows"],
+  "notes": "À valider sur Windows non activé (page Personnalisation verrouillée).",
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+      "name": "AppsUseLightTheme",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+      "name": "SystemUsesLightTheme",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

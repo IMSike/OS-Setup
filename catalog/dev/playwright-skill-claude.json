@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "playwright-skill-claude",
+  "name": "Playwright CLI : skill pour Claude Code",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["playwright-cli", "claude-code"],
+  "actions": [
+    { "provider": "playwright-cli", "skills": "claude" }
+  ]
+}

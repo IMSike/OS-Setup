@@ -1,0 +1,14 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-3d-viewer",
+  "name": "Visionneuse 3D",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "actions": [
+    {
+      "provider": "appx",
+      "name": "Microsoft.Microsoft3DViewer"
+    }
+  ]
+}

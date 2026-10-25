@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "vscode-wsl",
+  "name": "VS Code : fichiers de WSL autorisés",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["vscode", "wsl"],
+  "actions": [
+    {
+      "provider": "file",
+      "description": "VS Code : ouverture des fichiers de WSL (\\\\wsl.localhost) sans avertissement",
+      "source": "vscode/wsl.json",
+      "target": "{{AppData}}\\Code\\User\\settings.json",
+      "mode": "merge-json"
+    }
+  ]
+}

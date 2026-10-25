@@ -1,0 +1,22 @@
+# herdr : réglages déployés par OS-Setup (seuls les écarts aux valeurs par défaut).
+# Liste complète des options : https://herdr.dev/docs/configuration/
+onboarding = false
+
+[theme]
+name = "gruvbox"
+auto_switch = false
+
+[terminal]
+default_shell = "pwsh.exe"
+
+[ui]
+sidebar_width = 26
+mouse_scroll_lines = 5
+prompt_new_tab_name = false
+pane_gaps = false
+
+[ui.toast]
+delivery = "system"
+
+[experimental]
+pane_history = false

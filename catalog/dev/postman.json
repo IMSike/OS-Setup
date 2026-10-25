@@ -1,0 +1,10 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "postman",
+  "name": "Postman",
+  "category": "dev",
+  "platforms": ["windows"],
+  "actions": [
+    { "provider": "winget", "id": "Postman.Postman" }
+  ]
+}

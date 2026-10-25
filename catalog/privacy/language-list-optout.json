@@ -1,0 +1,16 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "language-list-optout",
+  "name": "Liste des langues : non communiquée aux sites web",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Control Panel\\International\\User Profile",
+      "name": "HttpAcceptLanguageOptOut",
+      "type": "DWord",
+      "value": 1
+    }
+  ]
+}

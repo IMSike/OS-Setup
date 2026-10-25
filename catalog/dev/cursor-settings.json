@@ -1,0 +1,31 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "cursor-settings",
+  "name": "Cursor : réglages de l'éditeur",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["cursor"],
+  "actions": [
+    {
+      "provider": "file",
+      "description": "Cursor : mêmes réglages d'éditeur que VS Code",
+      "source": "vscode/settings.json",
+      "target": "{{AppData}}\\Cursor\\User\\settings.json",
+      "mode": "merge-json"
+    },
+    {
+      "provider": "file",
+      "description": "Cursor : thème Cursor Dark High Contrast, barre de commandes, acceptation partielle des suggestions, consommation affichée, sans rapports de plantage",
+      "source": "cursor/settings.json",
+      "target": "{{AppData}}\\Cursor\\User\\settings.json",
+      "mode": "merge-json"
+    },
+    {
+      "provider": "file",
+      "description": "Cursor : rapports de plantage désactivés (lancement)",
+      "source": "vscode/argv.json",
+      "target": "{{UserProfile}}\\.cursor\\argv.json",
+      "mode": "merge-json"
+    }
+  ]
+}

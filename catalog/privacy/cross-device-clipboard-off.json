@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "cross-device-clipboard-off",
+  "name": "Presse-papiers entre appareils : non synchronisé",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\System",
+      "name": "AllowCrossDeviceClipboard",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

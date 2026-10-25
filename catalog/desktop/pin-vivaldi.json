@@ -1,0 +1,9 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "pin-vivaldi",
+  "name": "Vivaldi",
+  "category": "desktop",
+  "platforms": ["windows"],
+  "dependsOn": ["vivaldi"],
+  "taskbarPin": { "link": "{{StartMenu}}\\Vivaldi.lnk" }
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-hello-face",
+  "name": "Windows Hello : reconnaissance faciale",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "checkedWarning": "La connexion par reconnaissance faciale ne sera plus possible (caméra infrarouge compatible).",
+  "actions": [
+    {
+      "provider": "windows-capability",
+      "name": "Hello.Face.*"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "cursor-remote-ssh",
+  "name": "Remote - SSH : travailler sur une machine distante",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["cursor"],
+  "actions": [
+    { "provider": "vscode-extension", "editor": "cursor", "id": "anysphere.remote-ssh" }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "error-reporting-off",
+  "name": "Rapport d'erreurs Windows : désactivé",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "notes": "Perte d'aide au diagnostic des plantages.",
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting",
+      "name": "Disabled",
+      "type": "DWord",
+      "value": 1
+    }
+  ]
+}

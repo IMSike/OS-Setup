@@ -1,0 +1,19 @@
+# Normalisation par défaut : LF dans le dépôt
+* text=auto eol=lf
+
+# Scripts Windows : CRLF (Windows PowerShell 5.1)
+*.ps1   text eol=crlf
+*.psm1  text eol=crlf
+*.psd1  text eol=crlf
+*.cmd   text eol=crlf
+*.bat   text eol=crlf
+*.wsb   text eol=crlf
+
+# Scripts Linux : LF obligatoire
+*.sh    text eol=lf
+
+# Binaires
+*.png   binary
+*.jpg   binary
+*.ico   binary
+*.zip   binary

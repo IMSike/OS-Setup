@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "location-off",
+  "name": "Localisation : désactivée",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "notes": "Désactive aussi Localiser mon appareil et la météo locale.",
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\location",
+      "name": "Value",
+      "type": "String",
+      "value": "Deny"
+    }
+  ]
+}

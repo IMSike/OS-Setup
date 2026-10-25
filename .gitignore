@@ -1,0 +1,27 @@
+# Journaux et état d'exécution
+logs/
+state/
+
+# Fichiers de réponses personnels (seuls les exemples sont versionnés)
+answers/*
+!answers/*.example.json
+
+# Secrets
+*.secret
+*.secrets.json
+.env
+
+# Tests
+tests/output/
+TestResults/
+
+# OS / éditeurs
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# Notes du mainteneur (todo, vérifications) : hors dépôt
+.maintainer/

@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "telemetry-required",
+  "name": "Données de diagnostic : minimum (Requis)",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "notes": "Clé écrite par Paramètres > Confidentialité > Diagnostics (pas une stratégie : la page reste utilisable). Sur Pro, le niveau 0 est ignoré.",
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\DataCollection",
+      "name": "AllowTelemetry",
+      "type": "DWord",
+      "value": 1
+    }
+  ]
+}

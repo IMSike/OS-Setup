@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "vscode-eslint",
+  "name": "ESLint",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["vscode"],
+  "actions": [
+    { "provider": "vscode-extension", "id": "dbaeumer.vscode-eslint" }
+  ]
+}

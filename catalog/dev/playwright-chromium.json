@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "playwright-chromium",
+  "name": "Chromium : fourni par Playwright (environ 720 Mo)",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["playwright-cli"],
+  "actions": [
+    { "provider": "playwright-cli", "browser": "chromium" },
+    {
+      "provider": "file",
+      "description": "Playwright CLI : Chromium fourni par Playwright",
+      "source": "playwright/chromium.json",
+      "target": "{{UserProfile}}\\.playwright\\cli.config.json",
+      "mode": "copy"
+    }
+  ]
+}

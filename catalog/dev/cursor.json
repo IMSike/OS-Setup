@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "cursor",
+  "name": "Cursor",
+  "category": "dev",
+  "platforms": ["windows"],
+  "notes": "Éditeur dérivé de VS Code, avec agent intégré ; extensions depuis Open VSX. Distinct de Cursor CLI (cursor-agent).",
+  "actions": [
+    { "provider": "winget", "id": "Anysphere.Cursor", "scope": "user" }
+  ]
+}

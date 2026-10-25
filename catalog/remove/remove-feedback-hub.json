@@ -1,0 +1,14 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-feedback-hub",
+  "name": "Hub de commentaires",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "actions": [
+    {
+      "provider": "appx",
+      "name": "Microsoft.WindowsFeedbackHub"
+    }
+  ]
+}

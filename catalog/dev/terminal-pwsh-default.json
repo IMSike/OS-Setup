@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "terminal-pwsh-default",
+  "name": "Windows Terminal : PowerShell 7 par défaut",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["windows-terminal", "pwsh"],
+  "actions": [
+    {
+      "provider": "file",
+      "description": "Windows Terminal : ouvrir PowerShell 7 par défaut",
+      "source": "windows-terminal/pwsh-default.json",
+      "target": "{{LocalAppData}}\\Packages\\Microsoft.WindowsTerminal_8wekyb3d8bbwe\\LocalState\\settings.json",
+      "mode": "merge-json"
+    }
+  ]
+}

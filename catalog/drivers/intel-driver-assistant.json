@@ -1,0 +1,12 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "intel-driver-assistant",
+  "name": "Intel Driver & Support Assistant : pilotes Intel récents",
+  "category": "drivers",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "when": { "CpuVendor": "intel" },
+  "actions": [
+    { "provider": "winget", "id": "Intel.IntelDriverAndSupportAssistant" }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "default-browser-firefox",
+  "name": "Navigateur par défaut : Firefox",
+  "category": "browser-settings",
+  "platforms": ["windows"],
+  "dependsOn": ["firefox"],
+  "actions": [
+    {
+      "provider": "manual",
+      "description": "navigateur par défaut : Firefox (étape manuelle)",
+      "check": "default-browser",
+      "value": "FirefoxURL-*",
+      "instructions": "dans la page « Applications par défaut » qui s'ouvre, cliquer sous « Navigateur web » et choisir Firefox (Windows ne permet pas de le faire par script)."
+    }
+  ]
+}

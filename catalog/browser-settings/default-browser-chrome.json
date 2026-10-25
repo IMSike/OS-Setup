@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "default-browser-chrome",
+  "name": "Navigateur par défaut : Google Chrome",
+  "category": "browser-settings",
+  "platforms": ["windows"],
+  "dependsOn": ["chrome"],
+  "actions": [
+    {
+      "provider": "manual",
+      "description": "navigateur par défaut : Google Chrome (étape manuelle)",
+      "check": "default-browser",
+      "value": "ChromeHTML",
+      "instructions": "dans la page « Applications par défaut » qui s'ouvre, cliquer sous « Navigateur web » et choisir Google Chrome (Windows ne permet pas de le faire par script)."
+    }
+  ]
+}

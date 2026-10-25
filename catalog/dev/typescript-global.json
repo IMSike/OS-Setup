@@ -1,0 +1,11 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "typescript-global",
+  "name": "TypeScript : installé globalement (tsc partout)",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["node-lts"],
+  "actions": [
+    { "provider": "npm-global", "package": "typescript" }
+  ]
+}

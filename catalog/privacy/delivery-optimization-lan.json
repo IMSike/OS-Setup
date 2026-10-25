@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "delivery-optimization-lan",
+  "name": "Optimisation de la distribution : réseau local uniquement",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "notes": "Stratégie de groupe (1 = réseau local) : le réglage de Paramètres est stocké dans le profil du service réseau.",
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeliveryOptimization",
+      "name": "DODownloadMode",
+      "type": "DWord",
+      "value": 1
+    }
+  ]
+}

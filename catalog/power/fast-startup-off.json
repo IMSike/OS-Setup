@@ -1,0 +1,19 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "fast-startup-off",
+  "name": "Démarrage rapide : désactivé (arrêts complets)",
+  "category": "power",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "notes": "Le démarrage rapide met le noyau en veille prolongée à l'arrêt ; désactivé, chaque arrêt est complet (mises à jour, double démarrage, pilotes).",
+  "uncheckedWarning": "En double démarrage (Linux, ou disque de données NTFS partagé), le démarrage rapide laisse les partitions Windows en veille prolongée : y écrire depuis l'autre système peut corrompre des fichiers Windows.",
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power",
+      "name": "HiberbootEnabled",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

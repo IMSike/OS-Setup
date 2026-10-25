@@ -1,0 +1,60 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "brave-privacy",
+  "name": "Brave : statistiques, Rewards, Wallet, VPN et assistant IA désactivés",
+  "category": "browser-settings",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "dependsOn": ["brave"],
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\BraveSoftware\\Brave",
+      "name": "MetricsReportingEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\BraveSoftware\\Brave",
+      "name": "BraveP3AEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\BraveSoftware\\Brave",
+      "name": "BraveStatsPingEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\BraveSoftware\\Brave",
+      "name": "BraveRewardsDisabled",
+      "type": "DWord",
+      "value": 1
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\BraveSoftware\\Brave",
+      "name": "BraveWalletDisabled",
+      "type": "DWord",
+      "value": 1
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\BraveSoftware\\Brave",
+      "name": "BraveVPNDisabled",
+      "type": "DWord",
+      "value": 1
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\BraveSoftware\\Brave",
+      "name": "BraveAIChatEnabled",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-movies-tv",
+  "name": "Films et TV : lecteur vidéo par défaut",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "actions": [
+    {
+      "provider": "appx",
+      "name": "Microsoft.ZuneVideo"
+    }
+  ]
+}

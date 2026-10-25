@@ -1,0 +1,39 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "chrome-privacy",
+  "name": "Chrome : statistiques d'utilisation et promotions désactivées",
+  "category": "browser-settings",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "dependsOn": ["chrome"],
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Google\\Chrome",
+      "name": "MetricsReportingEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Google\\Chrome",
+      "name": "UrlKeyedAnonymizedDataCollectionEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Google\\Chrome",
+      "name": "UserFeedbackAllowed",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Google\\Chrome",
+      "name": "PromotionsEnabled",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

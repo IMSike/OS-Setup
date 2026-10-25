@@ -1,0 +1,163 @@
+{
+  "$schema": "../schemas/profile.schema.json",
+  "id": "dev",
+  "name": "Développement",
+  "description": "Outils de développement.",
+  "extends": ["base"],
+  "items": [
+    "dev-root",
+    "pwsh-profile",
+    "terminal-settings",
+    "terminal-pwsh-default",
+    "terminal-font",
+    "git-config",
+    "git-identity",
+    "git-vscode",
+    "rtk-claude",
+    "claude-settings",
+    "wsl-config",
+    "docker-build-cache",
+    "docker-maintenance",
+    "vscode-settings",
+    "vscode-terminal-pwsh",
+    "vscode-terminal-font",
+    "vscode-wsl",
+    "cursor-settings",
+    "cursor-terminal-pwsh",
+    "cursor-terminal-font",
+    "cursor-wsl",
+    "gh-dash-config",
+    "herdr-config",
+    "playwright-skill-claude",
+    "playwright-skill-agents"
+  ],
+  "choices": [
+    {
+      "id": "dev-tools",
+      "prompt": "Outils de développement",
+      "mode": "multi",
+      "options": ["git", "gh", "pwsh", "windows-terminal", "nerd-font", "lazygit", "wsl"],
+      "default": ["git", "gh", "pwsh", "windows-terminal", "nerd-font", "lazygit", "wsl"],
+      "min": 0
+    },
+    {
+      "id": "wsl-tools",
+      "prompt": "Avec WSL",
+      "mode": "multi",
+      "options": ["docker-desktop", "wsl-ubuntu", "wsl-fedora"],
+      "default": ["docker-desktop"],
+      "min": 0
+    },
+    {
+      "id": "editor",
+      "prompt": "Éditeurs de code",
+      "mode": "multi",
+      "options": ["vscode", "cursor"],
+      "default": ["vscode", "cursor"],
+      "min": 0
+    },
+    {
+      "id": "vscode-extensions",
+      "prompt": "Extensions VS Code",
+      "mode": "multi",
+      "options": ["vscode-eslint", "vscode-prettier"],
+      "default": ["vscode-eslint", "vscode-prettier"],
+      "min": 0
+    },
+    {
+      "id": "cursor-extensions",
+      "prompt": "Extensions Cursor",
+      "mode": "multi",
+      "options": ["cursor-eslint", "cursor-prettier", "cursor-remote-wsl", "cursor-remote-ssh", "cursor-remote-containers"],
+      "default": ["cursor-eslint", "cursor-prettier", "cursor-remote-wsl", "cursor-remote-ssh", "cursor-remote-containers"],
+      "min": 0
+    },
+    {
+      "id": "javascript",
+      "prompt": "JavaScript / TypeScript",
+      "mode": "multi",
+      "options": ["node-lts", "pnpm", "typescript-global"],
+      "default": ["node-lts", "pnpm"],
+      "min": 0
+    },
+    {
+      "id": "agents",
+      "prompt": "Agents et terminal",
+      "mode": "multi",
+      "options": ["claude-code", "rtk", "cursor-cli", "herdr", "playwright-cli"],
+      "default": ["claude-code", "rtk", "cursor-cli", "herdr", "playwright-cli"],
+      "min": 0
+    },
+    {
+      "id": "claude-options",
+      "prompt": "Claude Code : options",
+      "mode": "multi",
+      "options": ["claude-bypass-permissions", "claude-statusline"],
+      "default": ["claude-bypass-permissions", "claude-statusline"],
+      "min": 0
+    },
+    {
+      "id": "herdr-plugins",
+      "prompt": "Plugins herdr",
+      "mode": "multi",
+      "options": ["herdr-explorer"],
+      "default": ["herdr-explorer"],
+      "min": 0
+    },
+    {
+      "id": "playwright-browser",
+      "prompt": "Navigateur de Playwright CLI",
+      "mode": "single",
+      "options": ["playwright-chrome", "playwright-msedge", "playwright-chromium", "playwright-firefox"],
+      "default": ["playwright-chrome"],
+      "min": 0,
+      "max": 1
+    },
+    {
+      "id": "dev-apps",
+      "prompt": "Logiciels de développement",
+      "mode": "multi",
+      "options": ["postman", "pgadmin"],
+      "default": ["postman", "pgadmin"],
+      "min": 0
+    },
+    {
+      "id": "dev-accounts",
+      "prompt": "Comptes (étapes manuelles guidées)",
+      "mode": "multi",
+      "options": ["gh-auth"],
+      "default": ["gh-auth"],
+      "min": 0
+    },
+    {
+      "id": "gh-extensions",
+      "prompt": "Extensions GitHub CLI",
+      "mode": "multi",
+      "options": ["gh-dash"],
+      "default": ["gh-dash"],
+      "min": 0
+    },
+    {
+      "id": "dev-pins",
+      "prompt": "Épinglés à la barre des tâches (développement)",
+      "mode": "multi",
+      "options": ["pin-windows-terminal"],
+      "default": ["pin-windows-terminal"],
+      "min": 0
+    }
+  ],
+  "variables": {
+    "DevRoot": {
+      "prompt": "Dossier racine des projets",
+      "default": "{{UserProfile}}\\Documents\\repo"
+    },
+    "GitUserName": {
+      "prompt": "Nom pour Git (auteur des commits)",
+      "personal": true
+    },
+    "GitUserEmail": {
+      "prompt": "Adresse e-mail pour Git",
+      "personal": true
+    }
+  }
+}

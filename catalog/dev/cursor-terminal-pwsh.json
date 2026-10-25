@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "cursor-terminal-pwsh",
+  "name": "Cursor : PowerShell 7 dans le terminal",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["cursor", "pwsh"],
+  "actions": [
+    {
+      "provider": "file",
+      "description": "Cursor : terminal intégré sur le profil PowerShell (PowerShell 7 quand il est installé)",
+      "source": "vscode/terminal-pwsh.json",
+      "target": "{{AppData}}\\Cursor\\User\\settings.json",
+      "mode": "merge-json"
+    }
+  ]
+}

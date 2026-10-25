@@ -1,0 +1,489 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "item.schema.json",
+  "title": "Élément du catalogue",
+  "description": "Unité atomique installable ou configurable : un logiciel ou un réglage.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "category", "platforms"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "id": {
+      "description": "Identifiant unique dans tout le catalogue (minuscules, chiffres, tirets).",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "name": { "description": "Nom affiché.", "type": "string", "minLength": 1 },
+    "category": { "description": "Catégorie (= dossier dans catalog/).", "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "description": { "type": "string" },
+    "notes": { "type": "string" },
+    "platforms": {
+      "description": "Plateformes supportées.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["windows", "linux"] }
+    },
+    "requiresAdmin": {
+      "description": "Vrai si au moins une action nécessite les droits administrateur.",
+      "type": "boolean",
+      "default": false
+    },
+    "when": {
+      "description": "Conditions sur les faits détectés (Platform, OSName, OSBuild, Edition, Activated, IsAdmin, Manufacturer, Model, CpuVendor, GpuVendor, VirtualizationEnabled). Toutes doivent être vraies ; une liste signifie « une de ces valeurs ».",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "enum": ["Platform", "OSName", "OSBuild", "Edition", "Activated", "IsAdmin", "Manufacturer", "Model", "CpuVendor", "GpuVendor", "VirtualizationEnabled"]
+      },
+      "additionalProperties": {
+        "oneOf": [
+          { "type": ["string", "number", "boolean"] },
+          { "type": "array", "minItems": 1, "items": { "type": ["string", "number", "boolean"] } }
+        ]
+      }
+    },
+    "requiresReboot": {
+      "description": "Vrai si l'élément, une fois appliqué, nécessite un redémarrage avant de traiter les éléments qui en dépendent. Inutile quand le provider le détecte lui-même (code 3010, fonctionnalité Windows…).",
+      "type": "boolean",
+      "default": false
+    },
+    "checkedWarning": {
+      "description": "Avertissement affiché quand l'élément est coché dans un menu (ex. une suppression qui efface des données locales).",
+      "type": "string",
+      "minLength": 1
+    },
+    "uncheckedWarning": {
+      "description": "Avertissement affiché quand l'élément est proposé dans un menu mais n'est pas coché (conséquence à connaître de ce choix).",
+      "type": "string",
+      "minLength": 1
+    },
+    "requiresLogoff": {
+      "description": "Vrai si le réglage ne prend effet qu'à la prochaine ouverture de session (le récapitulatif le signale).",
+      "type": "boolean",
+      "default": false
+    },
+    "dependsOn": {
+      "description": "Éléments à traiter avant celui-ci (ajoutés automatiquement au plan).",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" }
+    },
+    "taskbarPin": {
+      "description": "Épingle de la barre des tâches, appliquée par l'élément de disposition (provider desktop-layout) avec les autres épingles retenues, dans leur ordre.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "link": { "description": "Logiciel classique : raccourci (.lnk) du menu Démarrer à épingler (variables autorisées, ex. {{StartMenu}}\\Vivaldi.lnk).", "type": "string", "pattern": "\\.lnk$" },
+        "appId": { "description": "Application du Store (sans raccourci .lnk) : identifiant AppUserModelID (ex. Microsoft.WindowsTerminal_8wekyb3d8bbwe!App). Avec name.", "type": "string", "pattern": "^[^!]+![^!]+$" },
+        "name": { "description": "Nom affiché dans le plan, pour une épingle appId.", "type": "string" }
+      }
+    },
+    "startLayout": {
+      "description": "Disposition du menu Démarrer, appliquée par l'élément de disposition. empty : aucune vignette.",
+      "enum": ["empty"]
+    },
+    "runLast": {
+      "description": "Vrai si l'élément doit être traité après tous les autres (ex. la disposition, qui redémarre l'Explorateur).",
+      "type": "boolean",
+      "default": false
+    },
+    "actions": {
+      "description": "Actions exécutées dans l'ordre. Chaque action est testée avant d'être appliquée. Facultatif pour un élément qui ne fait que déclarer une épingle ou une disposition (le moteur vérifie qu'un élément a au moins une action, une épingle ou une disposition).",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          { "$ref": "#/definitions/wingetAction" },
+          { "$ref": "#/definitions/registryAction" },
+          { "$ref": "#/definitions/directoryAction" },
+          { "$ref": "#/definitions/fileAction" },
+          { "$ref": "#/definitions/pathAction" },
+          { "$ref": "#/definitions/windowsFeatureAction" },
+          { "$ref": "#/definitions/serviceAction" },
+          { "$ref": "#/definitions/scheduledTaskAction" },
+          { "$ref": "#/definitions/powerAction" },
+          { "$ref": "#/definitions/appxAction" },
+          { "$ref": "#/definitions/windowsCapabilityAction" },
+          { "$ref": "#/definitions/win32UninstallAction" },
+          { "$ref": "#/definitions/desktopLayoutAction" },
+          { "$ref": "#/definitions/shortcutAction" },
+          { "$ref": "#/definitions/startupEntryAction" },
+          { "$ref": "#/definitions/windowsUpdateAction" },
+          { "$ref": "#/definitions/taskbarAction" },
+          { "$ref": "#/definitions/manualAction" },
+          { "$ref": "#/definitions/gitConfigAction" },
+          { "$ref": "#/definitions/vscodeExtensionAction" },
+          { "$ref": "#/definitions/installScriptAction" },
+          { "$ref": "#/definitions/fnmNodeAction" },
+          { "$ref": "#/definitions/npmGlobalAction" },
+          { "$ref": "#/definitions/ghExtensionAction" },
+          { "$ref": "#/definitions/rtkInitAction" },
+          { "$ref": "#/definitions/wslConfigAction" },
+          { "$ref": "#/definitions/herdrPluginAction" },
+          { "$ref": "#/definitions/playwrightCliAction" },
+          { "$ref": "#/definitions/dockerBuildCacheAction" },
+          { "$ref": "#/definitions/logonTaskAction" }
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "wingetAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "id"],
+      "properties": {
+        "provider": { "const": "winget" },
+        "description": { "type": "string" },
+        "id": { "description": "Identifiant winget exact.", "type": "string", "minLength": 1 },
+        "scope": { "enum": ["user", "machine"] },
+        "installerType": {
+          "description": "Force un type d'installeur quand le paquet en propose plusieurs (--installer-type).",
+          "enum": ["msi", "wix", "msix", "exe", "inno", "nullsoft", "burn", "portable", "zip", "appx"]
+        },
+        "location": { "description": "Dossier d'installation (variables autorisées). Tous les installeurs ne le supportent pas.", "type": "string" },
+        "override": { "description": "Arguments passés tels quels à l'installeur (--override).", "type": "string" }
+      }
+    },
+    "registryAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "path", "name", "type", "value"],
+      "properties": {
+        "provider": { "const": "registry" },
+        "description": { "type": "string" },
+        "path": { "description": "Chemin PowerShell (HKCU:\\..., HKLM:\\...).", "type": "string", "pattern": "^(HKCU|HKLM):\\\\" },
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "enum": ["DWord", "QWord", "String", "ExpandString", "MultiString"] },
+        "value": {}
+      }
+    },
+    "directoryAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "path"],
+      "properties": {
+        "provider": { "const": "directory" },
+        "description": { "type": "string" },
+        "path": { "description": "Dossier à créer s'il n'existe pas (variables autorisées).", "type": "string", "minLength": 1 }
+      }
+    },
+    "pathAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "path"],
+      "properties": {
+        "provider": { "const": "path" },
+        "description": { "type": "string" },
+        "path": { "description": "Dossier à ajouter au PATH (variables autorisées).", "type": "string", "minLength": 1 },
+        "scope": { "description": "user (défaut) ou machine (admin requis).", "enum": ["user", "machine"] }
+      }
+    },
+    "windowsFeatureAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "name"],
+      "properties": {
+        "provider": { "const": "windows-feature" },
+        "description": { "type": "string" },
+        "name": {
+          "description": "Nom de la fonctionnalité facultative (Get-WindowsOptionalFeature / dism /Get-Features). Admin requis ; un redémarrage est signalé si Windows l'exige.",
+          "type": "string",
+          "minLength": 1
+        },
+        "enabled": { "description": "false : désactiver la fonctionnalité (par défaut : l'activer).", "type": "boolean", "default": true }
+      }
+    },
+    "desktopLayoutAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider"],
+      "properties": {
+        "provider": { "const": "desktop-layout" },
+        "description": { "type": "string" }
+      }
+    },
+    "windowsUpdateAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "category"],
+      "properties": {
+        "provider": { "const": "windows-update" },
+        "description": { "type": "string" },
+        "category": { "description": "drivers : pilotes du matériel présent. Admin requis ; un redémarrage est signalé si Windows l'exige.", "enum": ["drivers"] }
+      }
+    },
+    "startupEntryAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "name", "enabled"],
+      "properties": {
+        "provider": { "const": "startup-entry" },
+        "description": { "type": "string" },
+        "name": { "description": "Nom de la valeur dans la clé Run (* accepté, ex. MicrosoftEdgeAutoLaunch_*).", "type": "string", "minLength": 1 },
+        "scope": { "description": "user (défaut) : clé Run du compte ; machine : clés Run de la machine (admin).", "enum": ["user", "machine"] },
+        "enabled": { "description": "false : ne pas lancer à l'ouverture de session (seule valeur prise en charge).", "const": false }
+      }
+    },
+    "gitConfigAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "key", "value"],
+      "properties": {
+        "provider": { "const": "git-config" },
+        "description": { "type": "string" },
+        "key": { "description": "Clé de la configuration Git globale (git config --global), ex. pull.rebase.", "type": "string", "pattern": "^[A-Za-z0-9-]+(\\.[^.\\s]+)*\\.[A-Za-z0-9-]+$" },
+        "value": { "description": "Valeur (variables autorisées, ex. {{GitUserName}}).", "type": "string" }
+      }
+    },
+    "vscodeExtensionAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "id"],
+      "properties": {
+        "provider": { "const": "vscode-extension" },
+        "description": { "type": "string" },
+        "id": { "description": "Identifiant de l'extension sur le Marketplace (éditeur.nom, ex. dbaeumer.vscode-eslint).", "type": "string", "pattern": "^[A-Za-z0-9-]+\\.[A-Za-z0-9-]+$" },
+        "editor": { "description": "Éditeur visé : code (VS Code, par défaut) ou cursor (Cursor, extensions d'Open VSX).", "enum": ["code", "cursor"] }
+      }
+    },
+    "installScriptAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "url", "command"],
+      "properties": {
+        "provider": { "const": "install-script" },
+        "description": { "type": "string" },
+        "url": { "description": "Script d'installation officiel de l'éditeur (https), exécuté par Windows PowerShell (irm | iex).", "type": "string", "pattern": "^https://" },
+        "command": { "description": "Commande disponible une fois le logiciel installé (test de présence).", "type": "string", "minLength": 1 }
+      }
+    },
+    "fnmNodeAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "version"],
+      "properties": {
+        "provider": { "const": "fnm-node" },
+        "description": { "type": "string" },
+        "version": { "description": "lts : dernière version LTS, définie comme version par défaut de fnm.", "const": "lts" }
+      }
+    },
+    "npmGlobalAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "package"],
+      "properties": {
+        "provider": { "const": "npm-global" },
+        "description": { "type": "string" },
+        "package": { "description": "Paquet npm installé globalement pour la version de Node.js par défaut.", "type": "string", "minLength": 1 }
+      }
+    },
+    "ghExtensionAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "repo"],
+      "properties": {
+        "provider": { "const": "gh-extension" },
+        "description": { "type": "string" },
+        "repo": { "description": "Dépôt GitHub de l'extension (propriétaire/nom).", "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" }
+      }
+    },
+    "wslConfigAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "section", "key"],
+      "oneOf": [{ "required": ["value"] }, { "required": ["memoryPercent"] }],
+      "properties": {
+        "provider": { "const": "wsl-config" },
+        "description": { "type": "string" },
+        "section": { "description": "Section de .wslconfig (ex. wsl2).", "type": "string", "pattern": "^[A-Za-z0-9]+$" },
+        "key": { "description": "Clé de la section (ex. memory).", "type": "string", "pattern": "^[A-Za-z0-9]+$" },
+        "value": { "description": "Valeur écrite telle quelle.", "type": "string" },
+        "memoryPercent": { "description": "Taille calculée : ce pourcentage de la RAM, borné (au moins 2 Go pour WSL, au moins 4 Go laissés à Windows).", "type": "integer", "minimum": 1, "maximum": 100 }
+      }
+    },
+    "herdrPluginAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "repo", "id"],
+      "properties": {
+        "provider": { "const": "herdr-plugin" },
+        "description": { "type": "string" },
+        "repo": { "description": "Dépôt GitHub du plugin (propriétaire/nom), installé par herdr plugin install.", "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+        "id": { "description": "Identifiant du plugin une fois enregistré (plugin_id dans plugins.json, ex. gcaudan.explorer).", "type": "string", "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_.-]+$" }
+      }
+    },
+    "playwrightCliAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider"],
+      "oneOf": [{ "required": ["skills"] }, { "required": ["browser"] }],
+      "properties": {
+        "provider": { "const": "playwright-cli" },
+        "description": { "type": "string" },
+        "skills": { "description": "Skill de Playwright CLI installée pour le compte : claude (~/.claude/skills) ou agents (~/.agents/skills, autres agents).", "enum": ["claude", "agents"] },
+        "browser": { "description": "Navigateur fourni par Playwright à télécharger (%LOCALAPPDATA%\\ms-playwright).", "enum": ["chromium", "firefox"] }
+      }
+    },
+    "dockerBuildCacheAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "maxGB", "diskPercent"],
+      "properties": {
+        "provider": { "const": "docker-build-cache" },
+        "description": { "type": "string" },
+        "maxGB": { "description": "Plafond du cache de build de Docker, en Go.", "type": "integer", "minimum": 1 },
+        "diskPercent": { "description": "Plafond ramené à ce pourcentage de la taille du disque système quand il est plus petit (sécurité matérielle).", "type": "integer", "minimum": 1, "maximum": 100 }
+      }
+    },
+    "logonTaskAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "name", "script", "description"],
+      "properties": {
+        "provider": { "const": "logon-task" },
+        "description": { "type": "string", "description": "Description de la tâche, affichée dans le Planificateur de tâches." },
+        "name": { "description": "Nom de la tâche planifiée.", "type": "string", "minLength": 1 },
+        "script": { "description": "Script PowerShell lancé à l'ouverture de session (chemin, variables autorisées), hors du dossier du dépôt (qui peut être supprimé en fin de setup).", "type": "string", "pattern": "\\.ps1$" }
+      }
+    },
+    "rtkInitAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider"],
+      "properties": {
+        "provider": { "const": "rtk-init" },
+        "description": { "type": "string" }
+      }
+    },
+    "manualAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "check", "instructions"],
+      "properties": {
+        "provider": { "const": "manual" },
+        "description": { "type": "string" },
+        "check": {
+          "description": "Vérification et aide, écrites dans le moteur. gh-auth : connexion de GitHub CLI à github.com (gh auth login) ; default-browser : navigateur par défaut, value = ProgId attendu (* accepté), page Applications par défaut ; wsl-user : compte Linux créé, value = nom de la distribution, lancée dans une nouvelle fenêtre.",
+          "enum": ["gh-auth", "default-browser", "wsl-user"]
+        },
+        "value": { "type": "string" },
+        "instructions": { "description": "Ce que l'utilisateur doit faire, affiché avant l'aide.", "type": "string", "minLength": 1 }
+      }
+    },
+    "taskbarAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "autoHide"],
+      "properties": {
+        "provider": { "const": "taskbar" },
+        "description": { "type": "string" },
+        "autoHide": { "description": "Masquage automatique de la barre des tâches (effet immédiat, compte courant).", "type": "boolean" }
+      }
+    },
+    "shortcutAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "path"],
+      "properties": {
+        "provider": { "const": "shortcut" },
+        "description": { "type": "string" },
+        "path": { "description": "Chemin du raccourci (variables autorisées, ex. {{Desktop}}\\Vivaldi.lnk).", "type": "string", "pattern": "\\.lnk$" },
+        "present": { "description": "false : supprimer le raccourci (par défaut : le créer).", "type": "boolean", "default": true },
+        "from": { "description": "Raccourci existant à copier (ex. celui du menu Démarrer).", "type": "string" },
+        "target": { "description": "Cible du raccourci à créer, à défaut de from.", "type": "string" },
+        "unlessSelected": { "description": "Identifiant d'un élément : si celui-ci est retenu, l'action est sans objet (ex. ne pas supprimer le raccourci d'un installeur quand l'utilisateur a demandé ce raccourci).", "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "arguments": { "type": "string" }
+      }
+    },
+    "appxAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "name"],
+      "properties": {
+        "provider": { "const": "appx" },
+        "description": { "type": "string" },
+        "name": { "description": "Nom du paquet de l'application du Store (Get-AppxPackage -Name), supprimée pour tous les comptes et déprovisionnée. Admin requis.", "type": "string", "minLength": 1 }
+      }
+    },
+    "windowsCapabilityAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "name"],
+      "properties": {
+        "provider": { "const": "windows-capability" },
+        "description": { "type": "string" },
+        "name": { "description": "Nom de la capacité sans version (ex. Browser.InternetExplorer) ; * pour une partie propre à une version (ex. Hello.Face.*). Un nom sans correspondance est une erreur. Admin requis.", "type": "string", "pattern": "^[^~]+$" }
+      }
+    },
+    "win32UninstallAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "displayName"],
+      "properties": {
+        "provider": { "const": "win32-uninstall" },
+        "description": { "type": "string" },
+        "displayName": { "description": "Nom dans « Programmes et fonctionnalités » (caractères génériques * acceptés).", "type": "string", "minLength": 1 },
+        "arguments": { "description": "Arguments ajoutés à la commande de désinstallation déclarée (pour la rendre silencieuse). Inutile pour un MSI.", "type": "string" }
+      }
+    },
+    "serviceAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "name", "startupType"],
+      "properties": {
+        "provider": { "const": "service" },
+        "description": { "type": "string" },
+        "name": { "description": "Nom court du service (Get-Service -Name). Un service absent est conforme.", "type": "string", "minLength": 1 },
+        "startupType": { "description": "Disabled arrête aussi le service. Admin requis.", "enum": ["Disabled", "Manual", "Automatic"] }
+      }
+    },
+    "scheduledTaskAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "task", "enabled"],
+      "properties": {
+        "provider": { "const": "scheduled-task" },
+        "description": { "type": "string" },
+        "task": {
+          "description": "Chemin complet de la tâche (\\Microsoft\\Windows\\…\\Nom). Une tâche absente est conforme si elle doit être désactivée.",
+          "type": "string",
+          "pattern": "^\\\\.+[^\\\\]$"
+        },
+        "enabled": { "type": "boolean" }
+      }
+    },
+    "powerAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "setting", "source", "seconds"],
+      "properties": {
+        "provider": { "const": "power" },
+        "description": { "type": "string" },
+        "setting": {
+          "description": "Paramètre du mode d'alimentation actif. standby : mise en veille ; hibernate : veille prolongée ; display : extinction de l'écran.",
+          "enum": ["standby", "hibernate", "display"]
+        },
+        "source": { "description": "ac : sur secteur ; dc : sur batterie.", "enum": ["ac", "dc"] },
+        "seconds": { "description": "Délai en secondes, 0 = jamais.", "type": "integer", "minimum": 0 }
+      }
+    },
+    "fileAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "source", "target", "mode"],
+      "properties": {
+        "provider": { "const": "file" },
+        "description": { "type": "string" },
+        "source": { "description": "Chemin relatif dans dotfiles/.", "type": "string", "minLength": 1 },
+        "target": { "description": "Chemin de destination (variables autorisées).", "type": "string", "minLength": 1 },
+        "mode": {
+          "description": "copy : copie telle quelle ; template : remplacement des {{Variables}} ; merge-json : fusion des clés du dépôt dans le JSON existant (les autres clés sont conservées).",
+          "enum": ["copy", "template", "merge-json"]
+        },
+        "unlessSelected": { "description": "Identifiant d'un élément : si celui-ci est retenu, l'action est sans objet (ex. il déploie une variante du même fichier).", "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" }
+      }
+    }
+  }
+}

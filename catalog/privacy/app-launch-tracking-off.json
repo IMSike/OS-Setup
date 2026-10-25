@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "app-launch-tracking-off",
+  "name": "Suivi des applications lancées : désactivé (vide « Les plus utilisées »)",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "requiresLogoff": true,
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+      "name": "Start_TrackProgs",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

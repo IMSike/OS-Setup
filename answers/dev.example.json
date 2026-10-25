@@ -1,0 +1,25 @@
+{
+  "$schema": "../schemas/answers.schema.json",
+  "profiles": ["dev"],
+  "choices": {
+    "browsers": ["firefox", "vivaldi"],
+    "default-browser": ["default-browser-vivaldi"],
+    "dev-tools": ["git", "gh", "pwsh", "windows-terminal", "nerd-font", "lazygit", "wsl"],
+    "wsl-tools": ["docker-desktop"],
+    "editor": ["vscode", "cursor"],
+    "vscode-extensions": ["vscode-eslint", "vscode-prettier"],
+    "cursor-extensions": ["cursor-eslint", "cursor-prettier", "cursor-remote-wsl", "cursor-remote-ssh", "cursor-remote-containers"],
+    "javascript": ["node-lts", "pnpm"],
+    "agents": ["claude-code", "rtk", "cursor-cli", "herdr", "playwright-cli"],
+    "claude-options": ["claude-bypass-permissions", "claude-statusline"],
+    "herdr-plugins": ["herdr-explorer"],
+    "playwright-browser": ["playwright-chromium"],
+    "dev-apps": ["postman", "pgadmin"],
+    "dev-accounts": ["gh-auth"],
+    "gh-extensions": ["gh-dash"],
+    "dev-pins": ["pin-windows-terminal"]
+  },
+  "variables": {
+    "DevRoot": "{{UserProfile}}\\Dev"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "diagtrack-off",
+  "name": "Service de télémétrie DiagTrack : désactivé",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "actions": [
+    {
+      "provider": "service",
+      "name": "DiagTrack",
+      "startupType": "Disabled"
+    }
+  ]
+}

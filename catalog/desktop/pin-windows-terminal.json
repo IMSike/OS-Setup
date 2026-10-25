@@ -1,0 +1,9 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "pin-windows-terminal",
+  "name": "Windows Terminal",
+  "category": "desktop",
+  "platforms": ["windows"],
+  "dependsOn": ["windows-terminal"],
+  "taskbarPin": { "appId": "Microsoft.WindowsTerminal_8wekyb3d8bbwe!App", "name": "Windows Terminal" }
+}

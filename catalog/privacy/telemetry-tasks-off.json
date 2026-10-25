@@ -1,0 +1,50 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "telemetry-tasks-off",
+  "name": "Tâches planifiées de télémétrie : désactivées",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "actions": [
+    {
+      "provider": "scheduled-task",
+      "task": "\\Microsoft\\Windows\\Application Experience\\Microsoft Compatibility Appraiser",
+      "enabled": false
+    },
+    {
+      "provider": "scheduled-task",
+      "task": "\\Microsoft\\Windows\\Application Experience\\ProgramDataUpdater",
+      "enabled": false
+    },
+    {
+      "provider": "scheduled-task",
+      "task": "\\Microsoft\\Windows\\Customer Experience Improvement Program\\Consolidator",
+      "enabled": false
+    },
+    {
+      "provider": "scheduled-task",
+      "task": "\\Microsoft\\Windows\\Customer Experience Improvement Program\\UsbCeip",
+      "enabled": false
+    },
+    {
+      "provider": "scheduled-task",
+      "task": "\\Microsoft\\Windows\\Autochk\\Proxy",
+      "enabled": false
+    },
+    {
+      "provider": "scheduled-task",
+      "task": "\\Microsoft\\Windows\\DiskDiagnostic\\Microsoft-Windows-DiskDiagnosticDataCollector",
+      "enabled": false
+    },
+    {
+      "provider": "scheduled-task",
+      "task": "\\Microsoft\\Windows\\Feedback\\Siuf\\DmClient",
+      "enabled": false
+    },
+    {
+      "provider": "scheduled-task",
+      "task": "\\Microsoft\\Windows\\Feedback\\Siuf\\DmClientOnScenarioDownload",
+      "enabled": false
+    }
+  ]
+}

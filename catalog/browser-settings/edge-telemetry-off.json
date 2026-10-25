@@ -1,0 +1,25 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "edge-telemetry-off",
+  "name": "Edge : personnalisation et commentaires désactivés",
+  "category": "browser-settings",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "notes": "Sur Windows 10, le niveau de données de diagnostic d'Edge suit celui de Windows (telemetry-required).",
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge",
+      "name": "PersonalizationReportingEnabled",
+      "type": "DWord",
+      "value": 0
+    },
+    {
+      "provider": "registry",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge",
+      "name": "UserFeedbackAllowed",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

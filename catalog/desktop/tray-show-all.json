@@ -1,0 +1,17 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "tray-show-all",
+  "name": "Zone de notification : toutes les icônes visibles",
+  "category": "desktop",
+  "platforms": ["windows"],
+  "requiresLogoff": true,
+  "actions": [
+    {
+      "provider": "registry",
+      "path": "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer",
+      "name": "EnableAutoTray",
+      "type": "DWord",
+      "value": 0
+    }
+  ]
+}

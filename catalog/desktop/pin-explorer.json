@@ -1,0 +1,8 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "pin-explorer",
+  "name": "Explorateur de fichiers",
+  "category": "desktop",
+  "platforms": ["windows"],
+  "taskbarPin": { "link": "{{StartMenu}}\\System Tools\\File Explorer.lnk" }
+}

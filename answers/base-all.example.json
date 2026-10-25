@@ -1,0 +1,159 @@
+{
+  "$schema": "../schemas/answers.schema.json",
+  "profiles": [
+    "base"
+  ],
+  "choices": {
+    "browsers": [],
+    "browser-settings": [
+      "edge-no-background",
+      "edge-no-desktop-shortcut",
+      "edge-telemetry-off",
+      "edge-no-nags",
+      "firefox-privacy",
+      "chrome-privacy",
+      "brave-privacy",
+      "brave-no-autostart"
+    ],
+    "apps": [],
+    "apps-settings": [
+      "discord-no-autostart"
+    ],
+    "taskbar-pins": [
+      "pin-explorer",
+      "pin-firefox",
+      "pin-chrome",
+      "pin-brave",
+      "pin-vivaldi",
+      "pin-discord"
+    ],
+    "desktop-shortcuts": [
+      "desktop-firefox",
+      "desktop-chrome",
+      "desktop-brave",
+      "desktop-vivaldi",
+      "desktop-discord"
+    ],
+    "taskbar-start": [
+      "start-no-tiles",
+      "taskbar-search-icon",
+      "taskbar-hide-taskview",
+      "taskbar-hide-people",
+      "taskbar-hide-meetnow",
+      "taskbar-hide-ink",
+      "tray-show-all",
+      "start-hide-recent",
+      "desktop-this-pc"
+    ],
+    "privacy": [
+      "telemetry-required",
+      "diagtrack-off",
+      "telemetry-tasks-off",
+      "advertising-id-off",
+      "tailored-experiences-off",
+      "activity-history-off",
+      "suggestions-off",
+      "sponsored-apps-off",
+      "web-search-off",
+      "cortana-off",
+      "feedback-never",
+      "inking-typing-off",
+      "online-speech-off",
+      "delivery-optimization-lan",
+      "language-list-optout",
+      "search-cloud-off",
+      "search-highlights-off",
+      "app-diagnostics-off",
+      "news-interests-off",
+      "dmwappush-off",
+      "app-launch-tracking-off",
+      "location-off",
+      "error-reporting-off",
+      "background-apps-off",
+      "cross-device-clipboard-off"
+    ],
+    "app-permissions": [
+      "perm-camera",
+      "perm-microphone",
+      "perm-account-info",
+      "perm-contacts",
+      "perm-calendar",
+      "perm-call-history",
+      "perm-email",
+      "perm-messaging",
+      "perm-tasks",
+      "perm-radios",
+      "perm-notifications"
+    ],
+    "power": [
+      "sleep-policy",
+      "display-off",
+      "lock-on-idle",
+      "fast-startup-off"
+    ],
+    "remove-apps": [
+      "remove-cortana",
+      "remove-weather",
+      "remove-bing",
+      "remove-get-help",
+      "remove-tips",
+      "remove-feedback-hub",
+      "remove-maps",
+      "remove-office-hub",
+      "remove-onenote-uwp",
+      "remove-solitaire",
+      "remove-3d-viewer",
+      "remove-paint-3d",
+      "remove-mixed-reality",
+      "remove-people",
+      "remove-skype",
+      "remove-wallet",
+      "remove-your-phone",
+      "remove-mail-calendar",
+      "remove-new-outlook",
+      "remove-groove",
+      "remove-movies-tv",
+      "remove-dev-home",
+      "remove-onedrive"
+    ],
+    "remove-useful-apps": [
+      "remove-sticky-notes",
+      "remove-alarms",
+      "remove-camera",
+      "remove-sound-recorder",
+      "remove-calculator",
+      "remove-screen-sketch",
+      "remove-photos"
+    ],
+    "remove-xbox": [
+      "remove-xbox-app",
+      "remove-game-bar",
+      "remove-xbox-live"
+    ],
+    "remove-components": [
+      "remove-internet-explorer",
+      "remove-powershell-v2",
+      "remove-steps-recorder",
+      "remove-wordpad",
+      "remove-powershell-ise",
+      "remove-math-input",
+      "remove-hello-face",
+      "remove-quick-assist",
+      "remove-fax-scan",
+      "remove-print-management",
+      "remove-work-folders",
+      "remove-smb-direct",
+      "remove-xps-printer"
+    ],
+    "drivers": [
+      "windows-update-drivers",
+      "dell-command-update",
+      "lenovo-system-update",
+      "hp-support-assistant",
+      "intel-driver-assistant"
+    ],
+    "advanced": [
+      "crash-dumps-local"
+    ]
+  }
+}

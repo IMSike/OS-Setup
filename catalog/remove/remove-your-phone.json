@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-your-phone",
+  "name": "Mobile connecté et expérience multi-appareils",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "actions": [
+    {
+      "provider": "appx",
+      "name": "Microsoft.YourPhone"
+    },
+    {
+      "provider": "appx",
+      "name": "MicrosoftWindows.CrossDevice"
+    }
+  ]
+}

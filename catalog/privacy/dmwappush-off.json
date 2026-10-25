@@ -1,0 +1,16 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "dmwappush-off",
+  "name": "Messages push WAP (gestion à distance) : désactivés",
+  "category": "privacy",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "notes": "Peut servir à la gestion des appareils (MDM) en entreprise.",
+  "actions": [
+    {
+      "provider": "service",
+      "name": "dmwappushservice",
+      "startupType": "Disabled"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "remove-internet-explorer",
+  "name": "Internet Explorer 11",
+  "category": "remove",
+  "platforms": ["windows"],
+  "requiresAdmin": true,
+  "actions": [
+    {
+      "provider": "windows-capability",
+      "name": "Browser.InternetExplorer"
+    }
+  ]
+}

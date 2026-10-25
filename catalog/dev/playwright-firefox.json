@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "playwright-firefox",
+  "name": "Firefox : fourni par Playwright (environ 350 Mo)",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["playwright-cli"],
+  "actions": [
+    { "provider": "playwright-cli", "browser": "firefox" },
+    {
+      "provider": "file",
+      "description": "Playwright CLI : Firefox fourni par Playwright",
+      "source": "playwright/firefox.json",
+      "target": "{{UserProfile}}\\.playwright\\cli.config.json",
+      "mode": "copy"
+    }
+  ]
+}

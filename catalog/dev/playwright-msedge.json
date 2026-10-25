@@ -1,0 +1,19 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "playwright-msedge",
+  "name": "Microsoft Edge : celui de Windows",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["playwright-cli"],
+  "when": { "OSName": "windows-10" },
+  "notes": "Edge reste installé sous Windows 10 (neutralisé, pas supprimé) ; sous Windows 11, il sera désinstallé si possible.",
+  "actions": [
+    {
+      "provider": "file",
+      "description": "Playwright CLI : Microsoft Edge de Windows",
+      "source": "playwright/msedge.json",
+      "target": "{{UserProfile}}\\.playwright\\cli.config.json",
+      "mode": "copy"
+    }
+  ]
+}

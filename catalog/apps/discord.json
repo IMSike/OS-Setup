@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "discord",
+  "name": "Discord",
+  "category": "apps",
+  "platforms": ["windows"],
+  "notes": "Installé pour le compte (installeur Squirrel dans %LOCALAPPDATA%\\Discord), se met à jour seul.",
+  "actions": [
+    { "provider": "winget", "id": "Discord.Discord" },
+    {
+      "provider": "shortcut",
+      "description": "retirer du bureau le raccourci posé par l'installeur (Discord.lnk)",
+      "path": "{{Desktop}}\\Discord.lnk",
+      "present": false,
+      "unlessSelected": "desktop-discord"
+    }
+  ]
+}

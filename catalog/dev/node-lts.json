@@ -1,0 +1,12 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "node-lts",
+  "name": "Node.js LTS (avec fnm) et npm",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["fnm"],
+  "actions": [
+    { "provider": "fnm-node", "version": "lts" },
+    { "provider": "path", "path": "{{AppData}}\\fnm\\aliases\\default", "description": "PATH du compte : Node.js par défaut de fnm, disponible partout (Git Bash, cmd, applications)" }
+  ]
+}
