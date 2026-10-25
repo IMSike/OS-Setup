@@ -7,6 +7,8 @@
     Description       = "Moteur d'OS_Setup : chargement des données, résolution des profils, plan et exécution."
     PowerShellVersion = '7.4'
     FunctionsToExport = @(
+        # Claude.ps1
+        'Get-OSSetupClaudePlugin'
         # Cleanup.ps1
         'Get-OSSetupSelectedWingetId'
         'Get-OSSetupToolToRemove'
