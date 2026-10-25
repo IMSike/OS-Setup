@@ -47,6 +47,6 @@ Work in progress, to-do lists, verification reports and notes about specific mac
 
 ## Git
 
-- Branch `main`. Commit messages and PR titles follow the **Angular convention** (`feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `revert`); there is no `chore`. Versions are computed from them on each push to `main` (see [CONTRIBUTING.md](CONTRIBUTING.md#versions)).
+- Maintainer's own work happens on the `dev` branch: never commit or push to `main` for them, they merge `dev` into `main`, which publishes a version. External contributions are pull requests to `main` (see [CONTRIBUTING.md](CONTRIBUTING.md)). Commit messages and PR titles follow the **Angular convention** (`feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `revert`); there is no `chore`. Versions are computed from them on each push to `main` (see [CONTRIBUTING.md](CONTRIBUTING.md#versions)).
 - One commit = one coherent change; avoid mixing catalog and engine changes.
 - Keep this file up to date when a convention changes.
