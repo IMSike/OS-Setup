@@ -264,7 +264,7 @@ Deliberately absent: `css.validate`/`scss.validate` set to `false` (they would d
 - **Implications**: the browsers provided by Playwright go into `%LOCALAPPDATA%\ms-playwright`; a CLI update may download a new revision (Playwright deletes revisions that are no longer used). Using the machine's Chrome or Edge avoids this disk space. Any browser can still be used occasionally: `playwright-cli open --browser=firefox`.
 - **Rollback**: delete `%USERPROFILE%\.playwright\cli.config.json` (Chrome by default); downloaded browsers: delete their folder in `%LOCALAPPDATA%\ms-playwright`.
 
-### Claude Code settings — `claude-settings`, `claude-bypass-permissions`, `claude-statusline`
+### Claude Code settings — `claude-settings`, `claude-bypass-permissions`, `claude-dx`
 
 JSON merge (`file` provider, `merge-json` mode) into `%USERPROFILE%\.claude\settings.json` (account settings, valid in all projects): only the listed keys are enforced; the rtk hook and other settings are kept. Claude Code rereads the file on the fly.
 
@@ -284,7 +284,7 @@ JSON merge (`file` provider, `merge-json` mode) into `%USERPROFILE%\.claude\sett
 | `autoUpdatesChannel` | `latest` | Updates as soon as they are published |
 | `autoContinueAtUsageLimit` | `true` | Resumes by itself when the usage limit is lifted |
 
-Deliberately absent: `SHELL` (Claude Code finds Git Bash on its own), hooks (rtk writes its own; herdr's is installed and rewritten by herdr), plugins and skills (not covered yet).
+Deliberately absent: `SHELL` (Claude Code finds Git Bash on its own), hooks (rtk writes its own; herdr's is installed and rewritten by herdr), plugins (installed by their own item, e.g. `claude-dx`), skills (not covered yet).
 
 `claude-bypass-permissions`: ✔ · "Claude Code : options" (Claude Code: options) menu · `dotfiles/claude/bypass-permissions.json`
 
@@ -292,16 +292,12 @@ Deliberately absent: `SHELL` (Claude Code finds Git Bash on its own), hooks (rtk
 - **Implications**: the agent can do anything with the account's rights (delete files, run any command, access the network). Maintainer's choice, checked by default; unchecking it keeps the permission prompts.
 - **Rollback**: remove these three keys (or `/config` > default permission mode).
 
-`claude-statusline`: ✔ · "Claude Code : options" menu · with `jq`
+`claude-dx`: ✔ · "Claude Code : options" menu · `claude-plugin` provider
 
-- **Effect**: status bar below the input: model, context used (percentage and gauge), 5-hour and 7-day usage limits… The `statusline-command.sh` script (bash, run by Git Bash) reads the JSON passed by Claude Code with `jq` and follows the `statusline-config.json` description (lines, segments, icons, colors); both are copied into `%USERPROFILE%\.claude\`, and `statusLine` = `bash ~/.claude/statusline-command.sh`.
-- **Implications**: requires `jq` in the PATH (installed automatically); icons readable with the Nerd Font. winget puts `jq` in a folder already in the PATH: no machine-specific path is needed.
-- **Rollback**: remove `statusLine` from `settings.json`, delete the two files.
-
-`jq`: technical (with `claude-statusline`) · per account · winget `jqlang.jq` (portable)
-
-- **Effect**: the `jq` command, reading and transforming JSON on the command line.
-- **Rollback**: `winget uninstall --id jqlang.jq`.
+- **Effect**: installs, for the account, the `dx` plugin from the [IMSike/CC-Plugins](https://github.com/IMSike/CC-Plugins) marketplace (`claude plugin install dx --marketplace IMSike/CC-Plugins`): a band above the prompt with the model, the reasoning effort, the directory and the Git branch, and gauges for the context and the 5-hour and 7-day usage limits, colored by level ([plugin documentation](https://github.com/IMSike/CC-Plugins/blob/main/docs/en/plugins/dx.md)). The command adds the `cc-plugins` marketplace and enables the plugin in `settings.json` (`extraKnownMarketplaces`, `enabledPlugins`); the plugin is copied into `%USERPROFILE%\.claude\plugins\`.
+- **Implications**: no dependency (neither `jq` nor bash). Requires Claude Code 2.1.310 or later (installed by `claude-code`) and access to GitHub during the setup. The plugin is a function-hook mod, an early-access Claude Code API: a Claude Code update may require a plugin update (`/plugin marketplace update cc-plugins`, or auto-update for the marketplace in `/plugin`). The band takes five lines above the prompt (collapsible: `ctrl+x ctrl+a`); it is only drawn in the terminal and the desktop app.
+- **Rollback**: `claude plugin uninstall dx@cc-plugins` (or `claude plugin disable dx@cc-plugins` to keep it installed), then `claude plugin marketplace remove cc-plugins`.
+- **Former status bar**: a machine configured by a previous version of the setup keeps its `statusLine` setting (the `statusline-command.sh` script read with `jq`), shown below the prompt in addition to the band. To remove it: delete `statusLine` from `settings.json`, then `statusline-command.sh` and `statusline-config.json` from `%USERPROFILE%\.claude\`; `jq` is uninstalled with `winget uninstall --id jqlang.jq`.
 
 ### herdr settings — `herdr-config`, `herdr-explorer`
 
