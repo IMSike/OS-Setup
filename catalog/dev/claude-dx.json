@@ -1,0 +1,18 @@
+{
+  "$schema": "../../schemas/item.schema.json",
+  "id": "claude-dx",
+  "name": "Claude Code : bandeau d'état (plugin dx)",
+  "category": "dev",
+  "platforms": ["windows"],
+  "dependsOn": ["claude-code"],
+  "notes": "Plugin dx de la marketplace IMSike/CC-Plugins : bandeau au-dessus du prompt (modèle, effort, répertoire, jauges de contexte et de limites d'usage). Aucune dépendance (ni jq ni bash).",
+  "actions": [
+    {
+      "provider": "claude-plugin",
+      "description": "plugin dx de la marketplace cc-plugins",
+      "plugin": "dx",
+      "marketplace": "cc-plugins",
+      "source": "IMSike/CC-Plugins"
+    }
+  ]
+}
