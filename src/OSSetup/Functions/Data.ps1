@@ -111,7 +111,7 @@ function Test-OSSetupItemInstall {
         $Item
     )
     [bool]($Item['actions'] | Where-Object { $_['provider'] -in 'winget', 'windows-feature', 'appx', 'windows-capability', 'win32-uninstall', 'windows-update',
-        'vscode-extension', 'install-script', 'fnm-node', 'npm-global', 'gh-extension', 'herdr-plugin' })
+        'vscode-extension', 'install-script', 'fnm-node', 'npm-global', 'gh-extension', 'herdr-plugin', 'claude-plugin' })
 }
 
 function Test-OSSetupDataReference {

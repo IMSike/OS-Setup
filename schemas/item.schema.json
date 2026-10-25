@@ -121,6 +121,7 @@
           { "$ref": "#/definitions/rtkInitAction" },
           { "$ref": "#/definitions/wslConfigAction" },
           { "$ref": "#/definitions/herdrPluginAction" },
+          { "$ref": "#/definitions/claudePluginAction" },
           { "$ref": "#/definitions/playwrightCliAction" },
           { "$ref": "#/definitions/dockerBuildCacheAction" },
           { "$ref": "#/definitions/logonTaskAction" }
@@ -301,6 +302,18 @@
         "key": { "description": "Clé de la section (ex. memory).", "type": "string", "pattern": "^[A-Za-z0-9]+$" },
         "value": { "description": "Valeur écrite telle quelle.", "type": "string" },
         "memoryPercent": { "description": "Taille calculée : ce pourcentage de la RAM, borné (au moins 2 Go pour WSL, au moins 4 Go laissés à Windows).", "type": "integer", "minimum": 1, "maximum": 100 }
+      }
+    },
+    "claudePluginAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "plugin", "marketplace", "source"],
+      "properties": {
+        "provider": { "const": "claude-plugin" },
+        "description": { "type": "string" },
+        "plugin": { "description": "Nom du plugin dans la marketplace (ex. dx).", "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "marketplace": { "description": "Nom de la marketplace, déclaré dans son marketplace.json (ex. cc-plugins).", "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "source": { "description": "Dépôt GitHub de la marketplace (propriétaire/nom).", "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" }
       }
     },
     "herdrPluginAction": {
