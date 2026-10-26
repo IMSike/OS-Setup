@@ -22,7 +22,7 @@ Chaque provider fournit au moteur :
 
 | Provider | Ce qu'il fait | Pourquoi un provider dédié | Valeur d'origine |
 |---|---|---|---|
-| `winget` | Installe un logiciel avec winget (`--exact --id`, source `winget`). | Gestion des codes de retour (déjà installé, redémarrage, élévation), encodage de la sortie ; attente (60 s au plus) que le paquet soit détecté, certains installeurs finissant en arrière-plan. | — (logiciel absent avant) |
+| `winget` | Installe un logiciel avec winget (`--exact --id`, source `winget`). | Gestion des codes de retour (déjà installé, redémarrage, élévation), encodage de la sortie ; attente (60 s au plus) que le paquet soit détecté, certains installeurs finissant en arrière-plan ; `installedPath` exige en plus un fichier précis, quand winget rattache au même identifiant une autre installation (version du Store). | — (logiciel absent avant) |
 | `registry` | Écrit une valeur de registre. | Cas le plus courant des réglages. | type et valeur, ou absence |
 | `directory` | Crée un dossier. | | — |
 | `file` | Déploie un fichier de `dotfiles/` : copie, gabarit `{{Variable}}`, ou **fusion JSON** (`merge-json` : seules les clés du dépôt sont écrites, celles de la machine conservées ; conforme si ces clés ont déjà leur valeur ; commentaires et virgules finales acceptés en lecture, comme dans les réglages de VS Code, mais retirés à lécriture). `unlessSelected` : sans objet quand un autre élément retenu déploie une variante du fichier. | Sauvegarde préalable du fichier existant. | le fichier lui-même, dans les sauvegardes |

@@ -34,6 +34,24 @@ function Import-OSSetupAppxModule {
     }
 }
 
+function Test-OSSetupStorePowerShell {
+    <#
+    .SYNOPSIS
+        Vrai si ce dossier de PowerShell ($PSHOME) est celui du paquet du Store (MSIX, sous WindowsApps).
+    .DESCRIPTION
+        Le Store met ce paquet à jour seul et ferme alors de force tous ses processus pwsh.exe (shells des terminaux et
+        des volets herdr, agents lancés dedans). Le setup installe PowerShell 7 en MSI et supprime ce paquet : il ne doit
+        donc pas tourner dedans.
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$PowerShellHome
+    )
+    $PowerShellHome -match '\\WindowsApps\\'
+}
+
 function Get-OSSetupAppxPresence {
     <#
     .SYNOPSIS
