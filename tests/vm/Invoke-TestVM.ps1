@@ -149,8 +149,8 @@ try {
         $false
     }
     if ($staleBootstrap) {
-        Write-Warning ("bootstrap.ps1 a changé depuis la création du point de contrôle « {0} » : le recréer " +
-            "(New-TestVMPrerequisite.ps1) ou tester avec -Baseline vierge." -f $script:PrerequisiteCheckpoint)
+        Write-Warning (("bootstrap.ps1 a changé depuis la création du point de contrôle « {0} » : le recréer " +
+            "(New-TestVMPrerequisite.ps1) ou tester avec -Baseline vierge.") -f $script:PrerequisiteCheckpoint)
     }
     if ($PrepareOnly) {
         # Raccourci sur le bureau de l'utilisateur de test : un double-clic lance le bootstrap comme un vrai utilisateur.
