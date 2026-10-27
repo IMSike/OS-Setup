@@ -132,7 +132,6 @@
         'Import-OSSetupAppxModule'
         'Set-OSSetupPowerValue'
         'Split-OSSetupTaskPath'
-        'Test-OSSetupStorePowerShell'
         'Wait-OSSetupUninstallEntryRemoval'
         # Variables.ps1
         'Expand-OSSetupAction'

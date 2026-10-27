@@ -1,7 +1,5 @@
 ﻿# Provider winget : installation de paquets Windows.
-# Présence : winget list --id, puis winget export en second avis (Test-OSSetupWingetInstalled). Avec installedPath, ce
-# fichier doit aussi exister : winget rattache au même identifiant d'autres installations du même logiciel (ex. la
-# version du Store de PowerShell 7, que l'élément pwsh remplace par le MSI).
+# Présence : winget list --id, puis winget export en second avis (Test-OSSetupWingetInstalled).
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification = 'Interface commune des providers : chaque bloc reçoit $Action et $Context, utilisés ou non.')]
 param()
@@ -16,7 +14,6 @@ param()
 
     Test     = {
         param($Action, $Context)
-        if ($Action['installedPath'] -and -not (Test-Path -LiteralPath $Action['installedPath'] -PathType Leaf)) { return $false }
         Test-OSSetupWingetInstalled -Id $Action['id']
     }
 
@@ -30,8 +27,6 @@ param()
         if ($Action['installerType']) { $arguments += @('--installer-type', $Action['installerType']) }
         if ($Action['location']) { $arguments += @('--location', $Action['location']) }
         if ($Action['override']) { $arguments += @('--override', $Action['override']) }
-        # Une autre installation rattachée au même identifiant ferait répondre « déjà installé » : forcer l'installeur.
-        if ($Action['installedPath'] -and (Test-OSSetupWingetInstalled -Id $Action['id'])) { $arguments += '--force' }
 
         # winget écrit en UTF-8 ; sans ce réglage, PowerShell décode sa sortie avec la page de code OEM (accents corrompus).
         $previousEncoding = [Console]::OutputEncoding
@@ -69,9 +64,6 @@ param()
         while (-not $rebootRequired -and (Get-Date) -lt $deadline) {
             if (Test-OSSetupWingetInstalled -Id $Action['id'] -Refresh) { break }
             Start-Sleep -Seconds 3
-        }
-        if ($Action['installedPath'] -and -not $rebootRequired -and -not (Test-Path -LiteralPath $Action['installedPath'] -PathType Leaf)) {
-            throw "winget a terminé, mais $($Action['installedPath']) est introuvable."
         }
         # L'installeur a pu modifier le PATH dans le registre : la session doit le voir pour les étapes suivantes.
         Update-OSSetupSessionPath

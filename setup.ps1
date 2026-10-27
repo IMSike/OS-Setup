@@ -51,15 +51,6 @@ $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 Import-Module -Name (Join-Path -Path $root -ChildPath 'src\OSSetup\OSSetup.psd1') -Force
 
-# Le pwsh du Store est fermé de force à chaque mise à jour, et le setup le supprime (élément pwsh) : il installe le
-# MSI. Le bootstrap lance toujours ce dernier.
-if ($IsWindows -and -not $WhatIfPreference -and (Test-OSSetupStorePowerShell -PowerShellHome $PSHOME)) {
-    $msi = Join-Path -Path ([Environment]::GetFolderPath('ProgramFiles')) -ChildPath 'PowerShell\7\pwsh.exe'
-    Write-Host -Object ("Ce PowerShell 7 est la version du Store ($PSHOME), que le setup remplace par la version MSI. " +
-        "Lancez bootstrap.ps1, ou setup.ps1 avec $msi s'il est installé.") -ForegroundColor Red
-    exit 1
-}
-
 # Une seule élévation pour toute l'exécution (inutile en simulation, qui ne modifie rien).
 if ($IsWindows -and -not $WhatIfPreference -and -not (Test-OSSetupElevated)) {
     Write-Host -Object 'Relance en administrateur (validez l''invite UAC) : le setup continue dans une nouvelle fenêtre.' -ForegroundColor Cyan
