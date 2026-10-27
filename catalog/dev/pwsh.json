@@ -5,19 +5,8 @@
   "category": "dev",
   "platforms": ["windows"],
   "requiresAdmin": true,
-  "notes": "MSI (wix) : le paquet par défaut est un MSIX, non installable pour toute la machine sous Windows 10, et la version du Store est fermée de force à chaque mise à jour. installedPath : winget rattache la version du Store au même identifiant.",
+  "notes": "Le paquet par défaut est un MSIX, non installable pour toute la machine sous Windows 10 : on force le MSI (wix).",
   "actions": [
-    {
-      "provider": "winget",
-      "id": "Microsoft.PowerShell",
-      "scope": "machine",
-      "installerType": "wix",
-      "installedPath": "{{ProgramFiles}}\\PowerShell\\7\\pwsh.exe"
-    },
-    {
-      "provider": "appx",
-      "description": "supprimer la version du Store de PowerShell 7, remplacée par le MSI",
-      "name": "Microsoft.PowerShell"
-    }
+    { "provider": "winget", "id": "Microsoft.PowerShell", "scope": "machine", "installerType": "wix" }
   ]
 }

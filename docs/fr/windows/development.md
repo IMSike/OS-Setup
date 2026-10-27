@@ -78,15 +78,11 @@ Clé par clé : les autres réglages de l'utilisateur sont conservés, et une cl
 
 ## PowerShell 7 — `pwsh`
 
-✔ · admin · winget `Microsoft.PowerShell` (MSI, pour toute la machine) · suppression de la version du Store (`Microsoft.PowerShell`)
+✔ · admin · winget `Microsoft.PowerShell` (MSI, pour toute la machine)
 
-- **Effet** : installe PowerShell 7 dans `%ProgramFiles%\PowerShell\7`, à côté de Windows PowerShell 5.1 (qui reste : composant de Windows). Si la version du Store (MSIX) est présente, elle est supprimée une fois le MSI en place. Pas épinglé à la barre des tâches : on l'utilise depuis Windows Terminal.
-- **Implications** :
-  - le paquet par défaut est un MSIX, non installable pour toute la machine sous Windows 10 : le MSI est forcé ;
-  - la version du Store est mise à jour par le Store, qui **ferme de force tous ses `pwsh.exe`** à chaque mise à jour : shells de Windows Terminal et des volets herdr, agents lancés dedans, travail en cours compris. D'où sa suppression, ses réglages et son profil (`Documents\PowerShell`) étant partagés avec le MSI ;
-  - le MSI se met à jour par winget (`winget upgrade Microsoft.PowerShell`) ou Microsoft Update, sans fermer les sessions ouvertes ;
-  - présence vérifiée par le fichier `pwsh.exe` du MSI : winget rattache la version du Store au même identifiant.
-- **Revenir en arrière** : Paramètres > Applications > PowerShell 7 > Désinstaller ; la version du Store se réinstalle depuis le Microsoft Store.
+- **Effet** : installe PowerShell 7 à côté de Windows PowerShell 5.1 (qui reste : composant de Windows). Pas épinglé à la barre des tâches : on l'utilise depuis Windows Terminal.
+- **Implications** : le paquet par défaut est un MSIX, non installable pour toute la machine sous Windows 10 : le MSI est forcé.
+- **Revenir en arrière** : Paramètres > Applications > PowerShell 7 > Désinstaller.
 
 ### Profil PowerShell 7 — `pwsh-profile`
 
