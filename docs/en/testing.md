@@ -19,7 +19,7 @@ Invoke-Pester -Path tests/CodeQuality.Tests.ps1 -Output Detailed
 
 Integration tests in a disposable Windows VM, recreatable identically, with no ISO and no clicks. The scripts are in [`tests/vm/`](../../tests/vm/).
 
-Prerequisites on the host: virtualization enabled in the BIOS, the Hyper-V feature, PowerShell 7, Git, a Windows image (`install.esd` or `install.wim`, for example on a USB stick created with the Microsoft media creation tool).
+Prerequisites on the host: virtualization enabled in the BIOS, the Hyper-V feature, PowerShell 7, Git, a Windows image: `install.esd` or `install.wim` (for example on a USB stick created with the Microsoft media creation tool), or the installation ISO downloaded from Microsoft's website. The image is copied to a cache specific to each VM (`%ProgramData%\OSSetup-Tests\images\<VM>`). VMs have a virtual TPM and Secure Boot, like a Windows 11 machine.
 
 Rights: `New-TestVM.ps1` is run **as administrator** (virtual disks, DISM). `Invoke-TestVM.ps1` and `Reset-TestVM.ps1` run without a UAC prompt if the account is a member of the local **"Hyper-V Administrators"** group (SID `S-1-5-32-578`, effective after logging back in to Windows).
 
@@ -33,6 +33,7 @@ Rights: `New-TestVM.ps1` is run **as administrator** (virtual disks, DISM). `Inv
 
 ```powershell
 ./tests/vm/New-TestVM.ps1 -ImagePath D:\sources\install.esd   # once (10 to 20 min)
+./tests/vm/New-TestVM.ps1 -Name OSSetup-Win11 -ImagePath C:\ISO\Win11.iso  # Windows 11 VM; -Name for every script
 ./tests/vm/New-TestVMPrerequisite.ps1                         # once, then whenever bootstrap.ps1 changes (6 min)
 ./tests/vm/Invoke-TestVM.ps1 -Reset -Only privacy, power         # targeted test: these base-profile menus, all checked, the rest empty
 ./tests/vm/Invoke-TestVM.ps1 -Reset                            # from "prerequis", replays answers/dev.example.json
