@@ -3,22 +3,26 @@
 .SYNOPSIS
     Crée une VM Hyper-V Windows vierge pour tester OS-Setup, sans ISO ni clic.
 .DESCRIPTION
-    1. Copie l'image Windows (install.esd / install.wim, ex. depuis une clé USB) dans un cache hors dépôt.
+    1. Copie l'image Windows (install.esd / install.wim, ex. depuis une clé USB, ou extraite d'une ISO) dans un
+       cache hors dépôt, propre à la VM.
     2. Crée un disque virtuel, y applique l'édition demandée (DISM) et le rend démarrable (bcdboot).
     3. Dépose unattend.xml : écrans de première configuration passés, compte « tester », connexion automatique.
-    4. Crée la VM (génération 2), attend la fin de l'installation, l'arrête et pose le point de contrôle « vierge ».
+    4. Crée la VM (génération 2, démarrage sécurisé et TPM virtuel, comme une machine Windows 11), attend la fin
+       de l'installation, l'arrête et pose le point de contrôle « vierge ».
     À lancer en administrateur.
 .EXAMPLE
     ./tests/vm/New-TestVM.ps1 -ImagePath D:\sources\install.esd
+.EXAMPLE
+    ./tests/vm/New-TestVM.ps1 -Name OSSetup-Win11 -ImagePath C:\ProgramData\OSSetup-Tests\iso\Win11.iso
 #>
 [CmdletBinding()]
 param(
     [string]$Name = 'OSSetup-Win10',
 
-    # install.esd ou install.wim. Copié dans le cache au premier usage, ensuite inutile.
+    # install.esd, install.wim ou ISO d'installation. Copié dans le cache au premier usage, ensuite inutile.
     [string]$ImagePath = 'D:\sources\install.esd',
 
-    # Champ « Edition » de DISM (Professional = Windows 10 Pro).
+    # Champ « Edition » de DISM (Professional = Windows 10 ou 11 Pro).
     [string]$Edition = 'Professional',
 
     [int]$MemoryGB = 8,
@@ -49,11 +53,29 @@ if (Get-VM -Name $Name -ErrorAction SilentlyContinue) {
 }
 
 # --- Image -------------------------------------------------------------------------------------
-$cachedImage = Join-Path -Path $imageCache -ChildPath (Split-Path -Path $ImagePath -Leaf)
-if (-not (Test-Path -Path $cachedImage)) {
+# Un cache par VM : les images Windows 10 et 11 portent le même nom de fichier.
+$cachedImage = @(Get-ChildItem -Path (Join-Path -Path $imageCache -ChildPath $Name) -Include 'install.esd', 'install.wim' -Recurse -ErrorAction SilentlyContinue) |
+    Select-Object -First 1 -ExpandProperty FullName
+if (-not $cachedImage) {
     if (-not (Test-Path -Path $ImagePath)) { throw "Image introuvable : $ImagePath" }
-    Write-TestVMStep "Copie de l'image dans le cache ($cachedImage)"
-    Copy-Item -Path $ImagePath -Destination $cachedImage
+    New-Item -Path (Join-Path -Path $imageCache -ChildPath $Name) -ItemType Directory -Force | Out-Null
+    $iso = $null
+    $source = $ImagePath
+    if ([IO.Path]::GetExtension($ImagePath) -eq '.iso') {
+        $iso = Mount-DiskImage -ImagePath (Resolve-Path -Path $ImagePath).Path -PassThru
+        $letter = ($iso | Get-Volume).DriveLetter
+        $source = @(Get-ChildItem -Path "${letter}:\sources\install.wim", "${letter}:\sources\install.esd" -ErrorAction SilentlyContinue) |
+            Select-Object -First 1 -ExpandProperty FullName
+    }
+    try {
+        if (-not $source) { throw "Aucun install.wim ni install.esd dans $ImagePath." }
+        $cachedImage = Join-Path -Path $imageCache -ChildPath "$Name\$(Split-Path -Path $source -Leaf)"
+        Write-TestVMStep "Copie de l'image dans le cache ($cachedImage)"
+        Copy-Item -Path $source -Destination $cachedImage
+    }
+    finally {
+        if ($iso) { Dismount-DiskImage -ImagePath $iso.ImagePath | Out-Null }
+    }
 }
 
 Write-TestVMStep "Recherche de l'édition '$Edition'"
@@ -134,6 +156,9 @@ $vm = New-VM -Name $Name -Generation 2 -MemoryStartupBytes ($MemoryGB * 1GB) -VH
 Set-VMMemory -VM $vm -DynamicMemoryEnabled $false
 Set-VMProcessor -VM $vm -Count $ProcessorCount
 Set-VM -VM $vm -AutomaticCheckpointsEnabled $false -CheckpointType Standard
+# TPM virtuel (protecteur de clé local) : prérequis de Windows 11, sans effet gênant pour Windows 10.
+Set-VMKeyProtector -VM $vm -NewLocalKeyProtector
+Enable-VMTPM -VM $vm
 if ($switch) { Connect-VMNetworkAdapter -VMName $Name -SwitchName $switch.Name }
 else { Write-Warning "Commutateur « Default Switch » introuvable : la VM n'aura pas de réseau." }
 # Service d'invité : nécessaire pour copier des fichiers vers la VM (identifiant indépendant de la langue).
