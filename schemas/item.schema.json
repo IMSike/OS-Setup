@@ -144,8 +144,7 @@
           "enum": ["msi", "wix", "msix", "exe", "inno", "nullsoft", "burn", "portable", "zip", "appx"]
         },
         "location": { "description": "Dossier d'installation (variables autorisées). Tous les installeurs ne le supportent pas.", "type": "string" },
-        "override": { "description": "Arguments passés tels quels à l'installeur (--override).", "type": "string" },
-        "installedPath": { "description": "Fichier qui doit exister pour que le paquet soit considéré installé (variables autorisées), quand winget rattache au même identifiant une autre installation du logiciel (ex. version du Store).", "type": "string", "minLength": 1 }
+        "override": { "description": "Arguments passés tels quels à l'installeur (--override).", "type": "string" }
       }
     },
     "registryAction": {

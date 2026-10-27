@@ -163,16 +163,12 @@ $script:InstalledTools = @()
 function Install-WingetPackage {
     # Un paquet installé ici est noté dans $script:InstalledTools : il sera désinstallé en fin de setup si aucun
     # élément choisi ne l'installe.
-    # -Path : fichier attendu de cette installation précise, quand une autre installation du même logiciel répondrait
-    # à la commande (ex. PowerShell 7 du Store, dont l'alias pwsh.exe est dans le PATH).
     param(
         [Parameter(Mandatory)][string]$Id,
         [Parameter(Mandatory)][string]$Command,
-        [string]$InstallerType,
-        [string]$Path
+        [string]$InstallerType
     )
-    $present = if ($Path) { Test-Path -LiteralPath $Path -PathType Leaf } else { [bool](Get-Command -Name $Command -ErrorAction SilentlyContinue) }
-    if ($present) {
+    if (Get-Command -Name $Command -ErrorAction SilentlyContinue) {
         Write-Host -Object "    $Id déjà présent."
         return
     }
@@ -180,11 +176,6 @@ function Install-WingetPackage {
     $arguments = @('install', '--id', $Id, '--exact', '--source', 'winget', '--silent', '--scope', 'machine',
         '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity')
     if ($InstallerType) { $arguments += @('--installer-type', $InstallerType) }
-    if ($Path) {
-        # winget rattache l'autre installation au même identifiant et répondrait « déjà installé » : forcer l'installeur.
-        & winget list --id $Id --exact --accept-source-agreements --disable-interactivity | Out-Null
-        if ($LASTEXITCODE -eq 0) { $arguments += '--force' }
-    }
     # Sortie non capturée : winget écrit directement dans la console (la capturer sous PowerShell 5.1 la
     # décoderait avec la page de code OEM et corromprait les accents).
     & winget @arguments
@@ -192,9 +183,6 @@ function Install-WingetPackage {
         throw ("Échec de l'installation de {0} (code 0x{1:X8})." -f $Id, $LASTEXITCODE)
     }
     Update-SessionPath
-    if ($Path -and -not (Test-Path -LiteralPath $Path -PathType Leaf)) {
-        throw "$Id est installé mais $Path est introuvable."
-    }
     if (-not (Get-Command -Name $Command -ErrorAction SilentlyContinue)) {
         throw "$Id est installé mais '$Command' est introuvable dans le PATH."
     }
@@ -265,10 +253,8 @@ try {
     Initialize-Winget
 
     Install-WingetPackage -Id 'Git.Git' -Command 'git'
-    # Le paquet par défaut est un MSIX, non installable pour toute la machine sous Windows 10 : on force le MSI. La
-    # version du Store ne compte pas : le Store la ferme de force à chaque mise à jour, et le setup la supprime.
-    $pwsh = Join-Path -Path $env:ProgramFiles -ChildPath 'PowerShell\7\pwsh.exe'
-    Install-WingetPackage -Id 'Microsoft.PowerShell' -Command 'pwsh' -InstallerType 'wix' -Path $pwsh
+    # Le paquet par défaut est un MSIX, non installable pour toute la machine sous Windows 10 : on force le MSI.
+    Install-WingetPackage -Id 'Microsoft.PowerShell' -Command 'pwsh' -InstallerType 'wix'
 
     # Lancé depuis un clone : on l'utilise tel quel. Sinon : clone ou mise à jour dans $Destination.
     if ($PSScriptRoot -and (Test-Path -Path (Join-Path -Path $PSScriptRoot -ChildPath 'setup.ps1'))) {
@@ -297,7 +283,7 @@ try {
     Write-Host -Object 'Étape 2/2 — Vos choix, puis le plan à valider avant toute modification.' -ForegroundColor Cyan
     Write-Step 'Lancement de setup.ps1 (PowerShell 7)'
     $setupScript = Join-Path -Path $repoRoot -ChildPath 'setup.ps1'
-    & $pwsh -NoProfile -ExecutionPolicy Bypass -File $setupScript @SetupArguments
+    & pwsh -NoProfile -ExecutionPolicy Bypass -File $setupScript @SetupArguments
     $exitCode = $LASTEXITCODE
 }
 catch {
