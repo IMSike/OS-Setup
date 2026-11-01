@@ -186,6 +186,12 @@ Describe 'Provider windows-feature' {
 }
 
 Describe 'Provider windows-capability' {
+    BeforeEach {
+        # Le vrai chargement du module Dism (session Windows PowerShell 5.1 sous le PowerShell 7 du Store) sortirait
+        # du cadre d'un test unitaire.
+        Mock -ModuleName OSSetup Import-OSSetupDismModule {}
+    }
+
     It 'compare l''état des capacités dont le nom commence par le nom donné' {
         Mock -ModuleName OSSetup Test-OSSetupElevated { $true }
         Mock -ModuleName OSSetup Get-WindowsCapability {
@@ -213,6 +219,14 @@ Describe 'Provider windows-capability' {
     It 'reste à faire sans droits administrateur (lecture impossible)' {
         Mock -ModuleName OSSetup Test-OSSetupElevated { $false }
         Invoke-TestProviderTest -Name windows-capability -Action @{ name = 'Browser.InternetExplorer' } | Should -BeFalse
+        Should -Invoke -ModuleName OSSetup Import-OSSetupDismModule -Times 0 -Exactly
+    }
+
+    It 'charge le module Dism avant de lire les capacités' {
+        Mock -ModuleName OSSetup Test-OSSetupElevated { $true }
+        Mock -ModuleName OSSetup Get-WindowsCapability { [pscustomobject]@{ Name = 'App.StepsRecorder~~~~0.0.1.0'; State = 'NotPresent' } }
+        Invoke-TestProviderTest -Name windows-capability -Action @{ name = 'App.StepsRecorder' } | Should -BeTrue
+        Should -Invoke -ModuleName OSSetup Import-OSSetupDismModule -Times 1 -Exactly
     }
 }
 
