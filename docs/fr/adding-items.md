@@ -28,7 +28,7 @@ Les providers disponibles et leurs paramètres sont décrits dans [Comment le se
 
 ## Étapes
 
-1. **Paquet winget** : trouver l'identifiant exact avec `winget search <nom>`, puis `winget show --id <Id> --exact`. Le provider utilise toujours `--exact --id`, `--source winget`, `--accept-package-agreements`, `--accept-source-agreements` et `--silent`. Préciser le `scope` (`user` ou `machine`). Voir les [pièges de winget](pitfalls.md#winget-windows-10-winget-129).
+1. **Paquet winget** : trouver l'identifiant exact avec `winget search <nom>`, puis `winget show --id <Id> --exact`. Le provider utilise toujours `--exact --id`, la source `winget` par défaut (`source: msstore` pour une application du Microsoft Store sous licence, ex. `pwsh`), `--accept-package-agreements`, `--accept-source-agreements` et `--silent`. Préciser le `scope` (`user` ou `machine`) pour un paquet de la source `winget`. Voir les [pièges de winget](pitfalls.md#winget-windows-10-winget-129).
 2. **Créer le fichier** dans la bonne catégorie :
 
    | Catégorie | Contenu | Documentation |

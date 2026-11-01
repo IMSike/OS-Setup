@@ -7,14 +7,14 @@ Behaviors observed during development, and how the engine handles them. Read bef
 | Symptom | Cause and handling |
 |---|---|
 | `0x8A150019` "requires administrator privileges" | The package requires a winget that is **already elevated** (the installer does not elevate itself). The provider relaunches winget in elevated mode (`Start-Process -Verb RunAs`). |
-| `0x8A150113` on a `--scope machine` installation | **MSIX** package: machine-wide installation is not supported on Windows 10. Force another installer (`installerType`, e.g. `wix` for PowerShell 7) or switch to `scope: user`. |
+| `0x8A150113` on a `--scope machine` installation | **MSIX** package: machine-wide installation is not supported on Windows 10. Force another installer (`installerType`, e.g. `msi` or `wix` when the package offers one) or switch to `scope: user`. |
 | `0x8A15002B` | Already installed, no applicable update: treated as a success. |
 | Package not detected right after a successful installation | Installer that finishes in the background (Squirrel: Discord). The provider waits up to 60 s for `winget list` to find it. |
 | Tool not found right after its installation | The session PATH is frozen: the engine reloads it from the registry after each installation (`Update-SessionPath` in the bootstrap). |
 | Installed program that does not start, code `-1073741515` (`0xC0000135`) with no message | Missing DLL, most often the Visual C++ runtime (absent from a fresh Windows, rarely declared by portable packages, e.g. rtk): `vcredist` dependency. |
 | Package missing from winget (e.g. NVIDIA App) | Would need another provider (direct download), to be validated before adding one. |
 | Corrupted accents in captured output (`Trouv├®`) | winget writes UTF-8: set `[Console]::OutputEncoding` to UTF-8 for the duration of the call. |
-| Package found in the `msstore` source instead of `winget` | Always specify `--source winget`. |
+| Package found in the `msstore` source instead of `winget` | Specify `--source winget`, unless the item deliberately targets a licensed Store app (`source: msstore`). |
 | Installed package that `winget list --id` does not find (`0x8A150014`), while `winget list --name` shows it with its identifier (observed: PowerShell 7 updated by Microsoft Update) | The plan wanted to reinstall it. `winget export` does make the link: second opinion in `Test-OSSetupWingetInstalled`. |
 
 Under Windows PowerShell 5.1, do not capture or redirect winget's output (`| Out-Host`, assignment): it would be decoded with the OEM code page. Let it write directly to the console, or set `[Console]::OutputEncoding` to UTF-8.

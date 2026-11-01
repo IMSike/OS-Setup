@@ -28,7 +28,7 @@ The available providers and their parameters are described in [How the setup cha
 
 ## Steps
 
-1. **winget package**: find the exact identifier with `winget search <name>`, then `winget show --id <Id> --exact`. The provider always uses `--exact --id`, `--source winget`, `--accept-package-agreements`, `--accept-source-agreements` and `--silent`. Specify the `scope` (`user` or `machine`). See the [winget pitfalls](pitfalls.md#winget-windows-10-winget-129).
+1. **winget package**: find the exact identifier with `winget search <name>`, then `winget show --id <Id> --exact`. The provider always uses `--exact --id`, the `winget` source by default (`source: msstore` for a licensed Microsoft Store app, e.g. `pwsh`), `--accept-package-agreements`, `--accept-source-agreements` and `--silent`. Specify the `scope` (`user` or `machine`) for a `winget` source package. See the [winget pitfalls](pitfalls.md#winget-windows-10-winget-129).
 2. **Create the file** in the right category:
 
    | Category | Contents | Documentation |
