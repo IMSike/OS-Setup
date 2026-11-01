@@ -57,7 +57,16 @@ try {
         $open = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -like $pattern }).Count -gt 0
         if ($request.mode -eq 'check' -or $open) {
             # Application ouverte : une installation serait reportée, puis forcée. On demande seulement si elle existe.
-            if ($item) { $available = $true; $state = "$($item.GetCurrentStatus().InstallState)" }
+            if ($item) {
+                $available = $true
+                $state = "$($item.GetCurrentStatus().InstallState)"
+                if ($open) {
+                    # Mise à jour lancée par le Store pendant la levée du blocage : reportée puis forcée si l'application
+                    # reste ouverte, donc retirée. La fenêtre la redemande, application fermée.
+                    $manager.Cancel($id)
+                    $state += ', annulée'
+                }
+            }
             else {
                 $options = [Windows.ApplicationModel.Store.Preview.InstallControl.AppUpdateOptions]::new()
                 $options.AllowForcedAppRestart = $false

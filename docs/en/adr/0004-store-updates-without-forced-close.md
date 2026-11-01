@@ -45,7 +45,7 @@ An existing MSI of PowerShell 7 is uninstalled (`win32-uninstall`) so that a mac
 
 - No session is closed without the user's consent. Updates follow the Store, including the move to 7.7 (not LTS), which is accepted.
 - An update offered while the app runs all day waits for the user's choice or for the next logon. The window repeats the question after the chosen delay.
-- During the availability check of a running app, the block is lifted for a few seconds. If the Store started its own update at that exact moment, it would follow its usual rules (deferral, forced close only after 3 dates and a locked session).
+- During the availability check of a running app, the block is lifted for a few seconds. The Store may start its own update in that window: the check sees it and cancels it while the app is running, and the window offers it again. Only an update the Store starts after the check and before the block is back would follow its usual rules (deferral, forced close only after 3 dates and a locked session).
 - The user tasks are registered for the account that runs the setup.
 - Under the Store PowerShell, a few engine paths needed adjusting:
   - the package path contains its version, so the resume task and elevation go through the execution alias `%LOCALAPPDATA%\Microsoft\WindowsApps\pwsh.exe`;
