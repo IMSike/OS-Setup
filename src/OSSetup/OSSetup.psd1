@@ -153,6 +153,7 @@
         'Set-OSSetupPowerValue'
         'Stop-OSSetupStoreUpdate'
         'Split-OSSetupTaskPath'
+        'Test-OSSetupAppxInstalled'
         'Wait-OSSetupUninstallEntryRemoval'
         # Variables.ps1
         'Expand-OSSetupAction'

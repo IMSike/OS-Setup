@@ -16,6 +16,7 @@ Comportements constatés pendant le développement, et leur traitement dans le m
 | Accents corrompus dans la sortie capturée (`Trouv├®`) | winget écrit en UTF-8 : régler `[Console]::OutputEncoding` sur UTF-8 le temps de l'appel. |
 | Paquet trouvé dans la source `msstore` au lieu de `winget` | Préciser `--source winget`, sauf si l'élément vise volontairement une application du Store sous licence (`source: msstore`). |
 | Paquet installé que `winget list --id` ne trouve pas (`0x8A150014`), alors que `winget list --name` l'affiche avec son identifiant (constaté : PowerShell 7 mis à jour par Microsoft Update) | Le plan prévoyait de le réinstaller. `winget export` fait bien le rattachement : second avis dans `Test-OSSetupWingetInstalled`. |
+| `winget list --id 9MZ1SNWT0N5D` (PowerShell du Store) répond « installé » sur un poste qui n'a que le MSI « PowerShell 7-x64 », même avec `--source msstore` | winget rattache le MSI au produit du Store. L'installation du Store était jugée faite, puis le MSI était désinstallé : plus aucun PowerShell 7. Une action `msstore` donne `packageName` (nom du paquet appx) : la présence est jugée sur ce paquet pour le compte courant (`Test-OSSetupAppxInstalled`), pas par `winget list`. |
 
 Sous Windows PowerShell 5.1, ne pas capturer ni rediriger la sortie de winget (`| Out-Host`, affectation) : elle serait décodée avec la page de code OEM. La laisser écrire directement dans la console, ou régler `[Console]::OutputEncoding` sur UTF-8.
 

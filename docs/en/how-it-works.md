@@ -22,7 +22,7 @@ Each provider gives the engine:
 
 | Provider | What it does | Why a dedicated provider | Original value |
 |---|---|---|---|
-| `winget` | Installs software with winget (`--exact --id`, `winget` source, or `msstore` for a licensed Store app). | Handling of return codes (already installed, reboot, elevation), output encoding; waits (60 s at most) for the package to be detected, as some installers finish in the background. | — (software absent before) |
+| `winget` | Installs software with winget (`--exact --id`, `winget` source, or `msstore` for a licensed Store app). Presence: `winget list`, then `winget export` as a second opinion; for a Store app, its appx package (`packageName`). | Handling of return codes (already installed, reboot, elevation), output encoding; waits (60 s at most) for the package to be detected, as some installers finish in the background. | — (software absent before) |
 | `registry` | Writes a registry value. | The most common case of settings. | type and value, or absence |
 | `directory` | Creates a folder. | | — |
 | `file` | Deploys a file from `dotfiles/`: copy, `{{Variable}}` template, or **JSON merge** (`merge-json`: only the repository's keys are written, the machine's keys are kept; compliant if those keys already have their value; comments and trailing commas are accepted when reading, as in VS Code settings, but removed on writing). `unlessSelected`: moot when another selected item deploys a variant of the file. | Prior backup of the existing file. | the file itself, in the backups |

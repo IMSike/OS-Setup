@@ -1,5 +1,6 @@
 ﻿# Provider winget : installation de paquets Windows.
-# Présence : winget list --id, puis winget export en second avis (Test-OSSetupWingetInstalled).
+# Présence : winget list --id, puis winget export en second avis (Test-OSSetupWingetInstalled) ; pour une application
+# du Store (packageName), le paquet appx installé pour le compte courant (Test-OSSetupAppxInstalled).
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification = 'Interface commune des providers : chaque bloc reçoit $Action et $Context, utilisés ou non.')]
 param()
@@ -14,6 +15,8 @@ param()
 
     Test     = {
         param($Action, $Context)
+        # Application du Store : jugée par son paquet appx, car winget list rattache aussi un MSI au produit du Store.
+        if ($Action['packageName']) { return Test-OSSetupAppxInstalled -Name $Action['packageName'] }
         Test-OSSetupWingetInstalled -Id $Action['id']
     }
 
@@ -62,7 +65,10 @@ param()
         # en arrière-plan une dizaine de secondes) : attendre que le paquet soit détecté.
         $deadline = (Get-Date).AddSeconds(60)
         while (-not $rebootRequired -and (Get-Date) -lt $deadline) {
-            if (Test-OSSetupWingetInstalled -Id $Action['id'] -Refresh) { break }
+            if ($Action['packageName']) {
+                if (Test-OSSetupAppxInstalled -Name $Action['packageName']) { break }
+            }
+            elseif (Test-OSSetupWingetInstalled -Id $Action['id'] -Refresh) { break }
             Start-Sleep -Seconds 3
         }
         # L'installeur a pu modifier le PATH dans le registre : la session doit le voir pour les étapes suivantes.

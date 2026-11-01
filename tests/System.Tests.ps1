@@ -537,3 +537,51 @@ Describe 'Test-OSSetupWingetInstalled' {
         Should -Invoke -ModuleName OSSetup Get-OSSetupWingetExportId -Times 0
     }
 }
+
+Describe 'Provider winget : présence' {
+    BeforeEach {
+        # winget list rattache le MSI de PowerShell au produit du Store : il répond « présent ».
+        Mock -ModuleName OSSetup winget { $global:LASTEXITCODE = 0 }
+    }
+
+    It 'juge une application du Store absente quand son paquet appx manque, même si winget list la trouve' {
+        Mock -ModuleName OSSetup Test-OSSetupAppxInstalled { $false }
+        Invoke-TestProviderTest -Name winget -Action @{ id = '9MZ1SNWT0N5D'; source = 'msstore'; packageName = 'Microsoft.PowerShell' } |
+            Should -BeFalse
+        Should -Invoke -ModuleName OSSetup Test-OSSetupAppxInstalled -Times 1 -Exactly -ParameterFilter { $Name -eq 'Microsoft.PowerShell' }
+        Should -Invoke -ModuleName OSSetup winget -Times 0 -Exactly
+    }
+
+    It 'juge une application du Store présente quand son paquet appx est installé' {
+        Mock -ModuleName OSSetup Test-OSSetupAppxInstalled { $true }
+        Invoke-TestProviderTest -Name winget -Action @{ id = '9MZ1SNWT0N5D'; source = 'msstore'; packageName = 'Microsoft.PowerShell' } |
+            Should -BeTrue
+    }
+
+    It 'sans packageName, interroge winget comme avant' {
+        Mock -ModuleName OSSetup Test-OSSetupAppxInstalled { $false }
+        Invoke-TestProviderTest -Name winget -Action @{ id = 'Git.Git' } | Should -BeTrue
+        Should -Invoke -ModuleName OSSetup Test-OSSetupAppxInstalled -Times 0 -Exactly
+    }
+}
+
+Describe 'Test-OSSetupAppxInstalled' {
+    BeforeAll {
+        # Le module Appx ne se charge pas nativement sous PowerShell 7 / Windows 10 : une fonction vide permet de le simuler.
+        $script:appxStub = -not (Get-Command -Name Get-AppxPackage -ErrorAction SilentlyContinue)
+        if ($script:appxStub) {
+            function global:Get-AppxPackage { param([string]$Name) }
+        }
+    }
+
+    AfterAll {
+        if ($script:appxStub) { Remove-Item -Path Function:\Get-AppxPackage -ErrorAction SilentlyContinue }
+    }
+
+    It 'vrai si le paquet est installé pour le compte courant, faux sinon' {
+        Mock -ModuleName OSSetup Import-OSSetupAppxModule {}
+        Mock -ModuleName OSSetup Get-AppxPackage { if ($Name -eq 'Microsoft.PowerShell') { [pscustomobject]@{ Name = $Name } } }
+        InModuleScope OSSetup { Test-OSSetupAppxInstalled -Name 'Microsoft.PowerShell' } | Should -BeTrue
+        InModuleScope OSSetup { Test-OSSetupAppxInstalled -Name 'Microsoft.WindowsTerminal' } | Should -BeFalse
+    }
+}

@@ -140,6 +140,11 @@
         "description": { "type": "string" },
         "id": { "description": "Identifiant winget exact.", "type": "string", "minLength": 1 },
         "source": { "description": "Source winget (winget par défaut ; msstore pour un paquet du Microsoft Store sous licence).", "enum": ["winget", "msstore"] },
+        "packageName": {
+          "description": "Nom du paquet appx (source msstore) : la présence est jugée sur ce paquet, car winget list rattache aussi un MSI au produit du Store.",
+          "type": "string",
+          "minLength": 1
+        },
         "scope": { "enum": ["user", "machine"] },
         "installerType": {
           "description": "Force un type d'installeur quand le paquet en propose plusieurs (--installer-type).",
