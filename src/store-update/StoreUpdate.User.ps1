@@ -4,20 +4,26 @@
 # - mode update : demande la mise à jour sans fermeture forcée (AllowForcedAppRestart = false) et attend sa fin.
 # Résultat de chaque application dans check.json, lu par la fenêtre de l'utilisateur. Windows PowerShell 5.1 : l'API du
 # Store (WinRT) n'est pas accessible depuis PowerShell 7.
-
+# Déployé par OS-Setup dans %ProgramFiles%\OS-Setup\store-update : modifier le dépôt, pas cette copie.
+[CmdletBinding()]
+param()
+Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $log = Join-Path -Path $root -ChildPath 'store-update.log'
 $checkFile = Join-Path -Path $root -ChildPath 'check.json'
 
-function Write-StoreUpdateLog([string]$Message) {
+function Write-StoreUpdateLog {
+    param([string]$Message)
     $line = '{0:yyyy-MM-dd HH:mm:ss} [{1}] {2}' -f (Get-Date), $env:USERNAME, $Message
     foreach ($attempt in 1..10) {
         try { Add-Content -Path $log -Value $line -Encoding UTF8 -ErrorAction Stop; return } catch { Start-Sleep -Milliseconds 200 }
     }
 }
 
-function Wait-StoreOperation($Operation) {
+function Wait-StoreOperation {
+    # Opération asynchrone WinRT (IAsyncOperation) : pas de type PowerShell plus précis.
+    param([Parameter(Mandatory)][object]$Operation)
     $method = [System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
         $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1'
     } | Select-Object -First 1
@@ -42,7 +48,7 @@ try {
 
     # Échéance commune à toutes les applications, avant que la tâche SYSTEM remette le blocage (deadline de run.json).
     $deadline = (Get-Date).AddMinutes(12)
-    if ($request.deadline -and [datetime]$request.deadline -lt $deadline) { $deadline = [datetime]$request.deadline }
+    if ($request.PSObject.Properties['deadline'] -and $request.deadline -and [datetime]$request.deadline -lt $deadline) { $deadline = [datetime]$request.deadline }
 
     foreach ($app in @($apps | Where-Object { $_.productId -in $request.productIds })) {
         $id = $app.productId
@@ -77,7 +83,7 @@ try {
                     $options = [Windows.ApplicationModel.Store.Preview.InstallControl.AppUpdateOptions]::new()
                     $options.AllowForcedAppRestart = $false
                     $options.AutomaticallyDownloadAndInstallUpdateIfFound = $false
-                    $found = Wait-StoreOperation ($manager.SearchForUpdatesAsync($id, '', '', '', $options))
+                    $found = Wait-StoreOperation -Operation ($manager.SearchForUpdatesAsync($id, '', '', '', $options))
                     if ($found) {
                         $available = $true
                         $state = 'proposée'
@@ -91,7 +97,7 @@ try {
                     $options = [Windows.ApplicationModel.Store.Preview.InstallControl.AppUpdateOptions]::new()
                     $options.AllowForcedAppRestart = $false
                     $options.AutomaticallyDownloadAndInstallUpdateIfFound = $true
-                    $item = Wait-StoreOperation ($manager.SearchForUpdatesAsync($id, '', '', '', $options))
+                    $item = Wait-StoreOperation -Operation ($manager.SearchForUpdatesAsync($id, '', '', '', $options))
                 }
                 if ($item) {
                     do {

@@ -7,7 +7,10 @@
 # - Application fermée : lève son blocage, demande la mise à jour au Store sans fermeture forcée, remet le blocage.
 # La demande au Store se fait dans la session de l'utilisateur (tâche « OS-Setup - Store (recherche) ») : l'API du Store
 # n'agit que pour le compte qui l'appelle. Le blocage est toujours remis, même en cas d'erreur.
-
+# Déployé par OS-Setup dans %ProgramFiles%\OS-Setup\store-update : modifier le dépôt, pas cette copie.
+[CmdletBinding()]
+param()
+Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $userTask = 'OS-Setup - Store (recherche)'
 # Exécutables système par leur chemin complet : sous SYSTEM, ne pas dépendre de l'ordre du PATH.
@@ -18,7 +21,8 @@ $log = Join-Path -Path $root -ChildPath 'store-update.log'
 $namespace = 'root\cimv2\mdm\dmmap'
 $class = 'MDM_EnterpriseModernAppManagement_AppManagement01_02'
 
-function Write-StoreUpdateLog([string]$Message) {
+function Write-StoreUpdateLog {
+    param([string]$Message)
     # Journal partagé avec les tâches de l'utilisateur : quelques essais si un autre écrit au même moment.
     $line = '{0:yyyy-MM-dd HH:mm:ss} [système] {1}' -f (Get-Date), $Message
     foreach ($attempt in 1..10) {
@@ -26,7 +30,8 @@ function Write-StoreUpdateLog([string]$Message) {
     }
 }
 
-function Write-DoNotUpdate([string]$Family, [int]$Value) {
+function Write-DoNotUpdate {
+    param([string]$Family, [int]$Value)
     $instance = Get-CimInstance -Namespace $namespace -ClassName $class | Where-Object { $_.InstanceID -eq $Family }
     if ($instance -and $instance.DoNotUpdate -ne $Value) {
         $instance.DoNotUpdate = $Value
@@ -34,16 +39,19 @@ function Write-DoNotUpdate([string]$Family, [int]$Value) {
     }
 }
 
-function Get-AppProcess($App) {
+function Get-AppProcess {
+    param([Parameter(Mandatory)][pscustomobject]$App)
     $pattern = '*\WindowsApps\' + $App.family.Split('_')[0] + '_*'
     @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -like $pattern })
 }
 
-function Get-AppVersion($App) {
+function Get-AppVersion {
+    param([Parameter(Mandatory)][pscustomobject]$App)
     (Get-AppxPackage -AllUsers -Name $App.family.Split('_')[0] | Sort-Object -Property Version -Descending | Select-Object -First 1).Version
 }
 
-function Invoke-UserSearch([object[]]$App, [string]$Mode, [int]$TimeoutMinutes) {
+function Invoke-UserSearch {
+    param([object[]]$App, [string]$Mode, [int]$TimeoutMinutes)
     # Le blocage est levé le temps de la demande au Store (il ne propose rien tant qu'il est en place), puis remis.
     # deadline : échéance de la recherche, une minute avant que l'attente ci-dessous s'arrête et remette le blocage.
     $request = [ordered]@{ mode = $Mode; productIds = @($App | ForEach-Object { $_.productId }); requested = (Get-Date).ToString('o')
@@ -77,6 +85,8 @@ function Invoke-UserSearch([object[]]$App, [string]$Mode, [int]$TimeoutMinutes) 
     }
 }
 
+# Lu par le catch : une erreur avant la lecture d'apps.json ne doit pas en provoquer une autre (StrictMode).
+$apps = @()
 try {
     if ((Test-Path -Path $log) -and (Get-Item -Path $log).Length -gt 1MB) {
         # Nouveau journal, modifiable par les utilisateurs comme le précédent (le dossier leur est en lecture seule).
@@ -94,7 +104,7 @@ try {
     $apps = ConvertFrom-Json -InputObject (Get-Content -Path (Join-Path -Path $root -ChildPath 'apps.json') -Raw -Encoding UTF8)
     $apps = @($apps)
     # Application encadrée puis désinstallée : elle reste dans apps.json mais n'apparaîtra jamais dans le pont WMI.
-    $present = @($apps | Where-Object { Get-AppVersion $_ })
+    $present = @($apps | Where-Object { Get-AppVersion -App $_ })
     # Juste après le démarrage, le pont WMI du Store peut ne pas encore exposer les paquets : on les attend 3 min au plus.
     $deadline = (Get-Date).AddMinutes(3)
     while ($true) {
@@ -111,7 +121,7 @@ try {
         return
     }
 
-    $open = @($installed | Where-Object { (Get-AppProcess $_).Count -gt 0 })
+    $open = @($installed | Where-Object { (Get-AppProcess -App $_).Count -gt 0 })
     $closed = @($installed | Where-Object { $_ -notin $open })
     # Reprise du setup en attente (tâche de src/OSSetup/Functions/Resume.ps1, nom copié : ce script est autonome) : elle
     # lance PowerShell 7 à l'ouverture de session, peut-être pendant sa mise à jour. Vérification seule jusqu'à la fin du setup.
@@ -125,10 +135,10 @@ try {
         Invoke-UserSearch -App $open -Mode 'check' -TimeoutMinutes 3
     }
     if ($closed) {
-        $before = @($closed | ForEach-Object { "$($_.name) $(Get-AppVersion $_)" }) -join ', '
+        $before = @($closed | ForEach-Object { "$($_.name) $(Get-AppVersion -App $_)" }) -join ', '
         Write-StoreUpdateLog "fermées, mise à jour : $before"
         Invoke-UserSearch -App $closed -Mode 'update' -TimeoutMinutes 15
-        Write-StoreUpdateLog "après : $(@($closed | ForEach-Object { "$($_.name) $(Get-AppVersion $_)" }) -join ', ')"
+        Write-StoreUpdateLog "après : $(@($closed | ForEach-Object { "$($_.name) $(Get-AppVersion -App $_)" }) -join ', ')"
     }
 }
 catch {

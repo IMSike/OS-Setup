@@ -5,13 +5,15 @@
 # - Mise à jour proposée pour une application fermée : la tâche SYSTEM l'installe sans rien demander.
 # - Pour une application ouverte : propose « Mettre à jour maintenant » ou un report. « Maintenant » fait revérifier
 #   auprès du Store, et seulement si la mise à jour est toujours proposée, ferme l'application puis l'installe.
-
+# Déployé par OS-Setup dans %ProgramFiles%\OS-Setup\store-update : modifier le dépôt, pas cette copie.
+[CmdletBinding()]
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'TestChoice', Justification = 'Lu par les fonctions du script.')]
 param(
     # Essais automatisés : choisit le bouton indiqué sans attendre l'utilisateur (Now, 10m, 1h, 5h, 24h).
     [ValidateSet('', 'Now', '10m', '1h', '5h', '24h')]
     [string]$TestChoice = ''
 )
+Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $systemTask = 'OS-Setup - Store (système)'
 # Exécutable système par son chemin complet, pas par le PATH.
@@ -23,58 +25,69 @@ $log = Join-Path -Path $root -ChildPath 'store-update.log'
 $stateFile = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'OS-Setup\store-update.json'
 $title = 'Mise à jour du Store'
 
-function Write-StoreUpdateLog([string]$Message) {
+function Write-StoreUpdateLog {
+    param([string]$Message)
     $line = '{0:yyyy-MM-dd HH:mm:ss} [{1}, fenêtre] {2}' -f (Get-Date), $env:USERNAME, $Message
     foreach ($attempt in 1..10) {
         try { Add-Content -Path $log -Value $line -Encoding UTF8 -ErrorAction Stop; return } catch { Start-Sleep -Milliseconds 200 }
     }
 }
 
-function Read-JsonFile([string]$Path) {
+function Read-JsonFile {
+    param([string]$Path)
     if (-not (Test-Path -Path $Path)) { return $null }
     # Sous Windows PowerShell 5.1, ConvertFrom-Json rend un tableau JSON d'un bloc : passer par une variable l'énumère.
     try { $json = ConvertFrom-Json -InputObject (Get-Content -Path $Path -Raw -Encoding UTF8); $json } catch { $null }
 }
 
-function Save-State($State) {
+function Save-State {
+    param([Parameter(Mandatory)][object]$State)
     New-Item -Path (Split-Path -Path $stateFile -Parent) -ItemType Directory -Force | Out-Null
     [IO.File]::WriteAllText($stateFile, (ConvertTo-Json -InputObject $State), [Text.UTF8Encoding]::new($false))
 }
 
-function Get-AppVersion($App) {
+function Get-AppVersion {
+    param([Parameter(Mandatory)][pscustomobject]$App)
     "$((Get-AppxPackage -Name $App.family.Split('_')[0] | Sort-Object -Property Version -Descending | Select-Object -First 1).Version)"
 }
 
-function Get-AppProcess($App) {
+function Get-AppProcess {
+    param([Parameter(Mandatory)][pscustomobject]$App)
     $pattern = '*\WindowsApps\' + $App.family.Split('_')[0] + '_*'
     @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -like $pattern })
 }
 
-function Get-PendingApp([object[]]$App) {
+function Get-PendingApp {
+    param([object[]]$App)
     # Mise à jour proposée lors de la dernière vérification, et pas encore installée depuis.
-    $check = Read-JsonFile (Join-Path -Path $root -ChildPath 'check.json')
+    $check = Read-JsonFile -Path (Join-Path -Path $root -ChildPath 'check.json')
     foreach ($item in $App) {
         $entry = if ($check) { $check.PSObject.Properties[$item.productId] }
-        if ($entry -and $entry.Value.available -and $entry.Value.version -eq (Get-AppVersion $item)) { $item }
+        # Entrée incomplète (check.json tronqué ou modifié) : traitée comme sans mise à jour, sans erreur (StrictMode).
+        if (-not $entry -or -not $entry.Value -or -not $entry.Value.PSObject.Properties['available'] -or -not $entry.Value.PSObject.Properties['version']) { continue }
+        if ($entry.Value.available -and $entry.Value.version -eq (Get-AppVersion -App $item)) { $item }
     }
 }
 
-function Test-CheckStale([object[]]$App) {
-    $check = Read-JsonFile (Join-Path -Path $root -ChildPath 'check.json')
+function Test-CheckStale {
+    param([object[]]$App)
+    $check = Read-JsonFile -Path (Join-Path -Path $root -ChildPath 'check.json')
     foreach ($item in $App) {
         $entry = if ($check) { $check.PSObject.Properties[$item.productId] }
-        if (-not $entry) { return $true }
+        # Entrée absente ou incomplète : vérification à refaire.
+        if (-not $entry -or -not $entry.Value -or -not $entry.Value.PSObject.Properties['checked']) { return $true }
         $checked = [datetime]$entry.Value.checked
         if ($checked -gt (Get-Date) -or $checked -lt (Get-Date).AddHours(-$checkHours)) { return $true }
     }
     $false
 }
 
-function Invoke-SystemRun($State) {
+function Invoke-SystemRun {
+    param([Parameter(Mandatory)][object]$State)
     # Lance la tâche SYSTEM (les utilisateurs ont le droit de l'exécuter, pas de la modifier) et attend sa fin.
     # Renvoie $true si une exécution lancée après la demande s'est terminée, $false sinon (délai dépassé, tâche absente).
     $State.lastRun = (Get-Date).ToString('o')
-    Save-State $State
+    Save-State -State $State
     # Attente bornée par la durée maximale d'une exécution de la tâche SYSTEM (ExecutionTimeLimit PT30M).
     $limit = 30
     # Une seule instance à la fois : une demande faite pendant une exécution déjà en cours (ouverture de session, tâche
@@ -96,11 +109,13 @@ function Invoke-SystemRun($State) {
     $done
 }
 
-function Test-RecentRun($State) {
+function Test-RecentRun {
+    param([Parameter(Mandatory)][object]$State)
     $State.lastRun -and ([datetime]$State.lastRun) -gt (Get-Date).AddHours(-1) -and ([datetime]$State.lastRun) -le (Get-Date)
 }
 
-function Show-UpdatePrompt([object[]]$App) {
+function Show-UpdatePrompt {
+    param([object[]]$App)
     Add-Type -AssemblyName System.Windows.Forms, System.Drawing
     [System.Windows.Forms.Application]::EnableVisualStyles()
     $form = New-Object -TypeName System.Windows.Forms.Form
@@ -120,9 +135,9 @@ function Show-UpdatePrompt([object[]]$App) {
     $label = New-Object -TypeName System.Windows.Forms.Label
     $label.MaximumSize = New-Object -TypeName System.Drawing.Size -ArgumentList 480, 0
     $label.AutoSize = $true
-    $names = ($App | ForEach-Object { "$($_.name) (installé : $(Get-AppVersion $_))" }) -join ', '
+    $names = ($App | ForEach-Object { "$($_.name) (installé : $(Get-AppVersion -App $_))" }) -join ', '
     $others = @($App | ForEach-Object { $_.closeFirst } | Where-Object { $_ } | Select-Object -Unique)
-    $count = @($App | ForEach-Object { Get-AppProcess $_ }).Count
+    $count = @($App | ForEach-Object { Get-AppProcess -App $_ }).Count
     $label.Text = "Le Store propose une mise à jour : $names.`n`n" +
         "L'installer ferme ces applications ($count processus ouverts)" + $(if ($others) { ", ainsi que $($others -join ', ') et ce qui y tourne" }) +
         ". Enregistrez votre travail avant de continuer.`n`n" +
@@ -155,7 +170,8 @@ function Show-UpdatePrompt([object[]]$App) {
     $form.Tag
 }
 
-function Show-Message([string]$Text) {
+function Show-Message {
+    param([string]$Text)
     Write-StoreUpdateLog "message : $Text"
     if ($TestChoice) { return }
     Add-Type -AssemblyName System.Windows.Forms
@@ -163,78 +179,78 @@ function Show-Message([string]$Text) {
 }
 
 try {
-    $saved = Read-JsonFile $stateFile
+    $saved = Read-JsonFile -Path $stateFile
     # Valeurs absentes : $null explicite (sous Windows PowerShell 5.1, un $(…) vide s'écrirait {} en JSON).
     $state = [pscustomobject]@{ snoozeUntil = $null; lastRun = $null }
     foreach ($name in 'snoozeUntil', 'lastRun') {
         if ($saved -and $saved.PSObject.Properties[$name] -and ($saved.$name -is [string] -or $saved.$name -is [datetime])) { $state.$name = "$($saved.$name)" }
     }
     if ($state.snoozeUntil -and (Get-Date) -lt [datetime]$state.snoozeUntil) { return }
-    $apps = @(Read-JsonFile (Join-Path -Path $root -ChildPath 'apps.json') | Where-Object { Get-AppVersion $_ })
+    $apps = @(Read-JsonFile -Path (Join-Path -Path $root -ChildPath 'apps.json') | Where-Object { Get-AppVersion -App $_ })
     if (-not $apps) { return }
 
-    if ((Test-CheckStale $apps) -and -not (Test-RecentRun $state)) {
-        [void](Invoke-SystemRun $state)
+    if ((Test-CheckStale -App $apps) -and -not (Test-RecentRun -State $state)) {
+        [void](Invoke-SystemRun -State $state)
     }
-    $pending = @(Get-PendingApp $apps)
+    $pending = @(Get-PendingApp -App $apps)
     if (-not $pending) { return }
-    $open = @($pending | Where-Object { (Get-AppProcess $_).Count -gt 0 })
-    if ($open.Count -lt $pending.Count -and -not (Test-RecentRun $state)) {
+    $open = @($pending | Where-Object { (Get-AppProcess -App $_).Count -gt 0 })
+    if ($open.Count -lt $pending.Count -and -not (Test-RecentRun -State $state)) {
         # Applications fermées depuis la vérification : la tâche SYSTEM les met à jour sans rien demander.
-        [void](Invoke-SystemRun $state)
-        $open = @(Get-PendingApp $apps | Where-Object { (Get-AppProcess $_).Count -gt 0 })
+        [void](Invoke-SystemRun -State $state)
+        $open = @(Get-PendingApp -App $apps | Where-Object { (Get-AppProcess -App $_).Count -gt 0 })
     }
     if (-not $open) { return }
 
-    $choice = Show-UpdatePrompt $open
+    $choice = Show-UpdatePrompt -App $open
     Write-StoreUpdateLog "choix : $choice ($(($open | ForEach-Object { $_.name }) -join ', '))"
     if ($choice -ne 'Now') {
         $delay = @{ '10m' = [timespan]::FromMinutes(10); '1h' = [timespan]::FromHours(1); '5h' = [timespan]::FromHours(5); '24h' = [timespan]::FromHours(24) }[$choice]
         if (-not $delay) { $delay = [timespan]::FromHours(1) }
         $state.snoozeUntil = (Get-Date).Add($delay).ToString('o')
-        Save-State $state
+        Save-State -State $state
         return
     }
 
     $state.snoozeUntil = $null
     # Vérification auprès du Store juste avant de fermer quoi que ce soit : la mise à jour est-elle toujours proposée ?
-    if (-not (Invoke-SystemRun $state)) {
+    if (-not (Invoke-SystemRun -State $state)) {
         # Vérification non terminée : rien n'est fermé, la question revient au passage suivant.
         $state.snoozeUntil = (Get-Date).AddMinutes(10).ToString('o')
-        Save-State $state
+        Save-State -State $state
         return
     }
-    $targets = @(Get-PendingApp $open)
+    $targets = @(Get-PendingApp -App $open)
     if (-not $targets) {
-        Show-Message 'Le Store ne propose plus de mise à jour pour ces applications : rien n''a été fermé.'
+        Show-Message -Text 'Le Store ne propose plus de mise à jour pour ces applications : rien n''a été fermé.'
         return
     }
     $before = @{}
-    foreach ($app in $targets) { $before[$app.productId] = Get-AppVersion $app }
+    foreach ($app in $targets) { $before[$app.productId] = Get-AppVersion -App $app }
     # Un programme qui relance aussitôt l'application fermée (herdr relance le shell d'un volet) est fermé d'abord.
     $others = @($targets | ForEach-Object { $_.closeFirst } | Where-Object { $_ } | Select-Object -Unique)
     $deadline = (Get-Date).AddSeconds(30)
     do {
         foreach ($name in $others) { Get-Process -Name $name -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue }
-        $targets | ForEach-Object { Get-AppProcess $_ } | Stop-Process -Force -ErrorAction SilentlyContinue
+        $targets | ForEach-Object { Get-AppProcess -App $_ } | Stop-Process -Force -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 2
-        $left = @($targets | ForEach-Object { Get-AppProcess $_ })
+        $left = @($targets | ForEach-Object { Get-AppProcess -App $_ })
     } while ($left -and (Get-Date) -lt $deadline)
     if ($left) { Write-StoreUpdateLog "encore ouverts après fermeture : $(($left | ForEach-Object { $_.Name }) -join ', ')" }
-    if (-not (Invoke-SystemRun $state)) {
+    if (-not (Invoke-SystemRun -State $state)) {
         # Mise à jour peut-être encore en cours : pas de conclusion à un échec, nouveau point au passage suivant.
         $state.snoozeUntil = (Get-Date).AddMinutes(10).ToString('o')
-        Save-State $state
+        Save-State -State $state
         return
     }
-    $failed = @($targets | Where-Object { (Get-AppVersion $_) -eq $before[$_.productId] })
+    $failed = @($targets | Where-Object { (Get-AppVersion -App $_) -eq $before[$_.productId] })
     if ($failed) {
         $state.snoozeUntil = (Get-Date).AddHours(1).ToString('o')
-        Save-State $state
-        Show-Message "La mise à jour n'a pas abouti pour : $(($failed | ForEach-Object { $_.name }) -join ', '). Nouvel essai dans 1 heure."
+        Save-State -State $state
+        Show-Message -Text "La mise à jour n'a pas abouti pour : $(($failed | ForEach-Object { $_.name }) -join ', '). Nouvel essai dans 1 heure."
     }
     else {
-        Show-Message "À jour : $(($targets | ForEach-Object { "$($_.name) $(Get-AppVersion $_)" }) -join ', ')."
+        Show-Message -Text "À jour : $(($targets | ForEach-Object { "$($_.name) $(Get-AppVersion -App $_)" }) -join ', ')."
     }
 }
 catch {

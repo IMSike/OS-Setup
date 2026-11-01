@@ -20,6 +20,13 @@ Describe 'Scripts des tâches des mises à jour du Store' {
         @(& $powershell -NoProfile -NonInteractive -EncodedCommand $encoded) | Should -BeNullOrEmpty
     }
 
+    It '<_> suit les conventions : StrictMode, CmdletBinding, mention de copie déployée' -ForEach @('StoreUpdate.System.ps1', 'StoreUpdate.User.ps1', 'StoreUpdate.Prompt.ps1') {
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path -Path $sourceRoot -ChildPath $_), [ref]$null, [ref]$null)
+        $ast.ParamBlock.Attributes.TypeName.Name | Should -Contain 'CmdletBinding'
+        $ast.EndBlock.Statements.Extent.Text | Should -Contain 'Set-StrictMode -Version Latest'
+        $ast.Extent.Text | Should -Match 'modifier le dépôt, pas cette copie'
+    }
+
     It 'la recherche isole chaque application et écrit check.json après chacune' {
         # Le script n'est testable qu'en analyse (API du Store) : on vérifie la structure de sa boucle.
         $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.User.ps1'), [ref]$null, [ref]$null)
@@ -39,7 +46,7 @@ Describe 'Scripts des tâches des mises à jour du Store' {
 
     It 'la tâche SYSTEM n''attend dans le pont WMI que les applications installées' {
         $text = Get-Content -Path (Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.System.ps1') -Raw
-        $text | Should -Match '\$present = @\(\$apps \| Where-Object \{ Get-AppVersion \$_ \}\)'
+        $text | Should -Match '\$present = @\(\$apps \| Where-Object \{ Get-AppVersion -App \$_ \}\)'
         $text | Should -Match '\$installed\.Count -eq \$present\.Count'
         $text | Should -Not -Match '\$installed\.Count -eq \$apps\.Count'
     }
