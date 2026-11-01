@@ -159,15 +159,22 @@ function Get-OSSetupStoreCancelScript {
         [string]$Name
     )
     # Le nom d'assembly qui suit le type est ignoré par la résolution WinRT (seul l'espace de noms compte) : il est
-    # aligné sur StoreUpdate.User.ps1 par simple cohérence.
+    # aligné sur StoreUpdate.User.ps1 par simple cohérence. En cas d'échec, seul le message de l'exception est écrit
+    # sur la sortie d'erreur (sinon Windows PowerShell la met en forme sur plusieurs lignes coupées), code de sortie 1.
     @"
 `$ErrorActionPreference = 'Stop'
 `$ProgressPreference = 'SilentlyContinue'
-[void][Windows.ApplicationModel.Store.Preview.InstallControl.AppInstallManager, Windows.ApplicationModel.Store.Preview, ContentType = WindowsRuntime]
-`$manager = [Windows.ApplicationModel.Store.Preview.InstallControl.AppInstallManager]::new()
-foreach (`$item in @(`$manager.AppInstallItems | Where-Object { `$_.PackageFamilyName -like '$($Name)_*' })) {
-    `$manager.Cancel(`$item.ProductId)
-    `$item.ProductId
+try {
+    [void][Windows.ApplicationModel.Store.Preview.InstallControl.AppInstallManager, Windows.ApplicationModel.Store.Preview, ContentType = WindowsRuntime]
+    `$manager = [Windows.ApplicationModel.Store.Preview.InstallControl.AppInstallManager]::new()
+    foreach (`$item in @(`$manager.AppInstallItems | Where-Object { `$_.PackageFamilyName -like '$($Name)_*' })) {
+        `$manager.Cancel(`$item.ProductId)
+        `$item.ProductId
+    }
+}
+catch {
+    [Console]::Error.WriteLine(`$_.Exception.Message)
+    exit 1
 }
 "@
 }
@@ -204,6 +211,7 @@ function Stop-OSSetupStoreUpdate {
         par Windows PowerShell 5.1.
     #>
     [CmdletBinding(SupportsShouldProcess)]
+    [OutputType([string])]
     param(
         [Parameter(Mandatory)]
         [ValidatePattern('^[\w.-]+$')]
@@ -211,8 +219,8 @@ function Stop-OSSetupStoreUpdate {
     )
     if (-not $PSCmdlet.ShouldProcess($Name, 'Annuler les mises à jour du Store en attente')) { return }
     $result = Invoke-OSSetupWindowsPowerShell -Script (Get-OSSetupStoreCancelScript -Name $Name)
-    # Le script s'arrête à la première erreur ($ErrorActionPreference = 'Stop') : le code de sortie suffit à détecter
-    # l'échec ; la sortie d'erreur ne sert qu'au message (elle peut contenir du bruit sans échec).
+    # Le script s'arrête à la première erreur (code de sortie 1) : le code de sortie suffit à détecter l'échec ; la
+    # sortie d'erreur ne sert qu'au message (elle peut contenir du bruit sans échec, ou du CLIXML).
     if ($result.ExitCode -ne 0) {
         $detail = (@($result.Errors | ForEach-Object {
                     $text = [string]$_
@@ -224,7 +232,7 @@ function Stop-OSSetupStoreUpdate {
         if (-not $detail) { $detail = "code de sortie $($result.ExitCode)" }
         Write-OSSetupLog -Level Warning -Message "  annulation des mises à jour du Store impossible pour $Name ($detail) : l'application peut revenir après un redémarrage"
     }
-    @($result.Output | ForEach-Object { [string]$_ } | Where-Object { $_ } | Select-Object -Unique)
+    $result.Output | ForEach-Object { [string]$_ } | Where-Object { $_ } | Select-Object -Unique
 }
 
 function Get-OSSetupUninstallEntry {
