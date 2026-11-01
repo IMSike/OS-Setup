@@ -9,6 +9,10 @@
     {
       "provider": "windows-capability",
       "name": "App.Support.QuickAssist"
+    },
+    {
+      "provider": "appx",
+      "name": "MicrosoftCorporationII.QuickAssist"
     }
   ]
 }

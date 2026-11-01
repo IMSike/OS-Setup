@@ -76,13 +76,13 @@ To be decided with a future gaming profile.
 | Item | Default | Component | Implications |
 |---|---|---|---|
 | `remove-internet-explorer` | ✔ | Internet Explorer 11 (capability `Browser.InternetExplorer`) | Retired by Microsoft since 2023 (it redirects to Edge). The rendering engine used by old applications remains in Windows. |
-| `remove-powershell-v2` | ✔ | Windows PowerShell 2.0 (feature `MicrosoftWindowsPowerShellV2Root`) | Obsolete engine that allows bypassing the antivirus (AMSI) and PowerShell logging; removed by Microsoft from recent versions. PowerShell 5.1 and 7 are not affected. |
+| `remove-powershell-v2` | ✔ | Windows PowerShell 2.0 (feature `MicrosoftWindowsPowerShellV2Root`) | Obsolete engine that allows bypassing the antivirus (AMSI) and PowerShell logging; removed by Microsoft from recent versions (nothing to do there). PowerShell 5.1 and 7 are not affected. |
 | `remove-steps-recorder` | ✔ | Steps Recorder (`App.StepsRecorder`) | Recorded clicks and screenshots for technical support; discontinued by Microsoft. |
-| `remove-wordpad` | ✔ | WordPad (`Microsoft.Windows.WordPad`) | Discontinued (removed from Windows 11 24H2); `.rtf` files open with an installed word processor. |
+| `remove-wordpad` | ✔ | WordPad (`Microsoft.Windows.WordPad`) | Discontinued (removed from Windows 11 24H2, nothing to do there); `.rtf` files open with an installed word processor. |
 | `remove-powershell-ise` | ✔ | PowerShell ISE (`Microsoft.Windows.PowerShell.ISE`) | Old PowerShell 5.1 script editor, with no PowerShell 7 support; replaced by VS Code. |
 | `remove-math-input` | ○ | Math Input Panel (`MathRecognizer`) | Pen input of formulas, rarely used. |
 | `remove-hello-face` | ✔ | Windows Hello: face recognition (`Hello.Face.*`, the number depends on the Windows version) | Useless without a compatible infrared camera. **Warning**: no more sign-in by face. |
-| `remove-quick-assist` | ✔ | Quick Assist (`App.Support.QuickAssist`) | No more built-in remote assistance (Store version available). |
+| `remove-quick-assist` | ✔ | Quick Assist: capability `App.Support.QuickAssist` (Windows 10) and Store app `MicrosoftCorporationII.QuickAssist` (Windows 11, or Windows 10 when installed from the Store), both removed | No more built-in remote assistance; it can be reinstalled from the Store. |
 | `remove-fax-scan` | ○ | Windows Fax and Scan (`Print.Fax.Scan`) | **Warning**: some scanners only work with this tool. |
 | `remove-print-management` | ✔ | Print Management console (`Print.Management.Console`) | Administration tool for print servers. |
 | `remove-work-folders` | ✔ | Work Folders (feature `WorkFolders-Client`) | Corporate file sync, useless for an individual. |
