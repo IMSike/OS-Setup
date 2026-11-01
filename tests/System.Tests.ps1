@@ -252,6 +252,7 @@ Describe 'Provider windows-capability' {
         # Le vrai chargement du module Dism (session Windows PowerShell 5.1 sous le PowerShell 7 du Store) sortirait
         # du cadre d'un test unitaire.
         Mock -ModuleName OSSetup Import-OSSetupDismModule {}
+        Clear-OSSetupDismCache
     }
 
     It 'compare l''état des capacités dont le nom commence par le nom donné' {
@@ -289,6 +290,72 @@ Describe 'Provider windows-capability' {
         Mock -ModuleName OSSetup Get-WindowsCapability { [pscustomobject]@{ Name = 'App.StepsRecorder~~~~0.0.1.0'; State = 'NotPresent' } }
         Invoke-TestProviderTest -Name windows-capability -Action @{ name = 'App.StepsRecorder' } | Should -BeTrue
         Should -Invoke -ModuleName OSSetup Import-OSSetupDismModule -Times 1 -Exactly
+    }
+}
+
+Describe 'Cache des listes DISM' {
+    BeforeEach {
+        Mock -ModuleName OSSetup Import-OSSetupDismModule {}
+        Mock -ModuleName OSSetup Write-OSSetupLog {}
+        Mock -ModuleName OSSetup Test-OSSetupElevated { $true }
+        Clear-OSSetupDismCache
+    }
+
+    AfterEach {
+        Remove-Variable -Name OSSetupTestRemoved -Scope Global -ErrorAction SilentlyContinue
+        Clear-OSSetupDismCache
+    }
+
+    It 'lit les paquets provisionnés une seule fois jusqu''au vidage du cache' {
+        Mock -ModuleName OSSetup Get-AppxProvisionedPackage {
+            [pscustomobject]@{ DisplayName = 'Microsoft.BingWeather'; PackageName = 'Microsoft.BingWeather_1_neutral_~_8wekyb3d8bbwe' }
+        }
+        @(Get-OSSetupProvisionedPackage).PackageName | Should -Be 'Microsoft.BingWeather_1_neutral_~_8wekyb3d8bbwe'
+        @(Get-OSSetupProvisionedPackage).Count | Should -Be 1
+        Should -Invoke -ModuleName OSSetup Get-AppxProvisionedPackage -Times 1 -Exactly
+        Clear-OSSetupDismCache
+        $null = Get-OSSetupProvisionedPackage
+        Should -Invoke -ModuleName OSSetup Get-AppxProvisionedPackage -Times 2 -Exactly
+    }
+
+    It 'le plan lit la liste des capacités une seule fois pour plusieurs actions' {
+        Mock -ModuleName OSSetup Get-WindowsCapability {
+            [pscustomobject]@{ Name = 'Browser.InternetExplorer~~~~0.0.11.0'; State = 'Installed' }
+            [pscustomobject]@{ Name = 'App.StepsRecorder~~~~0.0.1.0'; State = 'NotPresent' }
+        }
+        $data = [pscustomobject]@{
+            Items = @{
+                legacy = [ordered]@{ id = 'legacy'; name = 'Legacy'; actions = @(
+                        [ordered]@{ provider = 'windows-capability'; name = 'Browser.InternetExplorer' }
+                        [ordered]@{ provider = 'windows-capability'; name = 'App.StepsRecorder' }
+                    )
+                }
+            }
+        }
+        $plan = @(Get-OSSetupPlan -Data $data -ItemId 'legacy' -Context @{ Variables = [ordered]@{} })
+        $plan.Status | Should -Be @('todo', 'ok')
+        Should -Invoke -ModuleName OSSetup Get-WindowsCapability -Times 1 -Exactly
+    }
+
+    It 'relit la liste après une action exécutée, pour l''action puis pour le contrôle' {
+        $global:OSSetupTestRemoved = $false
+        Mock -ModuleName OSSetup Get-WindowsCapability {
+            $state = if ($global:OSSetupTestRemoved) { 'NotPresent' } else { 'Installed' }
+            [pscustomobject]@{ Name = 'Browser.InternetExplorer~~~~0.0.11.0'; State = $state }
+        }
+        Mock -ModuleName OSSetup Remove-WindowsCapability { $global:OSSetupTestRemoved = $true; [pscustomobject]@{ RestartNeeded = $false } }
+        $data = [pscustomobject]@{
+            Items = @{
+                legacy = [ordered]@{ id = 'legacy'; name = 'Legacy'; actions = @([ordered]@{ provider = 'windows-capability'; name = 'Browser.InternetExplorer' }) }
+            }
+        }
+        $context = @{ Variables = [ordered]@{} }
+        $plan = @(Get-OSSetupPlan -Data $data -ItemId 'legacy' -Context $context)
+        $results = @(Invoke-OSSetupPlan -Plan $plan -Context $context)
+        $results.Status | Should -Be 'done'
+        # Plan, action, contrôle.
+        Should -Invoke -ModuleName OSSetup Get-WindowsCapability -Times 3 -Exactly
+        Should -Invoke -ModuleName OSSetup Remove-WindowsCapability -Times 1 -Exactly
     }
 }
 

@@ -19,8 +19,7 @@ param()
         param($Action, $Context)
         # La lecture des capacités exige les droits administrateur : sans eux (simulation), l'action reste à faire.
         if (-not (Test-OSSetupElevated)) { return $false }
-        Import-OSSetupDismModule
-        $matching = @(Get-WindowsCapability -Online | Where-Object { $_.Name -like "$($Action['name'])~*" })
+        $matching = @(Get-OSSetupWindowsCapabilityMatch -Name $Action['name'])
         if ($matching.Count -eq 0) {
             Write-OSSetupLog -Level Detail -Message "  composant $($Action['name']) inexistant dans cette version de Windows : rien à retirer"
             return $true
@@ -30,10 +29,9 @@ param()
 
     Read     = {
         param($Action, $Context)
-        Import-OSSetupDismModule
         [ordered]@{
-            installed = @(Get-WindowsCapability -Online | Where-Object { $_.Name -like "$($Action['name'])~*" -and $_.State -eq 'Installed' } |
-                    ForEach-Object { [string]$_.Name })
+            installed = @(Get-OSSetupWindowsCapabilityMatch -Name $Action['name'] | Where-Object { $_.State -eq 'Installed' } |
+                    ForEach-Object { $_.Name })
         }
     }
 
@@ -41,7 +39,7 @@ param()
         param($Action, $Context)
         Import-OSSetupDismModule
         $restart = $false
-        foreach ($capability in Get-WindowsCapability -Online | Where-Object { $_.Name -like "$($Action['name'])~*" -and $_.State -eq 'Installed' }) {
+        foreach ($capability in @(Get-OSSetupWindowsCapabilityMatch -Name $Action['name'] | Where-Object { $_.State -eq 'Installed' })) {
             $result = Remove-WindowsCapability -Online -Name $capability.Name -ErrorAction Stop
             if ($result.RestartNeeded) { $restart = $true }
         }

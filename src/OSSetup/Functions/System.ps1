@@ -7,6 +7,10 @@ $script:PowerSettings = @{
     display   = @('SUB_VIDEO', 'VIDEOIDLE')
 }
 
+# Listes DISM complètes (paquets provisionnés, capacités Windows), longues à lire (session Windows PowerShell 5.1 sous
+# le PowerShell 7 du Store) : lues une fois par passe, effacées avant et après chaque action exécutée.
+$script:DismCache = @{}
+
 function Import-OSSetupCompatibilityModule {
     <#
     .SYNOPSIS
@@ -80,9 +84,65 @@ function Get-OSSetupAppxPresence {
         ForEach-Object { [string]$_.PackageFullName } | Select-Object -Unique
     if ($elevated) { Import-OSSetupDismModule }
     $provisioned = @(if ($elevated) {
-            Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -eq $Name } | ForEach-Object { [string]$_.PackageName }
+            Get-OSSetupProvisionedPackage | Where-Object { $_.DisplayName -eq $Name } | ForEach-Object { $_.PackageName }
         })
     [pscustomobject]@{ Installed = @($installed); Provisioned = @($provisioned) }
+}
+
+function Get-OSSetupProvisionedPackage {
+    <#
+    .SYNOPSIS
+        Paquets provisionnés (DisplayName, PackageName), lus une fois par passe (cache vidé par Clear-OSSetupDismCache).
+        Lecture admin uniquement.
+    #>
+    [CmdletBinding()]
+    param()
+    if (-not $script:DismCache.ContainsKey('ProvisionedPackages')) {
+        Import-OSSetupDismModule
+        $script:DismCache['ProvisionedPackages'] = @(Get-AppxProvisionedPackage -Online |
+                ForEach-Object { [pscustomobject]@{ DisplayName = [string]$_.DisplayName; PackageName = [string]$_.PackageName } })
+    }
+    $script:DismCache['ProvisionedPackages']
+}
+
+function Get-OSSetupWindowsCapabilityList {
+    <#
+    .SYNOPSIS
+        Capacités Windows (Name, State), lues une fois par passe (cache vidé par Clear-OSSetupDismCache). Lecture
+        admin uniquement.
+    #>
+    [CmdletBinding()]
+    param()
+    if (-not $script:DismCache.ContainsKey('WindowsCapabilities')) {
+        Import-OSSetupDismModule
+        $script:DismCache['WindowsCapabilities'] = @(Get-WindowsCapability -Online |
+                ForEach-Object { [pscustomobject]@{ Name = [string]$_.Name; State = [string]$_.State } })
+    }
+    $script:DismCache['WindowsCapabilities']
+}
+
+function Get-OSSetupWindowsCapabilityMatch {
+    <#
+    .SYNOPSIS
+        Capacités Windows dont le nom, sans version, correspond (« Browser.InternetExplorer », « Hello.Face.* »).
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Name
+    )
+    Get-OSSetupWindowsCapabilityList | Where-Object { $_.Name -like "$Name~*" }
+}
+
+function Clear-OSSetupDismCache {
+    <#
+    .SYNOPSIS
+        Oublie les listes DISM lues (paquets provisionnés, capacités Windows) : appelé au début de chaque passe et
+        autour de chaque action exécutée, pour que les vérifications relisent l'état réel.
+    #>
+    [CmdletBinding()]
+    param()
+    $script:DismCache.Clear()
 }
 
 function Get-OSSetupStoreCancelScript {
