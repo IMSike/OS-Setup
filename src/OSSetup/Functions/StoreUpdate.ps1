@@ -98,7 +98,7 @@ function Get-OSSetupStoreUpdateApp {
         Applications encadrées (apps.json) : famille de paquets, produit du Store, nom affiché, programmes à fermer avant.
     #>
     [CmdletBinding()]
-    [OutputType([System.Array])]
+    [OutputType([pscustomobject])]
     param()
     $path = Join-Path -Path (Get-OSSetupStoreUpdateRoot) -ChildPath 'apps.json'
     if (Test-Path -Path $path -PathType Leaf) {

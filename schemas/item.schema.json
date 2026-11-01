@@ -104,7 +104,7 @@
           { "$ref": "#/definitions/scheduledTaskAction" },
           { "$ref": "#/definitions/powerAction" },
           { "$ref": "#/definitions/appxAction" },
-        { "$ref": "#/definitions/storeUpdateGuardAction" },
+          { "$ref": "#/definitions/storeUpdateGuardAction" },
           { "$ref": "#/definitions/windowsCapabilityAction" },
           { "$ref": "#/definitions/win32UninstallAction" },
           { "$ref": "#/definitions/desktopLayoutAction" },
