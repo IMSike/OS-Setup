@@ -19,6 +19,15 @@ Describe 'Scripts des tâches des mises à jour du Store' {
         $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
         @(& $powershell -NoProfile -NonInteractive -EncodedCommand $encoded) | Should -BeNullOrEmpty
     }
+
+    It 'la recherche isole chaque application et écrit check.json après chacune' {
+        # Le script n'est testable qu'en analyse (API du Store) : on vérifie la structure de sa boucle.
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.User.ps1'), [ref]$null, [ref]$null)
+        $loop = $ast.Find({ param($Node) $Node -is [System.Management.Automation.Language.ForEachStatementAst] -and $Node.Variable.VariablePath.UserPath -eq 'app' }, $true)
+        $loop | Should -Not -BeNullOrEmpty
+        $loop.Body.Statements | Where-Object { $_ -is [System.Management.Automation.Language.TryStatementAst] } | Should -Not -BeNullOrEmpty
+        $loop.Body.Statements | Where-Object { $_.Extent.Text -like '*WriteAllText($checkFile*' } | Should -Not -BeNullOrEmpty
+    }
 }
 
 Describe 'Fenêtre : attente de la tâche SYSTEM' {

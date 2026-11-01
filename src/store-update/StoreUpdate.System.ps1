@@ -42,7 +42,9 @@ function Get-AppVersion($App) {
 
 function Invoke-UserSearch([object[]]$App, [string]$Mode, [int]$TimeoutMinutes) {
     # Le blocage est levé le temps de la demande au Store (il ne propose rien tant qu'il est en place), puis remis.
-    $request = [ordered]@{ mode = $Mode; productIds = @($App | ForEach-Object { $_.productId }); requested = (Get-Date).ToString('o') }
+    # deadline : échéance de la recherche, une minute avant que l'attente ci-dessous s'arrête et remette le blocage.
+    $request = [ordered]@{ mode = $Mode; productIds = @($App | ForEach-Object { $_.productId }); requested = (Get-Date).ToString('o')
+        deadline = (Get-Date).AddMinutes($TimeoutMinutes - 1).ToString('o') }
     [IO.File]::WriteAllText((Join-Path -Path $root -ChildPath 'run.json'), (ConvertTo-Json -InputObject $request), [Text.UTF8Encoding]::new($false))
     try {
         foreach ($item in $App) { Write-DoNotUpdate -Family $item.family -Value 0 }

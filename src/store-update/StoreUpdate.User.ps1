@@ -40,71 +40,84 @@ try {
     $manager = [Windows.ApplicationModel.Store.Preview.InstallControl.AppInstallManager]::new()
     $activeStates = 'Pending', 'Starting', 'AcquiringLicense', 'Downloading', 'Installing', 'RestoringData'
 
+    # Échéance commune à toutes les applications, avant que la tâche SYSTEM remette le blocage (deadline de run.json).
+    $deadline = (Get-Date).AddMinutes(12)
+    if ($request.deadline -and [datetime]$request.deadline -lt $deadline) { $deadline = [datetime]$request.deadline }
+
     foreach ($app in @($apps | Where-Object { $_.productId -in $request.productIds })) {
         $id = $app.productId
-        $packageName = $app.family.Split('_')[0]
-        $version = "$((Get-AppxPackage -Name $packageName | Sort-Object -Property Version -Descending | Select-Object -First 1).Version)"
-        $available = $false
-        $state = ''
-        $queued = @($manager.AppInstallItems | Where-Object { $_.ProductId -eq $id })
-        $item = $queued | Where-Object { "$($_.GetCurrentStatus().InstallState)" -in $activeStates } | Select-Object -First 1
-        if (-not $item -and $queued) {
-            # Un élément resté dans la file (recherche sans installation, échec) masquerait la mise à jour : retiré d'abord.
-            $manager.Cancel($id)
-            Start-Sleep -Seconds 3
-        }
-        $pattern = "*\WindowsApps\$($packageName)_*"
-        $open = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -like $pattern }).Count -gt 0
-        if ($request.mode -eq 'check' -or $open) {
-            # Application ouverte : une installation serait reportée, puis forcée. On demande seulement si elle existe.
-            if ($item) {
-                $available = $true
-                $state = "$($item.GetCurrentStatus().InstallState)"
-                if ($open) {
-                    # Mise à jour lancée par le Store pendant la levée du blocage : reportée puis forcée si l'application
-                    # reste ouverte, donc retirée. La fenêtre la redemande, application fermée.
-                    $manager.Cancel($id)
-                    $state += ', annulée'
+        $version = ''
+        try {
+            $packageName = $app.family.Split('_')[0]
+            $version = "$((Get-AppxPackage -Name $packageName | Sort-Object -Property Version -Descending | Select-Object -First 1).Version)"
+            $available = $false
+            $state = ''
+            $queued = @($manager.AppInstallItems | Where-Object { $_.ProductId -eq $id })
+            $item = $queued | Where-Object { "$($_.GetCurrentStatus().InstallState)" -in $activeStates } | Select-Object -First 1
+            if (-not $item -and $queued) {
+                # Un élément resté dans la file (recherche sans installation, échec) masquerait la mise à jour : retiré d'abord.
+                $manager.Cancel($id)
+                Start-Sleep -Seconds 3
+            }
+            $pattern = "*\WindowsApps\$($packageName)_*"
+            $open = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -like $pattern }).Count -gt 0
+            if ($request.mode -eq 'check' -or $open) {
+                # Application ouverte : une installation serait reportée, puis forcée. On demande seulement si elle existe.
+                if ($item) {
+                    $available = $true
+                    $state = "$($item.GetCurrentStatus().InstallState)"
+                    if ($open) {
+                        # Mise à jour lancée par le Store pendant la levée du blocage : reportée puis forcée si l'application
+                        # reste ouverte, donc retirée. La fenêtre la redemande, application fermée.
+                        $manager.Cancel($id)
+                        $state += ', annulée'
+                    }
                 }
+                else {
+                    $options = [Windows.ApplicationModel.Store.Preview.InstallControl.AppUpdateOptions]::new()
+                    $options.AllowForcedAppRestart = $false
+                    $options.AutomaticallyDownloadAndInstallUpdateIfFound = $false
+                    $found = Wait-StoreOperation ($manager.SearchForUpdatesAsync($id, '', '', '', $options))
+                    if ($found) {
+                        $available = $true
+                        $state = 'proposée'
+                        $manager.Cancel($id)
+                    }
+                }
+                Write-StoreUpdateLog "$($app.name) $version : $(if ($available) { "mise à jour proposée ($state)" } else { 'à jour' })"
             }
             else {
-                $options = [Windows.ApplicationModel.Store.Preview.InstallControl.AppUpdateOptions]::new()
-                $options.AllowForcedAppRestart = $false
-                $options.AutomaticallyDownloadAndInstallUpdateIfFound = $false
-                $found = Wait-StoreOperation ($manager.SearchForUpdatesAsync($id, '', '', '', $options))
-                if ($found) {
-                    $available = $true
-                    $state = 'proposée'
-                    $manager.Cancel($id)
+                if (-not $item) {
+                    $options = [Windows.ApplicationModel.Store.Preview.InstallControl.AppUpdateOptions]::new()
+                    $options.AllowForcedAppRestart = $false
+                    $options.AutomaticallyDownloadAndInstallUpdateIfFound = $true
+                    $item = Wait-StoreOperation ($manager.SearchForUpdatesAsync($id, '', '', '', $options))
                 }
+                if ($item) {
+                    do {
+                        Start-Sleep -Seconds 3
+                        $status = $item.GetCurrentStatus()
+                    } while ("$($status.InstallState)" -notin 'Completed', 'Canceled', 'Error' -and (Get-Date) -lt $deadline)
+                    $state = "$($status.InstallState)"
+                    $available = $state -ne 'Completed'
+                    $after = "$((Get-AppxPackage -Name $packageName | Sort-Object -Property Version -Descending | Select-Object -First 1).Version)"
+                    $code = if ($status.ErrorCode) { ', code 0x{0:X8}' -f $status.ErrorCode.HResult }
+                    Write-StoreUpdateLog "$($app.name) $version -> $after : $state$code"
+                    $version = $after
+                }
+                else { Write-StoreUpdateLog "$($app.name) $version : à jour" }
             }
-            Write-StoreUpdateLog "$($app.name) $version : $(if ($available) { "mise à jour proposée ($state)" } else { 'à jour' })"
         }
-        else {
-            if (-not $item) {
-                $options = [Windows.ApplicationModel.Store.Preview.InstallControl.AppUpdateOptions]::new()
-                $options.AllowForcedAppRestart = $false
-                $options.AutomaticallyDownloadAndInstallUpdateIfFound = $true
-                $item = Wait-StoreOperation ($manager.SearchForUpdatesAsync($id, '', '', '', $options))
-            }
-            if ($item) {
-                $deadline = (Get-Date).AddMinutes(12)
-                do {
-                    Start-Sleep -Seconds 3
-                    $status = $item.GetCurrentStatus()
-                } while ("$($status.InstallState)" -notin 'Completed', 'Canceled', 'Error' -and (Get-Date) -lt $deadline)
-                $state = "$($status.InstallState)"
-                $available = $state -ne 'Completed'
-                $after = "$((Get-AppxPackage -Name $packageName | Sort-Object -Property Version -Descending | Select-Object -First 1).Version)"
-                $code = if ($status.ErrorCode) { ', code 0x{0:X8}' -f $status.ErrorCode.HResult }
-                Write-StoreUpdateLog "$($app.name) $version -> $after : $state$code"
-                $version = $after
-            }
-            else { Write-StoreUpdateLog "$($app.name) $version : à jour" }
+        catch {
+            # Une application en échec n'empêche pas les autres. Le résultat horodaté évite de relancer à chaque passage.
+            Write-StoreUpdateLog "$($app.name) : ERREUR $($_.Exception.Message)"
+            $available = $false
+            $state = 'Erreur'
         }
         $results[$id] = [ordered]@{ name = $app.name; version = $version; available = $available; state = $state; checked = (Get-Date).ToString('o') }
+        # Écrit après chaque application : un résultat obtenu n'est pas perdu si la suite échoue ou dépasse le délai.
+        [IO.File]::WriteAllText($checkFile, (ConvertTo-Json -InputObject $results), [Text.UTF8Encoding]::new($false))
     }
-    [IO.File]::WriteAllText($checkFile, (ConvertTo-Json -InputObject $results), [Text.UTF8Encoding]::new($false))
 }
 catch {
     Write-StoreUpdateLog "ERREUR $($_.Exception.Message)"
