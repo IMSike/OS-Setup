@@ -1,7 +1,7 @@
 ﻿#Requires -Version 7.4
 <#
 .SYNOPSIS
-    Crée une VM Hyper-V Windows vierge pour tester OS-Setup, sans ISO ni clic.
+    Crée une VM Hyper-V Windows vierge pour tester OS-Setup, sans clic, à partir d'une image Windows (install.esd/install.wim ou ISO).
 .DESCRIPTION
     1. Copie l'image Windows (install.esd / install.wim, ex. depuis une clé USB, ou extraite d'une ISO) dans un
        cache hors dépôt, propre à la VM.
