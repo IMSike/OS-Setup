@@ -23,7 +23,7 @@ $script:StoreUpdateScript = [ordered]@{
 # Version de la définition des tâches (déclencheurs, réglages, compte, descripteur de sécurité, action), notée à la fin
 # de leur description et contrôlée par Test-OSSetupStoreUpdateGuard : toute modification de
 # Register-OSSetupStoreUpdateTask l'incrémente, pour que les postes déjà configurés réenregistrent leurs tâches.
-$script:StoreUpdateTaskMarker = '[définition v1]'
+$script:StoreUpdateTaskMarker = '[définition v2]'
 # Fichiers partagés avec les tâches de l'utilisateur : journal commun et résultat des vérifications.
 $script:StoreUpdateSharedFile = @('store-update.log', 'check.json')
 
@@ -52,7 +52,9 @@ function Get-OSSetupStoreUpdateTaskArgument {
         [string]$Role
     )
     $script = Join-Path -Path (Get-OSSetupStoreUpdateRoot) -ChildPath $script:StoreUpdateScript[$Role]
-    "--headless powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$script`""
+    # Chemin complet : la tâche SYSTEM ne dépend pas de l'ordre du PATH.
+    $powershell = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'WindowsPowerShell\v1.0\powershell.exe'
+    "--headless `"$powershell`" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$script`""
 }
 
 function Get-OSSetupDoNotUpdate {
@@ -211,6 +213,8 @@ function Register-OSSetupStoreUpdateTask {
     param()
     if (-not $PSCmdlet.ShouldProcess('Planificateur de tâches', 'Enregistrer les tâches des mises à jour du Store')) { return }
     $user = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+    # Chemin complet, comme pour powershell.exe dans les arguments.
+    $conhost = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'conhost.exe'
 
     # Tâche SYSTEM : chaque jour (12 h, décalage aléatoire d'une heure, rattrapée si manquée) et à l'ouverture de
     # session. Par l'API COM : seule elle permet le descripteur de sécurité qui laisse les utilisateurs la lancer
@@ -225,7 +229,7 @@ function Register-OSSetupStoreUpdateTask {
     $daily.RandomDelay = 'PT1H'
     [void]$definition.Triggers.Create(9)
     $taskAction = $definition.Actions.Create(0)
-    $taskAction.Path = 'conhost.exe'
+    $taskAction.Path = $conhost
     $taskAction.Arguments = Get-OSSetupStoreUpdateTaskArgument -Role System
     $definition.Principal.UserId = 'S-1-5-18'
     $definition.Principal.LogonType = 5
@@ -243,7 +247,7 @@ function Register-OSSetupStoreUpdateTask {
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew `
         -ExecutionTimeLimit ([TimeSpan]::FromMinutes(20))
     Register-ScheduledTask -TaskName $script:StoreUpdateTask.User -Principal $principal -Settings $settings -Force `
-        -Action (New-ScheduledTaskAction -Execute 'conhost.exe' -Argument (Get-OSSetupStoreUpdateTaskArgument -Role User)) `
+        -Action (New-ScheduledTaskAction -Execute $conhost -Argument (Get-OSSetupStoreUpdateTaskArgument -Role User)) `
         -Description "OS-Setup : interroge le Store pour la tâche « OS-Setup - Store (système) ». $script:StoreUpdateTaskMarker" | Out-Null
 
     $logon = New-ScheduledTaskTrigger -AtLogOn -User $user
@@ -252,6 +256,6 @@ function Register-OSSetupStoreUpdateTask {
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew `
         -ExecutionTimeLimit ([TimeSpan]::FromHours(24))
     Register-ScheduledTask -TaskName $script:StoreUpdateTask.Prompt -Principal $principal -Settings $settings -Trigger $logon, $repeat -Force `
-        -Action (New-ScheduledTaskAction -Execute 'conhost.exe' -Argument (Get-OSSetupStoreUpdateTaskArgument -Role Prompt)) `
+        -Action (New-ScheduledTaskAction -Execute $conhost -Argument (Get-OSSetupStoreUpdateTaskArgument -Role Prompt)) `
         -Description "OS-Setup : propose la mise à jour d'une application du Store ouverte (PowerShell 7, Windows Terminal), ou un report. $script:StoreUpdateTaskMarker" | Out-Null
 }

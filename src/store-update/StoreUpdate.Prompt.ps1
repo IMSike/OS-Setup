@@ -14,6 +14,8 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $systemTask = 'OS-Setup - Store (système)'
+# Exécutable système par son chemin complet, pas par le PATH.
+$schtasks = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'schtasks.exe'
 # Vérification auprès du Store au plus toutes les 4 heures.
 $checkHours = 4
 $root = $PSScriptRoot
@@ -82,7 +84,7 @@ function Invoke-SystemRun($State) {
         Start-Sleep -Seconds 3
     }
     $started = Get-Date
-    & schtasks.exe /run /tn $systemTask | Out-Null
+    & $schtasks /run /tn $systemTask | Out-Null
     $deadline = $started.AddMinutes($limit)
     do {
         Start-Sleep -Seconds 3

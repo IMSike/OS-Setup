@@ -10,6 +10,9 @@
 
 $ErrorActionPreference = 'Stop'
 $userTask = 'OS-Setup - Store (recherche)'
+# Exécutables système par leur chemin complet : sous SYSTEM, ne pas dépendre de l'ordre du PATH.
+$schtasks = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'schtasks.exe'
+$icacls = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'icacls.exe'
 $root = $PSScriptRoot
 $log = Join-Path -Path $root -ChildPath 'store-update.log'
 $namespace = 'root\cimv2\mdm\dmmap'
@@ -49,7 +52,7 @@ function Invoke-UserSearch([object[]]$App, [string]$Mode, [int]$TimeoutMinutes) 
     try {
         foreach ($item in $App) { Write-DoNotUpdate -Family $item.family -Value 0 }
         $started = Get-Date
-        & schtasks.exe /run /tn $userTask | Out-Null
+        & $schtasks /run /tn $userTask | Out-Null
         if ($LASTEXITCODE -ne 0) {
             Write-StoreUpdateLog "recherche non lancée (code $LASTEXITCODE)"
             return
@@ -79,13 +82,13 @@ try {
         # Nouveau journal, modifiable par les utilisateurs comme le précédent (le dossier leur est en lecture seule).
         Move-Item -Path $log -Destination "$log.old" -Force
         New-Item -Path $log -ItemType File | Out-Null
-        & icacls.exe $log /grant '*S-1-5-32-545:(M)' | Out-Null
+        & $icacls $log /grant '*S-1-5-32-545:(M)' | Out-Null
     }
     $checkFile = Join-Path -Path $root -ChildPath 'check.json'
     if (-not (Test-Path -Path $checkFile)) {
         # Résultat des vérifications supprimé : recréé, modifiable par les utilisateurs (la tâche de recherche l'écrit).
         [IO.File]::WriteAllText($checkFile, '{}', [Text.UTF8Encoding]::new($false))
-        & icacls.exe $checkFile /grant '*S-1-5-32-545:(M)' | Out-Null
+        & $icacls $checkFile /grant '*S-1-5-32-545:(M)' | Out-Null
     }
     # Sous Windows PowerShell 5.1, ConvertFrom-Json rend un tableau JSON d'un bloc : l'affectation puis @() le déplient.
     $apps = ConvertFrom-Json -InputObject (Get-Content -Path (Join-Path -Path $root -ChildPath 'apps.json') -Raw -Encoding UTF8)

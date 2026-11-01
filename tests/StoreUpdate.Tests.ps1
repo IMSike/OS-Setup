@@ -44,6 +44,17 @@ Describe 'Scripts des tâches des mises à jour du Store' {
         $text | Should -Not -Match '\$installed\.Count -eq \$apps\.Count'
     }
 
+    It 'les tâches lancent Windows PowerShell par son chemin complet' {
+        $argument = InModuleScope OSSetup { Get-OSSetupStoreUpdateTaskArgument -Role System }
+        $expected = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'WindowsPowerShell\v1.0\powershell.exe'
+        $argument | Should -BeLike "--headless `"$expected`" *"
+    }
+
+    It '<_> appelle les exécutables système par leur chemin complet' -ForEach @('StoreUpdate.System.ps1', 'StoreUpdate.Prompt.ps1') {
+        $text = Get-Content -Path (Join-Path -Path $sourceRoot -ChildPath $_) -Raw
+        $text | Should -Not -Match '&\s+(schtasks|icacls)\.exe'
+    }
+
     It 'la tâche SYSTEM reconnaît la tâche de reprise du setup sous son nom actuel' {
         $resume = InModuleScope OSSetup { $script:ResumeTaskName }
         $resume | Should -Not -BeNullOrEmpty
@@ -66,7 +77,8 @@ function Start-Sleep([int]$Seconds) { $sim.clock = $sim.clock.AddSeconds($Second
 function Get-ScheduledTask { [CmdletBinding()] param([string]$TaskName)
     [pscustomobject]@{ TaskName = $TaskName; State = $(if ($sim.busyUntil -and $sim.clock -lt $sim.busyUntil) { 'Running' } else { 'Ready' }) } }
 function Get-ScheduledTaskInfo { [CmdletBinding()] param([Parameter(ValueFromPipeline)]$InputObject) process { [pscustomobject]@{ LastRunTime = $sim.lastRunTime } } }
-function schtasks.exe {
+$schtasks = 'Invoke-FakeSchtasks'
+function Invoke-FakeSchtasks {
     $sim.runs.Add($sim.clock)
     # Une seule instance (IgnoreNew) : demande ignorée pendant une exécution.
     if ($sim.startOnRun -and -not ($sim.busyUntil -and $sim.clock -lt $sim.busyUntil)) {
