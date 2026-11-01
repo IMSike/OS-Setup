@@ -24,6 +24,6 @@ param()
     Invoke   = {
         param($Action, $Context)
         $command = if ($Action['editor']) { $Action['editor'] } else { 'code' }
-        Invoke-OSSetupNativeCommand -FilePath $command -ArgumentList '--install-extension', $Action['id'], '--force' -Label "$command --install-extension"
+        Invoke-OSSetupNativeCommand -FilePath $command -ArgumentList '--install-extension', $Action['id'], '--force' -Utf8 -Label "$command --install-extension"
     }
 }

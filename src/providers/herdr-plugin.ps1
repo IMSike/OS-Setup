@@ -23,6 +23,6 @@ param()
     Invoke   = {
         param($Action, $Context)
         # --yes : sans console interactive, herdr refuse d'installer sans confirmation (pas d'aperçu).
-        Invoke-OSSetupNativeCommand -FilePath herdr -ArgumentList 'plugin', 'install', $Action['repo'], '--yes' -Label 'herdr plugin install'
+        Invoke-OSSetupNativeCommand -FilePath herdr -ArgumentList 'plugin', 'install', $Action['repo'], '--yes' -Utf8 -Label 'herdr plugin install'
     }
 }

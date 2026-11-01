@@ -13,7 +13,7 @@ Behaviors observed during development, and how the engine handles them. Read bef
 | Tool not found right after its installation | The session PATH is frozen: the engine reloads it from the registry after each installation (`Update-SessionPath` in the bootstrap). |
 | Installed program that does not start, code `-1073741515` (`0xC0000135`) with no message | Missing DLL, most often the Visual C++ runtime (absent from a fresh Windows, rarely declared by portable packages, e.g. rtk): `vcredist` dependency. |
 | Package missing from winget (e.g. NVIDIA App) | Would need another provider (direct download), to be validated before adding one. |
-| Corrupted accents in captured output (`Trouv├®`) | winget writes UTF-8: set `[Console]::OutputEncoding` to UTF-8 for the duration of the call. |
+| Corrupted accents in captured output (`Trouv├®`) | winget and the other command-line tools launched by the providers (gh, npm, herdr, code, fnm, rtk, claude, playwright-cli) write UTF-8: set `[Console]::OutputEncoding` to UTF-8 for the duration of the call (`Invoke-OSSetupNativeCommand -Utf8`). |
 | Package found in the `msstore` source instead of `winget` | Always specify `--source winget`. |
 | Installed package that `winget list --id` does not find (`0x8A150014`), while `winget list --name` shows it with its identifier (observed: PowerShell 7 updated by Microsoft Update) | The plan wanted to reinstall it. `winget export` does make the link: second opinion in `Test-OSSetupWingetInstalled`. |
 

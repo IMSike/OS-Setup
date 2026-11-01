@@ -21,6 +21,6 @@ param()
 
     Invoke   = {
         param($Action, $Context)
-        Invoke-OSSetupNativeCommand -FilePath gh -ArgumentList 'extension', 'install', $Action['repo'] -Label 'gh extension install'
+        Invoke-OSSetupNativeCommand -FilePath gh -ArgumentList 'extension', 'install', $Action['repo'] -Utf8 -Label 'gh extension install'
     }
 }
