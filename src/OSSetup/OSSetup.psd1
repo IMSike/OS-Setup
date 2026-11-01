@@ -131,6 +131,7 @@
         'Get-OSSetupUninstallEntry'
         'Import-OSSetupAppxModule'
         'Set-OSSetupPowerValue'
+        'Stop-OSSetupStoreUpdate'
         'Split-OSSetupTaskPath'
         'Wait-OSSetupUninstallEntryRemoval'
         # Variables.ps1

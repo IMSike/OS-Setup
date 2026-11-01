@@ -26,6 +26,12 @@ param()
 
     Invoke   = {
         param($Action, $Context)
+        # Une mise à jour du Store en attente ou en cours s'achèverait après la suppression et réinstallerait
+        # l'application (nouvelle version, reprovisionnée) : l'annuler d'abord.
+        $cancelled = @(Stop-OSSetupStoreUpdate -Name $Action['name'])
+        if ($cancelled.Count -gt 0) {
+            Write-OSSetupLog -Level Detail -Message "  mise à jour du Store annulée ($($cancelled -join ', '))"
+        }
         $presence = Get-OSSetupAppxPresence -Name $Action['name']
         # Ordre imposé : tant qu'une application est provisionnée, sa suppression pour tous les comptes échoue
         # (0x80073CFA, « Échec de la suppression »). Déprovisionner d'abord.
