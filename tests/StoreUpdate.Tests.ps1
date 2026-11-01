@@ -125,9 +125,13 @@ Describe 'Mises à jour encadrées du Store' {
             foreach ($file in Get-ChildItem -Path $sourceRoot -Filter '*.ps1') { Copy-Item -Path $file.FullName -Destination $root }
             $entry = InModuleScope OSSetup -Parameters @{ Action = $pwshAction } { param($Action) ConvertTo-OSSetupStoreUpdateApp -Action $Action }
             Set-Content -Path (Join-Path -Path $root -ChildPath 'apps.json') -Value (ConvertTo-Json -InputObject @($entry) -Depth 4) -Encoding utf8
+            foreach ($name in 'check.json', 'store-update.log') { Set-Content -Path (Join-Path -Path $root -ChildPath $name) -Value '' }
+            $taskState = 'Ready'
+            $marker = InModuleScope OSSetup { $script:StoreUpdateTaskMarker }
             Mock -ModuleName OSSetup Get-ScheduledTask {
                 $role = @{ 'OS-Setup - Store (système)' = 'System'; 'OS-Setup - Store (recherche)' = 'User'; 'OS-Setup - Store (fenêtre)' = 'Prompt' }[[string]$TaskName]
-                [pscustomobject]@{ TaskName = $TaskName; Actions = @([pscustomobject]@{ Arguments = (Get-OSSetupStoreUpdateTaskArgument -Role $role) }) }
+                [pscustomobject]@{ TaskName = $TaskName; State = $taskState; Description = "OS-Setup : tâche. $marker"
+                    Actions = @([pscustomobject]@{ Arguments = (Get-OSSetupStoreUpdateTaskArgument -Role $role) }) }
             }
             Mock -ModuleName OSSetup Get-OSSetupDoNotUpdate { 1 }
         }
@@ -155,6 +159,27 @@ Describe 'Mises à jour encadrées du Store' {
         It 'n''est pas conforme quand l''application n''est pas listée' {
             $terminal = @{ family = 'Microsoft.WindowsTerminal_8wekyb3d8bbwe'; productId = '9N0DX20HK701'; name = 'Windows Terminal' }
             InModuleScope OSSetup -Parameters @{ Action = $terminal; Source = $sourceRoot } {
+                param($Action, $Source) Test-OSSetupStoreUpdateGuard -Action $Action -SourceRoot $Source
+            } | Should -BeFalse
+        }
+
+        It 'n''est pas conforme quand une tâche est désactivée' {
+            $taskState = 'Disabled'
+            InModuleScope OSSetup -Parameters @{ Action = $pwshAction; Source = $sourceRoot } {
+                param($Action, $Source) Test-OSSetupStoreUpdateGuard -Action $Action -SourceRoot $Source
+            } | Should -BeFalse
+        }
+
+        It 'n''est pas conforme quand une tâche a une ancienne définition' {
+            $marker = '[définition v0]'
+            InModuleScope OSSetup -Parameters @{ Action = $pwshAction; Source = $sourceRoot } {
+                param($Action, $Source) Test-OSSetupStoreUpdateGuard -Action $Action -SourceRoot $Source
+            } | Should -BeFalse
+        }
+
+        It 'n''est pas conforme sans check.json' {
+            Remove-Item -Path (Join-Path -Path $root -ChildPath 'check.json')
+            InModuleScope OSSetup -Parameters @{ Action = $pwshAction; Source = $sourceRoot } {
                 param($Action, $Source) Test-OSSetupStoreUpdateGuard -Action $Action -SourceRoot $Source
             } | Should -BeFalse
         }

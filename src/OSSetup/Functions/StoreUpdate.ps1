@@ -20,6 +20,12 @@ $script:StoreUpdateScript = [ordered]@{
     User   = 'StoreUpdate.User.ps1'
     Prompt = 'StoreUpdate.Prompt.ps1'
 }
+# Version de la définition des tâches (déclencheurs, réglages, compte, descripteur de sécurité, action), notée à la fin
+# de leur description et contrôlée par Test-OSSetupStoreUpdateGuard : toute modification de
+# Register-OSSetupStoreUpdateTask l'incrémente, pour que les postes déjà configurés réenregistrent leurs tâches.
+$script:StoreUpdateTaskMarker = '[définition v1]'
+# Fichiers partagés avec les tâches de l'utilisateur : journal commun et résultat des vérifications.
+$script:StoreUpdateSharedFile = @('store-update.log', 'check.json')
 
 function Get-OSSetupStoreUpdateRoot {
     <#
@@ -128,8 +134,8 @@ function ConvertTo-OSSetupStoreUpdateApp {
 function Test-OSSetupStoreUpdateGuard {
     <#
     .SYNOPSIS
-        Conforme si les scripts déployés sont ceux du dépôt, l'application est listée, les trois tâches existent et le
-        blocage est posé.
+        Conforme si les scripts déployés sont ceux du dépôt, l'application est listée, les fichiers partagés existent,
+        les trois tâches existent dans la version de définition actuelle et sont activées, et le blocage est posé.
     #>
     [CmdletBinding()]
     [OutputType([bool])]
@@ -149,9 +155,13 @@ function Test-OSSetupStoreUpdateGuard {
     $expected = ConvertTo-Json -InputObject (ConvertTo-OSSetupStoreUpdateApp -Action $Action) -Compress
     $listed = @(Get-OSSetupStoreUpdateApp | Where-Object { (ConvertTo-Json -InputObject $_ -Compress) -eq $expected })
     if ($listed.Count -ne 1) { return $false }
+    foreach ($name in $script:StoreUpdateSharedFile) {
+        if (-not (Test-Path -Path (Join-Path -Path $root -ChildPath $name) -PathType Leaf)) { return $false }
+    }
     foreach ($role in $script:StoreUpdateTask.Keys) {
         $task = Get-ScheduledTask -TaskName $script:StoreUpdateTask[$role] -ErrorAction SilentlyContinue
         if (-not $task -or $task.Actions[0].Arguments -ne (Get-OSSetupStoreUpdateTaskArgument -Role $role)) { return $false }
+        if ("$($task.State)" -eq 'Disabled' -or -not "$($task.Description)".EndsWith($script:StoreUpdateTaskMarker)) { return $false }
     }
     (Get-OSSetupDoNotUpdate -Family $Action['family']) -eq 1
 }
@@ -178,7 +188,7 @@ function Install-OSSetupStoreUpdateGuard {
         Copy-Item -Path (Join-Path -Path $SourceRoot -ChildPath $name) -Destination $root -Force
     }
     # Journal commun et résultat des vérifications : écrits aussi par les tâches de l'utilisateur.
-    foreach ($name in 'store-update.log', 'check.json') {
+    foreach ($name in $script:StoreUpdateSharedFile) {
         $path = Join-Path -Path $root -ChildPath $name
         if (-not (Test-Path -Path $path -PathType Leaf)) {
             [System.IO.File]::WriteAllText($path, $(if ($name -like '*.json') { '{}' } else { '' }), [System.Text.UTF8Encoding]::new($false))
@@ -208,7 +218,7 @@ function Register-OSSetupStoreUpdateTask {
     $service = New-Object -ComObject Schedule.Service
     $service.Connect()
     $definition = $service.NewTask(0)
-    $definition.RegistrationInfo.Description = 'OS-Setup : mises à jour des applications du Store sans fermeture forcée (PowerShell 7, Windows Terminal).'
+    $definition.RegistrationInfo.Description = "OS-Setup : mises à jour des applications du Store sans fermeture forcée (PowerShell 7, Windows Terminal). $script:StoreUpdateTaskMarker"
     $daily = $definition.Triggers.Create(2)
     $daily.StartBoundary = (Get-Date).Date.AddHours(12).ToString('s')
     $daily.DaysInterval = 1
@@ -234,7 +244,7 @@ function Register-OSSetupStoreUpdateTask {
         -ExecutionTimeLimit ([TimeSpan]::FromMinutes(20))
     Register-ScheduledTask -TaskName $script:StoreUpdateTask.User -Principal $principal -Settings $settings -Force `
         -Action (New-ScheduledTaskAction -Execute 'conhost.exe' -Argument (Get-OSSetupStoreUpdateTaskArgument -Role User)) `
-        -Description 'OS-Setup : interroge le Store pour la tâche « OS-Setup - Store (système) ».' | Out-Null
+        -Description "OS-Setup : interroge le Store pour la tâche « OS-Setup - Store (système) ». $script:StoreUpdateTaskMarker" | Out-Null
 
     $logon = New-ScheduledTaskTrigger -AtLogOn -User $user
     $logon.Delay = 'PT2M'
@@ -243,5 +253,5 @@ function Register-OSSetupStoreUpdateTask {
         -ExecutionTimeLimit ([TimeSpan]::FromHours(24))
     Register-ScheduledTask -TaskName $script:StoreUpdateTask.Prompt -Principal $principal -Settings $settings -Trigger $logon, $repeat -Force `
         -Action (New-ScheduledTaskAction -Execute 'conhost.exe' -Argument (Get-OSSetupStoreUpdateTaskArgument -Role Prompt)) `
-        -Description 'OS-Setup : propose la mise à jour d''une application du Store ouverte (PowerShell 7, Windows Terminal), ou un report.' | Out-Null
+        -Description "OS-Setup : propose la mise à jour d'une application du Store ouverte (PowerShell 7, Windows Terminal), ou un report. $script:StoreUpdateTaskMarker" | Out-Null
 }

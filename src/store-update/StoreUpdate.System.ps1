@@ -81,6 +81,12 @@ try {
         New-Item -Path $log -ItemType File | Out-Null
         & icacls.exe $log /grant '*S-1-5-32-545:(M)' | Out-Null
     }
+    $checkFile = Join-Path -Path $root -ChildPath 'check.json'
+    if (-not (Test-Path -Path $checkFile)) {
+        # Résultat des vérifications supprimé : recréé, modifiable par les utilisateurs (la tâche de recherche l'écrit).
+        [IO.File]::WriteAllText($checkFile, '{}', [Text.UTF8Encoding]::new($false))
+        & icacls.exe $checkFile /grant '*S-1-5-32-545:(M)' | Out-Null
+    }
     # Sous Windows PowerShell 5.1, ConvertFrom-Json rend un tableau JSON d'un bloc : l'affectation puis @() le déplient.
     $apps = ConvertFrom-Json -InputObject (Get-Content -Path (Join-Path -Path $root -ChildPath 'apps.json') -Raw -Encoding UTF8)
     $apps = @($apps)
