@@ -118,6 +118,7 @@
         'Request-OSSetupRestart'
         'Save-OSSetupRunState'
         'Unregister-OSSetupResumeTask'
+        'Wait-OSSetupCountdown'
         'Wait-OSSetupUserSession'
         'Write-OSSetupRunResult'
         # StoreUpdate.ps1

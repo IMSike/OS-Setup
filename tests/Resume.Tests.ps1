@@ -137,6 +137,28 @@ Describe 'État de reprise' {
     }
 }
 
+Describe 'Request-OSSetupLogoff' {
+    BeforeEach {
+        Mock -ModuleName OSSetup Write-OSSetupLog {}
+        Mock -ModuleName OSSetup Write-Host {}
+        Mock -ModuleName OSSetup Test-OSSetupInteractiveConsole { $false }
+    }
+
+    It 'demande la fermeture aussitôt avec -Immediate' {
+        Request-OSSetupLogoff -Immediate | Should -BeTrue
+    }
+
+    It 'demande la fermeture après le compte à rebours' {
+        $watch = [Diagnostics.Stopwatch]::StartNew()
+        Request-OSSetupLogoff -Seconds 1 | Should -BeTrue
+        $watch.Elapsed.TotalMilliseconds | Should -BeGreaterOrEqual 900
+    }
+
+    It 'ne demande pas la fermeture en simulation' {
+        Request-OSSetupLogoff -Immediate -WhatIf | Should -BeFalse
+    }
+}
+
 Describe 'Request-OSSetupRestart' {
     BeforeEach {
         Mock -ModuleName OSSetup Restart-Computer {}

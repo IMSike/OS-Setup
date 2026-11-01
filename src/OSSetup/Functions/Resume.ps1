@@ -143,6 +143,42 @@ function Wait-OSSetupUserSession {
     }
 }
 
+function Wait-OSSetupCountdown {
+    <#
+    .SYNOPSIS
+        Affiche un compte à rebours seconde par seconde ; dans une console interactive, une touche l'interrompt.
+        Retourne $true s'il arrive à son terme, $false si une touche l'a interrompu.
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Label,
+
+        # Texte ajouté au décompte quand une touche peut l'interrompre (console interactive).
+        [Parameter(Mandatory)]
+        [string]$Hint,
+
+        [int]$Seconds = 10
+    )
+    $interactive = Test-OSSetupInteractiveConsole
+    $shownHint = if ($interactive) { $Hint } else { '' }
+    for ($remaining = $Seconds; $remaining -gt 0; $remaining--) {
+        Write-Host -Object ("`r$Label dans $remaining s$shownHint ") -NoNewline -ForegroundColor Yellow
+        $deadline = (Get-Date).AddSeconds(1)
+        while ((Get-Date) -lt $deadline) {
+            if ($interactive -and [Console]::KeyAvailable) {
+                [void][Console]::ReadKey($true)
+                Write-Host ''
+                return $false
+            }
+            Start-Sleep -Milliseconds 100
+        }
+    }
+    Write-Host ''
+    $true
+}
+
 function Request-OSSetupLogoff {
     <#
     .SYNOPSIS
@@ -157,23 +193,10 @@ function Request-OSSetupLogoff {
 
         [int]$Seconds = 10
     )
-    if (-not $Immediate) {
-        $interactive = Test-OSSetupInteractiveConsole
-        $hint = if ($interactive) { ' — appuyez sur une touche pour la reporter' } else { '' }
-        for ($remaining = $Seconds; $remaining -gt 0; $remaining--) {
-            Write-Host -Object ("`rFermeture de la session dans $remaining s$hint ") -NoNewline -ForegroundColor Yellow
-            $deadline = (Get-Date).AddSeconds(1)
-            while ((Get-Date) -lt $deadline) {
-                if ($interactive -and [Console]::KeyAvailable) {
-                    [void][Console]::ReadKey($true)
-                    Write-Host ''
-                    Write-OSSetupLog -Level Warning -Message 'Fermeture de la session reportée : à faire avant d''utiliser ces éléments.'
-                    return $false
-                }
-                Start-Sleep -Milliseconds 100
-            }
-        }
-        Write-Host ''
+    if (-not $Immediate -and
+        -not (Wait-OSSetupCountdown -Label 'Fermeture de la session' -Hint ' — appuyez sur une touche pour la reporter' -Seconds $Seconds)) {
+        Write-OSSetupLog -Level Warning -Message 'Fermeture de la session reportée : à faire avant d''utiliser ces éléments.'
+        return $false
     }
     if ($PSCmdlet.ShouldProcess($env:USERNAME, 'Fermer la session')) {
         Write-OSSetupLog -Message 'Fermeture de la session à la fin du setup…'
@@ -195,24 +218,11 @@ function Request-OSSetupRestart {
 
         [int]$Seconds = 10
     )
-    if (-not $Immediate) {
-        $interactive = Test-OSSetupInteractiveConsole
-        $hint = if ($interactive) { ' — appuyez sur une touche pour le reporter' } else { '' }
-        for ($remaining = $Seconds; $remaining -gt 0; $remaining--) {
-            Write-Host -Object ("`rRedémarrage dans $remaining s$hint ") -NoNewline -ForegroundColor Yellow
-            $deadline = (Get-Date).AddSeconds(1)
-            while ((Get-Date) -lt $deadline) {
-                if ($interactive -and [Console]::KeyAvailable) {
-                    [void][Console]::ReadKey($true)
-                    Write-Host ''
-                    Write-OSSetupLog -Level Warning -Message ('Redémarrage reporté. Le setup reprendra automatiquement à la prochaine ' +
-                        'ouverture de session, après un redémarrage.')
-                    return $false
-                }
-                Start-Sleep -Milliseconds 100
-            }
-        }
-        Write-Host ''
+    if (-not $Immediate -and
+        -not (Wait-OSSetupCountdown -Label 'Redémarrage' -Hint ' — appuyez sur une touche pour le reporter' -Seconds $Seconds)) {
+        Write-OSSetupLog -Level Warning -Message ('Redémarrage reporté. Le setup reprendra automatiquement à la prochaine ' +
+            'ouverture de session, après un redémarrage.')
+        return $false
     }
     if ($PSCmdlet.ShouldProcess($env:COMPUTERNAME, 'Redémarrer')) {
         Write-OSSetupLog -Message 'Redémarrage…'
