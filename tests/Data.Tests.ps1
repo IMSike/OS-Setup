@@ -8,6 +8,16 @@ Describe 'Données du dépôt' {
         { Import-OSSetupData -Root $repoRoot } | Should -Not -Throw
     }
 
+    It 'chaque action winget de source msstore donne le nom de son paquet appx (packageName)' {
+        $data = Import-OSSetupData -Root $repoRoot
+        $missing = foreach ($item in $data.Items.Values) {
+            foreach ($action in $item['actions']) {
+                if ($action['provider'] -eq 'winget' -and $action['source'] -eq 'msstore' -and -not $action['packageName']) { $item['id'] }
+            }
+        }
+        @($missing).Count | Should -Be 0 -Because "winget list rattache aussi un MSI au produit du Store (sans packageName : $($missing -join ', '))"
+    }
+
     It 'les fichiers de réponses d''exemple sont valides et cohérents' {
         $data = Import-OSSetupData -Root $repoRoot
         foreach ($file in Get-ChildItem -Path (Join-Path -Path $repoRoot -ChildPath 'answers') -Filter '*.example.json') {

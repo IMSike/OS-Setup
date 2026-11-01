@@ -7,7 +7,7 @@
   "requiresAdmin": true,
   "notes": "Version du Store (source msstore : sous licence, contrairement au MSIX de la source winget), mises à jour sans fermeture forcée (ADR 0004). Un MSI de PowerShell 7 existant est désinstallé, pour finir comme un poste neuf.",
   "actions": [
-    { "provider": "winget", "id": "9MZ1SNWT0N5D", "source": "msstore" },
+    { "provider": "winget", "id": "9MZ1SNWT0N5D", "source": "msstore", "packageName": "Microsoft.PowerShell" },
     { "provider": "win32-uninstall", "displayName": "PowerShell 7-x64" },
     {
       "provider": "store-update-guard",
