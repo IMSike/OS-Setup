@@ -131,6 +131,10 @@ Describe 'Wait-OSSetupUninstallEntryRemoval' {
 }
 
 Describe 'Import-OSSetupCompatibilityModule' {
+    AfterEach {
+        Remove-Variable -Name OSSetupTestWhatIfDuringImport -Scope Global -ErrorAction SilentlyContinue
+    }
+
     It 'charge le module par Windows PowerShell 5.1 hors simulation, puis rétablit -WhatIf même en cas d''échec' {
         Mock -ModuleName OSSetup Import-Module {
             $global:OSSetupTestWhatIfDuringImport = $global:WhatIfPreference
@@ -148,7 +152,6 @@ Describe 'Import-OSSetupCompatibilityModule' {
         $restored | Should -BeTrue
         $global:OSSetupTestWhatIfDuringImport | Should -BeFalse
         Should -Invoke -ModuleName OSSetup Import-Module -ParameterFilter { $Name -eq 'Dism' -and $UseWindowsPowerShell } -Times 1 -Exactly
-        Remove-Variable -Name OSSetupTestWhatIfDuringImport -Scope Global -ErrorAction SilentlyContinue
     }
 }
 
