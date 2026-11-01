@@ -446,7 +446,7 @@
       "properties": {
         "provider": { "const": "windows-capability" },
         "description": { "type": "string" },
-        "name": { "description": "Nom de la capacité sans version (ex. Browser.InternetExplorer) ; * pour une partie propre à une version (ex. Hello.Face.*). Un nom sans correspondance est une erreur. Admin requis.", "type": "string", "pattern": "^[^~]+$" }
+        "name": { "description": "Nom de la capacité sans version (ex. Browser.InternetExplorer) ; * pour une partie propre à une version (ex. Hello.Face.*). Un nom sans correspondance dans cette version de Windows est conforme (son absence est le but) ; le journal le signale, ce qui révèle aussi une faute de frappe. Admin requis.", "type": "string", "pattern": "^[^~]+$" }
       }
     },
     "win32UninstallAction": {
