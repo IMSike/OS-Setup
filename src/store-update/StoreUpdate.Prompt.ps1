@@ -151,10 +151,10 @@ function Show-Message([string]$Text) {
 
 try {
     $saved = Read-JsonFile $stateFile
-    $state = [pscustomobject]@{
-        # $(…) : Windows PowerShell 5.1 n'accepte pas un if nu comme valeur d'une table de hachage.
-        snoozeUntil = $(if ($saved -and $saved.PSObject.Properties['snoozeUntil']) { $saved.snoozeUntil })
-        lastRun     = $(if ($saved -and $saved.PSObject.Properties['lastRun']) { $saved.lastRun })
+    # Valeurs absentes : $null explicite (sous Windows PowerShell 5.1, un $(…) vide s'écrirait {} en JSON).
+    $state = [pscustomobject]@{ snoozeUntil = $null; lastRun = $null }
+    foreach ($name in 'snoozeUntil', 'lastRun') {
+        if ($saved -and $saved.PSObject.Properties[$name] -and ($saved.$name -is [string] -or $saved.$name -is [datetime])) { $state.$name = "$($saved.$name)" }
     }
     if ($state.snoozeUntil -and (Get-Date) -lt [datetime]$state.snoozeUntil) { return }
     $apps = @(Read-JsonFile (Join-Path -Path $root -ChildPath 'apps.json') | Where-Object { Get-AppVersion $_ })
