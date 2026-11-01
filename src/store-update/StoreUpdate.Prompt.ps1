@@ -70,17 +70,28 @@ function Test-CheckStale([object[]]$App) {
 
 function Invoke-SystemRun($State) {
     # Lance la tâche SYSTEM (les utilisateurs ont le droit de l'exécuter, pas de la modifier) et attend sa fin.
+    # Renvoie $true si une exécution lancée après la demande s'est terminée, $false sinon (délai dépassé, tâche absente).
     $State.lastRun = (Get-Date).ToString('o')
     Save-State $State
+    # Attente bornée par la durée maximale d'une exécution de la tâche SYSTEM (ExecutionTimeLimit PT30M).
+    $limit = 30
+    # Une seule instance à la fois : une demande faite pendant une exécution déjà en cours (ouverture de session, tâche
+    # quotidienne) serait ignorée. On attend d'abord sa fin.
+    $wait = (Get-Date).AddMinutes($limit)
+    while ((Get-ScheduledTask -TaskName $systemTask -ErrorAction SilentlyContinue).State -eq 'Running' -and (Get-Date) -lt $wait) {
+        Start-Sleep -Seconds 3
+    }
     $started = Get-Date
     & schtasks.exe /run /tn $systemTask | Out-Null
-    $deadline = $started.AddMinutes(20)
+    $deadline = $started.AddMinutes($limit)
     do {
         Start-Sleep -Seconds 3
         $task = Get-ScheduledTask -TaskName $systemTask -ErrorAction SilentlyContinue
         $info = if ($task) { $task | Get-ScheduledTaskInfo -ErrorAction SilentlyContinue }
-        $done = $task -and $task.State -ne 'Running' -and $info -and $info.LastRunTime -ge $started.AddSeconds(-2)
+        $done = [bool]($task -and $task.State -ne 'Running' -and $info -and $info.LastRunTime -ge $started.AddSeconds(-2))
     } until ($done -or -not $task -or (Get-Date) -gt $deadline)
+    if (-not $done) { Write-StoreUpdateLog 'tâche système non terminée' }
+    $done
 }
 
 function Test-RecentRun($State) {
@@ -161,14 +172,14 @@ try {
     if (-not $apps) { return }
 
     if ((Test-CheckStale $apps) -and -not (Test-RecentRun $state)) {
-        Invoke-SystemRun $state
+        [void](Invoke-SystemRun $state)
     }
     $pending = @(Get-PendingApp $apps)
     if (-not $pending) { return }
     $open = @($pending | Where-Object { (Get-AppProcess $_).Count -gt 0 })
     if ($open.Count -lt $pending.Count -and -not (Test-RecentRun $state)) {
         # Applications fermées depuis la vérification : la tâche SYSTEM les met à jour sans rien demander.
-        Invoke-SystemRun $state
+        [void](Invoke-SystemRun $state)
         $open = @(Get-PendingApp $apps | Where-Object { (Get-AppProcess $_).Count -gt 0 })
     }
     if (-not $open) { return }
@@ -185,7 +196,12 @@ try {
 
     $state.snoozeUntil = $null
     # Vérification auprès du Store juste avant de fermer quoi que ce soit : la mise à jour est-elle toujours proposée ?
-    Invoke-SystemRun $state
+    if (-not (Invoke-SystemRun $state)) {
+        # Vérification non terminée : rien n'est fermé, la question revient au passage suivant.
+        $state.snoozeUntil = (Get-Date).AddMinutes(10).ToString('o')
+        Save-State $state
+        return
+    }
     $targets = @(Get-PendingApp $open)
     if (-not $targets) {
         Show-Message 'Le Store ne propose plus de mise à jour pour ces applications : rien n''a été fermé.'
@@ -203,7 +219,12 @@ try {
         $left = @($targets | ForEach-Object { Get-AppProcess $_ })
     } while ($left -and (Get-Date) -lt $deadline)
     if ($left) { Write-StoreUpdateLog "encore ouverts après fermeture : $(($left | ForEach-Object { $_.Name }) -join ', ')" }
-    Invoke-SystemRun $state
+    if (-not (Invoke-SystemRun $state)) {
+        # Mise à jour peut-être encore en cours : pas de conclusion à un échec, nouveau point au passage suivant.
+        $state.snoozeUntil = (Get-Date).AddMinutes(10).ToString('o')
+        Save-State $state
+        return
+    }
     $failed = @($targets | Where-Object { (Get-AppVersion $_) -eq $before[$_.productId] })
     if ($failed) {
         $state.snoozeUntil = (Get-Date).AddHours(1).ToString('o')

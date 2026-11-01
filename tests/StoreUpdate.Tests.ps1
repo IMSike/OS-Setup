@@ -21,6 +21,64 @@ Describe 'Scripts des tâches des mises à jour du Store' {
     }
 }
 
+Describe 'Fenêtre : attente de la tâche SYSTEM' {
+    BeforeAll {
+        # Le script exécute son corps au chargement : seule la fonction est extraite. Planificateur, horloge et attente
+        # sont simulés ($sim) : aucun effet sur le système.
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.Prompt.ps1'), [ref]$null, [ref]$null)
+        $function = $ast.Find({ param($Node) $Node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $Node.Name -eq 'Invoke-SystemRun' }, $true).Extent.Text
+        $stubs = @'
+$systemTask = 'OS-Setup - Store (système)'
+function Save-State($State) {}
+function Write-StoreUpdateLog([string]$Message) { $sim.log.Add($Message) }
+function Get-Date { $sim.clock }
+function Start-Sleep([int]$Seconds) { $sim.clock = $sim.clock.AddSeconds($Seconds) }
+function Get-ScheduledTask { [CmdletBinding()] param([string]$TaskName)
+    [pscustomobject]@{ TaskName = $TaskName; State = $(if ($sim.busyUntil -and $sim.clock -lt $sim.busyUntil) { 'Running' } else { 'Ready' }) } }
+function Get-ScheduledTaskInfo { [CmdletBinding()] param([Parameter(ValueFromPipeline)]$InputObject) process { [pscustomobject]@{ LastRunTime = $sim.lastRunTime } } }
+function schtasks.exe {
+    $sim.runs.Add($sim.clock)
+    # Une seule instance (IgnoreNew) : demande ignorée pendant une exécution.
+    if ($sim.startOnRun -and -not ($sim.busyUntil -and $sim.clock -lt $sim.busyUntil)) {
+        $sim.lastRunTime = $sim.clock
+        $sim.busyUntil = $sim.clock.AddSeconds($sim.duration)
+    }
+}
+'@
+        $load = $stubs + "`n" + $function
+    }
+
+    BeforeEach {
+        $now = [datetime]'2026-11-01T10:00:00'
+        $sim = @{ clock = $now; busyUntil = $null; lastRunTime = $now.AddDays(-1); startOnRun = $true; duration = 60
+            runs = [System.Collections.Generic.List[datetime]]::new(); log = [System.Collections.Generic.List[string]]::new() }
+    }
+
+    It 'attend la fin d''une exécution en cours avant de relancer la tâche' {
+        $sim.busyUntil = $now.AddMinutes(5)
+        $sim.lastRunTime = $now.AddMinutes(-1)
+        . ([scriptblock]::Create($load))
+        Invoke-SystemRun ([pscustomobject]@{ lastRun = $null }) | Should -BeTrue
+        $sim.runs.Count | Should -Be 1
+        $sim.runs[0] | Should -BeGreaterOrEqual $now.AddMinutes(5)
+    }
+
+    It 'renvoie faux si la tâche ne démarre jamais' {
+        $sim.startOnRun = $false
+        . ([scriptblock]::Create($load))
+        Invoke-SystemRun ([pscustomobject]@{ lastRun = $null }) | Should -BeFalse
+        $sim.log | Should -Contain 'tâche système non terminée'
+    }
+
+    It 'renvoie vrai quand l''exécution lancée se termine' {
+        . ([scriptblock]::Create($load))
+        Invoke-SystemRun ([pscustomobject]@{ lastRun = $null }) | Should -BeTrue
+        $sim.runs.Count | Should -Be 1
+        $sim.runs[0] | Should -Be $now
+        $sim.log | Should -BeNullOrEmpty
+    }
+}
+
 Describe 'Mises à jour encadrées du Store' {
     BeforeEach {
         $root = Join-Path -Path $TestDrive -ChildPath "store-update-$([guid]::NewGuid())"
