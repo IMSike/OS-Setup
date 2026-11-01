@@ -8,7 +8,7 @@ Invoke-Pester -Path tests
 
 Les tests [Pester 5](https://pester.dev) n'ont aucun effet sur le système (providers simulés). Ils vérifient aussi les données : chaque élément et profil est conforme à son schéma, chaque élément est documenté, et la documentation existe dans les deux langues.
 
-Les scripts exécutés par Windows PowerShell 5.1 (`bootstrap.ps1`, `src/cleanup.ps1`, les tâches des mises à jour du Store dans `src/store-update/`, et tout script lancé par une action `logon-task` du catalogue) sont aussi analysés par Windows PowerShell 5.1 s'il est présent : une syntaxe propre à PowerShell 7 ne les casserait sinon que sur le poste cible.
+Les scripts exécutés par Windows PowerShell 5.1 (`bootstrap.ps1`, `src/cleanup.ps1`, les tâches des mises à jour du Store dans `src/store-update/`, et tout script lancé par une action `logon-task` du catalogue) sont aussi analysés par Windows PowerShell 5.1 s'il est présent : une syntaxe propre à PowerShell 7 ne les casserait sinon que sur le poste cible. Les décisions de la fenêtre des mises à jour du Store (report, vérification de plus de 4 heures, application ouverte ou fermée) sont aussi exécutées par Windows PowerShell 5.1, avec le Store, les processus, la tâche SYSTEM et la fenêtre remplacés.
 
 [PSScriptAnalyzer](https://github.com/PowerShell/PSScriptAnalyzer) vérifie le style et les erreurs courantes du code PowerShell, avec les règles de `PSScriptAnalyzerSettings.psd1` (et `tests/PSScriptAnalyzerSettings.psd1` pour les tests ; exclusions justifiées dans les fichiers). Le test `tests/CodeQuality.Tests.ps1` le lance s'il est installé, et vérifie aussi que le manifeste du module exporte toutes ses fonctions :
 

@@ -141,6 +141,123 @@ function Invoke-FakeSchtasks {
     }
 }
 
+Describe 'Fenêtre : décisions sous Windows PowerShell 5.1' {
+    BeforeAll {
+        # Le script est chargé avec un point dans un Windows PowerShell 5.1 enfant, qui l'exécute en vrai. Fichiers dans
+        # $TestDrive ; Store, processus, tâche SYSTEM et fenêtre remplacés : aucun effet sur le système.
+        $powershell = Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        $promptScript = (Resolve-Path -Path (Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.Prompt.ps1')).Path
+        $app = [ordered]@{ family = 'Microsoft.PowerShell_8wekyb3d8bbwe'; productId = '9MZ1SNWT0N5D'; name = 'PowerShell 7'; closeFirst = @() }
+
+        function Invoke-PromptScenario {
+            # Lance la fenêtre (ou $Call) avec la version installée, l'état ouvert et le choix indiqués ; renvoie les appels
+            # remplacés et le fichier d'état écrit.
+            param([string]$Root, [string]$Version = '1.0', [bool]$Open = $true, [string]$Choice = '1h', [string]$Call = 'Invoke-StoreUpdatePrompt')
+            $command = @"
+`$ErrorActionPreference = 'Stop'
+`$ProgressPreference = 'SilentlyContinue'
+. '$promptScript'
+`$root = '$Root'
+`$log = Join-Path -Path `$root -ChildPath 'store-update.log'
+`$stateFile = Join-Path -Path `$root -ChildPath 'state.json'
+`$global:calls = [ordered]@{ systemRuns = 0; prompts = 0; output = `$null }
+function Get-AppVersion { param(`$App) '$Version' }
+function Get-AppProcess { param(`$App) if (`$$Open) { @(1) } else { @() } }
+function Invoke-SystemRun { param(`$State) `$global:calls.systemRuns++; `$State.lastRun = (Get-Date).ToString('o'); Save-State -State `$State; `$true }
+function Show-UpdatePrompt { param(`$App) `$global:calls.prompts++; '$Choice' }
+function Show-Message { param(`$Text) }
+`$global:calls.output = @($Call | ForEach-Object { "`$_" })
+`$global:calls.state = if (Test-Path -Path `$stateFile) { [IO.File]::ReadAllText(`$stateFile) }
+ConvertTo-Json -InputObject `$global:calls -Compress
+"@
+            $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
+            $output = & $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded
+            ($output -join "`n") | ConvertFrom-Json
+        }
+
+        function Set-CheckFile {
+            param([string]$Root, [object]$Entry)
+            $check = if ($null -ne $Entry) { @{ $app.productId = $Entry } } else { @{} }
+            Set-Content -Path (Join-Path -Path $Root -ChildPath 'check.json') -Value (ConvertTo-Json -InputObject $check -Depth 4) -Encoding utf8
+        }
+    }
+
+    BeforeEach {
+        if (-not (Test-Path -Path $powershell)) { Set-ItResult -Skipped -Because 'Windows PowerShell 5.1 absent'; return }
+        $root = Join-Path -Path $TestDrive -ChildPath "prompt-$([guid]::NewGuid())"
+        New-Item -Path $root -ItemType Directory | Out-Null
+        Set-Content -Path (Join-Path -Path $root -ChildPath 'apps.json') -Value (ConvertTo-Json -InputObject @($app) -Depth 4) -Encoding utf8
+        $fresh = (Get-Date).ToString('o')
+    }
+
+    It 'écrit un report absent comme null, pas comme {}' {
+        # Régression corrigée par aa6794e : sous 5.1, un report vide s'écrivait {}, puis faisait échouer la lecture suivante.
+        Set-Content -Path (Join-Path -Path $root -ChildPath 'state.json') -Value '{ "snoozeUntil": null, "lastRun": null }'
+        $result = Invoke-PromptScenario -Root $root
+        $result.systemRuns | Should -Be 1
+        $result.state | Should -Match '"snoozeUntil":\s*null'
+        $result.state | Should -Not -Match '\{\s*\}'
+    }
+
+    It 'ne fait rien pendant un report' {
+        $snooze = (Get-Date).AddHours(1).ToString('o')
+        Set-Content -Path (Join-Path -Path $root -ChildPath 'state.json') -Value (ConvertTo-Json -InputObject @{ snoozeUntil = $snooze; lastRun = $null })
+        $result = Invoke-PromptScenario -Root $root
+        $result.systemRuns | Should -Be 0
+        $result.prompts | Should -Be 0
+        ($result.state | ConvertFrom-Json).snoozeUntil | Should -Be ([datetime]$snooze)
+    }
+
+    It 'fait vérifier par la tâche SYSTEM sans check.json' {
+        (Invoke-PromptScenario -Root $root).systemRuns | Should -Be 1
+    }
+
+    It 'fait vérifier par la tâche SYSTEM quand la vérification a plus de 4 h' {
+        Set-CheckFile -Root $root -Entry @{ available = $false; version = '1.0'; checked = (Get-Date).AddHours(-5).ToString('o') }
+        (Invoke-PromptScenario -Root $root).systemRuns | Should -Be 1
+    }
+
+    It 'fait vérifier par la tâche SYSTEM quand l''entrée de check.json est incomplète' {
+        Set-CheckFile -Root $root -Entry @{ available = $true }
+        $result = Invoke-PromptScenario -Root $root
+        $result.systemRuns | Should -Be 1
+        $result.prompts | Should -Be 0
+    }
+
+    It 'ne relance pas la tâche SYSTEM après une vérification récente sans mise à jour' {
+        Set-CheckFile -Root $root -Entry @{ available = $false; version = '1.0'; checked = $fresh }
+        $result = Invoke-PromptScenario -Root $root
+        $result.systemRuns | Should -Be 0
+        $result.prompts | Should -Be 0
+    }
+
+    It 'reporte d''une heure une mise à jour proposée pour une application ouverte' {
+        Set-CheckFile -Root $root -Entry @{ available = $true; version = '1.0'; checked = $fresh; state = 'proposée' }
+        $before = Get-Date
+        $result = Invoke-PromptScenario -Root $root -Open $true -Choice '1h'
+        $result.prompts | Should -Be 1
+        $result.systemRuns | Should -Be 0
+        $snooze = [datetime]($result.state | ConvertFrom-Json).snoozeUntil
+        $snooze | Should -BeGreaterOrEqual $before.AddHours(1)
+        $snooze | Should -BeLessOrEqual (Get-Date).AddHours(1)
+    }
+
+    It 'laisse la tâche SYSTEM installer une mise à jour proposée pour une application fermée' {
+        Set-CheckFile -Root $root -Entry @{ available = $true; version = '1.0'; checked = $fresh; state = 'proposée' }
+        $result = Invoke-PromptScenario -Root $root -Open $false
+        $result.systemRuns | Should -Be 1
+        $result.prompts | Should -Be 0
+    }
+
+    It 'ignore une mise à jour déjà installée depuis la vérification' {
+        Set-CheckFile -Root $root -Entry @{ available = $true; version = '1.0'; checked = $fresh; state = 'proposée' }
+        $result = Invoke-PromptScenario -Root $root -Version '2.0' -Call "Get-PendingApp -App @(Read-JsonFile -Path (Join-Path -Path `$root -ChildPath 'apps.json'))"
+        $result.output | Should -BeNullOrEmpty
+        (Invoke-PromptScenario -Root $root -Version '1.0' -Call "Get-PendingApp -App @(Read-JsonFile -Path (Join-Path -Path `$root -ChildPath 'apps.json')) | ForEach-Object { `$_.productId }").output |
+            Should -Be @('9MZ1SNWT0N5D')
+    }
+}
+
 Describe 'Mises à jour encadrées du Store' {
     BeforeEach {
         $root = Join-Path -Path $TestDrive -ChildPath "store-update-$([guid]::NewGuid())"
