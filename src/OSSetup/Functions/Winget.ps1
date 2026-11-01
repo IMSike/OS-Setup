@@ -33,6 +33,8 @@ function Test-OSSetupWingetInstalled {
     <#
     .SYNOPSIS
         Vrai si le paquet winget est installé : `winget list --id`, puis `winget export` en second avis.
+    .DESCRIPTION
+        L'export n'est pas consulté avec -ListOnly (sondage léger pendant l'attente qui suit une installation).
     #>
     [CmdletBinding()]
     [OutputType([bool])]
@@ -41,9 +43,13 @@ function Test-OSSetupWingetInstalled {
         [string]$Id,
 
         # Relit l'export (après une installation).
-        [switch]$Refresh
+        [switch]$Refresh,
+
+        # winget list seul, sans second avis.
+        [switch]$ListOnly
     )
     & winget list --id $Id --exact --accept-source-agreements --disable-interactivity | Out-Null
     if ($LASTEXITCODE -eq 0) { return $true }
+    if ($ListOnly) { return $false }
     $Id -in @(Get-OSSetupWingetExportId -Refresh:$Refresh)
 }

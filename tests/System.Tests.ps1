@@ -430,4 +430,11 @@ Describe 'Test-OSSetupWingetInstalled' {
         InModuleScope OSSetup { Test-OSSetupWingetInstalled -Id 'Git.Git' } | Should -BeTrue
         Should -Invoke -ModuleName OSSetup Get-OSSetupWingetExportId -Times 0
     }
+
+    It 'ne lit pas l''export avec -ListOnly' {
+        Mock -ModuleName OSSetup winget { $global:LASTEXITCODE = -1978335212 }
+        Mock -ModuleName OSSetup Get-OSSetupWingetExportId { @('Microsoft.PowerShell') }
+        InModuleScope OSSetup { Test-OSSetupWingetInstalled -Id 'Microsoft.PowerShell' -ListOnly } | Should -BeFalse
+        Should -Invoke -ModuleName OSSetup Get-OSSetupWingetExportId -Times 0
+    }
 }

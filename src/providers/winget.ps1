@@ -60,10 +60,19 @@ param()
         }
         # Certains installeurs rendent la main avant d'avoir fini (ex. Squirrel pour Discord : l'installation continue
         # en arrière-plan une dizaine de secondes) : attendre que le paquet soit détecté.
+        # Le premier sondage relit l'export (paquet que seul l'export rattache) ; les suivants s'en tiennent à winget list,
+        # l'export complet étant lourd. Il est relu une dernière fois si le paquet n'a pas été trouvé (cache à jour).
         $deadline = (Get-Date).AddSeconds(60)
+        $found = $false
+        $firstPoll = $true
         while (-not $rebootRequired -and (Get-Date) -lt $deadline) {
-            if (Test-OSSetupWingetInstalled -Id $Action['id'] -Refresh) { break }
+            $found = Test-OSSetupWingetInstalled -Id $Action['id'] -Refresh:$firstPoll -ListOnly:(-not $firstPoll)
+            if ($found) { break }
+            $firstPoll = $false
             Start-Sleep -Seconds 3
+        }
+        if (-not $rebootRequired -and -not $found -and -not $firstPoll) {
+            Get-OSSetupWingetExportId -Refresh | Out-Null
         }
         # L'installeur a pu modifier le PATH dans le registre : la session doit le voir pour les étapes suivantes.
         Update-OSSetupSessionPath
