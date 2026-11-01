@@ -109,7 +109,7 @@ In addition to installation, an item can deploy configuration files from `dotfil
 
 ## Execution flow
 
-1. `bootstrap.ps1`: checks the OS, sets the execution policy (`Process` scope), installs winget if needed, Git and PowerShell 7, clones the repository, launches `setup.ps1`.
+1. `bootstrap.ps1`: checks the OS, sets the execution policy (`Process` scope), installs winget if needed, Git and PowerShell 7 (Store version, see [ADR 0004](adr/0004-store-updates-without-forced-close.md)), clones the repository, launches `setup.ps1`.
 2. `setup.ps1`: loads and **validates** the catalog and profiles, asks for or reads the choices.
 3. Resolution: profile merge, application of choices, conditions, dependency sorting.
 4. Plan → validation → execution → summary and log.
@@ -150,3 +150,4 @@ The engine can **audit** what exists and produce a **plan** (`[ok]` / `[à faire
 | [0001](adr/0001-engine-language.md) | Engine language: PowerShell 7 |
 | [0002](adr/0002-agent-assistance.md) | Agent assistance on a machine already in use |
 | [0003](adr/0003-in-house-dotfiles.md) | Deployment of configuration files by the engine |
+| [0004](adr/0004-store-updates-without-forced-close.md) | Store apps (PowerShell 7, Windows Terminal) updated without forced close |

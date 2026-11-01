@@ -104,6 +104,7 @@
           { "$ref": "#/definitions/scheduledTaskAction" },
           { "$ref": "#/definitions/powerAction" },
           { "$ref": "#/definitions/appxAction" },
+        { "$ref": "#/definitions/storeUpdateGuardAction" },
           { "$ref": "#/definitions/windowsCapabilityAction" },
           { "$ref": "#/definitions/win32UninstallAction" },
           { "$ref": "#/definitions/desktopLayoutAction" },
@@ -138,6 +139,7 @@
         "provider": { "const": "winget" },
         "description": { "type": "string" },
         "id": { "description": "Identifiant winget exact.", "type": "string", "minLength": 1 },
+        "source": { "description": "Source winget (winget par défaut ; msstore pour un paquet du Microsoft Store sous licence).", "enum": ["winget", "msstore"] },
         "scope": { "enum": ["user", "machine"] },
         "installerType": {
           "description": "Force un type d'installeur quand le paquet en propose plusieurs (--installer-type).",
@@ -418,6 +420,23 @@
         "provider": { "const": "appx" },
         "description": { "type": "string" },
         "name": { "description": "Nom du paquet de l'application du Store (Get-AppxPackage -Name), supprimée pour tous les comptes et déprovisionnée. Admin requis.", "type": "string", "minLength": 1 }
+      }
+    },
+    "storeUpdateGuardAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "family", "productId", "name"],
+      "properties": {
+        "provider": { "const": "store-update-guard" },
+        "description": { "type": "string" },
+        "family": { "description": "Famille du paquet de l'application du Store (nom_éditeur), dont les mises à jour automatiques sont bloquées puis faites sans fermeture forcée (ADR 0004). Admin requis.", "type": "string", "pattern": "^[A-Za-z0-9.-]+_[a-z0-9]+$" },
+        "productId": { "description": "Identifiant du produit dans le Microsoft Store.", "type": "string", "pattern": "^[0-9A-Z]{12}$" },
+        "name": { "description": "Nom affiché dans la fenêtre qui propose la mise à jour.", "type": "string", "minLength": 1 },
+        "closeFirst": {
+          "description": "Programmes (nom de processus, sans .exe) à fermer avant l'application, parce qu'ils la relanceraient aussitôt (ex. herdr pour PowerShell).",
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" }
+        }
       }
     },
     "windowsCapabilityAction": {

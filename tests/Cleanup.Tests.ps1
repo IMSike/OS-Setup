@@ -29,6 +29,11 @@ Describe 'Get-OSSetupToolToRemove' {
             Should -Be @('Git.Git')
     }
 
+    It 'garde le PowerShell noté par un ancien bootstrap quand celui du Store est retenu' {
+        Get-OSSetupToolToRemove -InstalledTool 'Git.Git', 'Microsoft.PowerShell' -SelectedWingetId '9MZ1SNWT0N5D' |
+            Should -Be @('Git.Git')
+    }
+
     It 'ne retire rien si le bootstrap n''a rien installé' {
         Get-OSSetupToolToRemove -InstalledTool @() -SelectedWingetId @() | Should -BeNullOrEmpty
     }

@@ -20,7 +20,7 @@ param()
     Invoke   = {
         param($Action, $Context)
         $arguments = @(
-            'install', '--id', $Action['id'], '--exact', '--source', 'winget', '--silent',
+            'install', '--id', $Action['id'], '--exact', '--source', $(if ($Action['source']) { $Action['source'] } else { 'winget' }), '--silent',
             '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity'
         )
         if ($Action['scope']) { $arguments += @('--scope', $Action['scope']) }

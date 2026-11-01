@@ -34,6 +34,30 @@ function Import-OSSetupAppxModule {
     }
 }
 
+function Import-OSSetupDismModule {
+    <#
+    .SYNOPSIS
+        Charge le module Dism. Dans le PowerShell 7 du Store (processus empaqueté), l'API DISM ne peut pas créer sa
+        session (« Classe non enregistrée », après deux minutes d'attente) : il passe alors par Windows PowerShell 5.1.
+    #>
+    [CmdletBinding()]
+    param()
+    if (Get-Module -Name Dism) { return }
+    if ($PSHOME -notlike '*\WindowsApps\*') {
+        Import-Module -Name Dism -Global -ErrorAction Stop
+        return
+    }
+    # Même précaution que pour Appx : sous -WhatIf, le module de compatibilité ne se chargerait pas.
+    $savedWhatIf = $global:WhatIfPreference
+    $global:WhatIfPreference = $false
+    try {
+        Import-Module -Name Dism -UseWindowsPowerShell -Global -WarningAction SilentlyContinue -ErrorAction Stop
+    }
+    finally {
+        $global:WhatIfPreference = $savedWhatIf
+    }
+}
+
 function Get-OSSetupAppxPresence {
     <#
     .SYNOPSIS
@@ -49,6 +73,7 @@ function Get-OSSetupAppxPresence {
     $elevated = Test-OSSetupElevated
     $installed = @(if ($elevated) { Get-AppxPackage -Name $Name -AllUsers } else { Get-AppxPackage -Name $Name }) |
         ForEach-Object { [string]$_.PackageFullName } | Select-Object -Unique
+    if ($elevated) { Import-OSSetupDismModule }
     $provisioned = @(if ($elevated) {
             Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -eq $Name } | ForEach-Object { [string]$_.PackageName }
         })

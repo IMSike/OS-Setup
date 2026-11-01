@@ -166,15 +166,19 @@ function Install-WingetPackage {
     param(
         [Parameter(Mandatory)][string]$Id,
         [Parameter(Mandatory)][string]$Command,
-        [string]$InstallerType
+        [string]$InstallerType,
+        [string]$Source = 'winget',
+        [string]$Scope = 'machine',
+        [scriptblock]$Present = { Get-Command -Name $Command -ErrorAction SilentlyContinue }
     )
-    if (Get-Command -Name $Command -ErrorAction SilentlyContinue) {
+    if (& $Present) {
         Write-Host -Object "    $Id déjà présent."
         return
     }
     Write-Step "Installation de $Id"
-    $arguments = @('install', '--id', $Id, '--exact', '--source', 'winget', '--silent', '--scope', 'machine',
+    $arguments = @('install', '--id', $Id, '--exact', '--source', $Source, '--silent',
         '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity')
+    if ($Scope) { $arguments += @('--scope', $Scope) }
     if ($InstallerType) { $arguments += @('--installer-type', $InstallerType) }
     # Sortie non capturée : winget écrit directement dans la console (la capturer sous PowerShell 5.1 la
     # décoderait avec la page de code OEM et corromprait les accents).
@@ -253,8 +257,9 @@ try {
     Initialize-Winget
 
     Install-WingetPackage -Id 'Git.Git' -Command 'git'
-    # Le paquet par défaut est un MSIX, non installable pour toute la machine sous Windows 10 : on force le MSI.
-    Install-WingetPackage -Id 'Microsoft.PowerShell' -Command 'pwsh' -InstallerType 'wix'
+    # PowerShell 7 du Store, aux mises à jour encadrées (ADR 0004). Source msstore : le MSIX de la source winget n'a pas de licence et ne démarre pas.
+    # Présence vérifiée par le paquet, pas par la commande (un MSI de PowerShell fournirait aussi pwsh).
+    Install-WingetPackage -Id '9MZ1SNWT0N5D' -Command 'pwsh' -Source 'msstore' -Scope '' -Present { Get-AppxPackage -Name Microsoft.PowerShell }
 
     # Lancé depuis un clone : on l'utilise tel quel. Sinon : clone ou mise à jour dans $Destination.
     if ($PSScriptRoot -and (Test-Path -Path (Join-Path -Path $PSScriptRoot -ChildPath 'setup.ps1'))) {
@@ -283,7 +288,9 @@ try {
     Write-Host -Object 'Étape 2/2 — Vos choix, puis le plan à valider avant toute modification.' -ForegroundColor Cyan
     Write-Step 'Lancement de setup.ps1 (PowerShell 7)'
     $setupScript = Join-Path -Path $repoRoot -ChildPath 'setup.ps1'
-    & pwsh -NoProfile -ExecutionPolicy Bypass -File $setupScript @SetupArguments
+    # Le pwsh du Store, même si un MSI de PowerShell 7 (que le setup désinstalle) passe avant dans le PATH.
+    $pwsh = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Microsoft\WindowsApps\pwsh.exe'
+    & $pwsh -NoProfile -ExecutionPolicy Bypass -File $setupScript @SetupArguments
     $exitCode = $LASTEXITCODE
 }
 catch {

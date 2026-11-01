@@ -35,6 +35,11 @@ Sous Windows PowerShell 5.1, ne pas capturer ni rediriger la sortie de winget (`
 - Les apostrophes typographiques `‘ ’` valent `'` et les guillemets `“ ”` valent `"` : un texte contenant `’` (ex. sortie de `powercfg` en français) va entre guillemets droits `"…"`.
 - `$x = if (...) { @() }` donne `$null`, et un tableau d'un seul élément devient l'élément : écrire `$x = @(if (...) { ... })`.
 - Un script avancé (`[CmdletBinding()]`) qui relaie ses arguments restants (`ValueFromRemainingArguments`) doit déclarer `[CmdletBinding(PositionalBinding = $false)]` : sinon un argument comme `-WhatIf` destiné à `setup.ps1` est capté en position par un autre paramètre.
+- Sous le PowerShell 7 du Store (processus empaqueté) :
+  - le chemin de l'exécutable contient la version du paquet et change à chaque mise à jour : une tâche ou une relance passe par l'alias d'exécution `%LOCALAPPDATA%\Microsoft\WindowsApps\pwsh.exe` ;
+  - le module DISM ne peut pas ouvrir sa session (« Classe non enregistrée », après deux minutes) : `Import-OSSetupDismModule` le fait passer par Windows PowerShell 5.1 ;
+  - Windows PowerShell 5.1 lancé par un programme intermédiaire (`cmd`, herdr) hérite du `PSModulePath` de PowerShell 7 et perd des commandes intégrées comme `Get-FileHash`. Lancé directement par `pwsh`, non.
+- Le PowerShell du Store installé depuis la source `winget` (MSIX de GitHub) n'a pas de licence du Store et ne démarre pas : l'installer depuis la source `msstore`.
 
 ## VM de test
 

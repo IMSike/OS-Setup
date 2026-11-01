@@ -56,8 +56,11 @@ function Get-OSSetupToolToRemove {
         [AllowEmptyCollection()]
         [string[]]$SelectedWingetId = @()
     )
+    # Un ancien bootstrap notait le MSI (Microsoft.PowerShell) ; winget rattache aussi cet identifiant
+    # au PowerShell du Store, qu'il désinstallerait. Les deux désignent le même outil.
+    $sameTool = @{ 'Microsoft.PowerShell' = '9MZ1SNWT0N5D' }
     foreach ($tool in $InstalledTool) {
-        if ($tool -notin $SelectedWingetId) { $tool }
+        if ($tool -notin $SelectedWingetId -and $sameTool[$tool] -notin $SelectedWingetId) { $tool }
     }
 }
 

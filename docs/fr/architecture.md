@@ -109,7 +109,7 @@ En plus de l'installation, un élément peut déployer des fichiers de configura
 
 ## Déroulement
 
-1. `bootstrap.ps1` : vérifie l'OS, règle la stratégie d'exécution (portée `Process`), installe winget si besoin, Git et PowerShell 7, clone le dépôt, lance `setup.ps1`.
+1. `bootstrap.ps1` : vérifie l'OS, règle la stratégie d'exécution (portée `Process`), installe winget si besoin, Git et PowerShell 7 (version du Store, voir [ADR 0004](adr/0004-store-updates-without-forced-close.md)), clone le dépôt, lance `setup.ps1`.
 2. `setup.ps1` : charge et **valide** le catalogue et les profils, demande ou lit les choix.
 3. Résolution : fusion des profils, application des choix, conditions, tri par dépendances.
 4. Plan → validation → exécution → récapitulatif et journal.
@@ -150,3 +150,4 @@ Le moteur sait **auditer** l'existant et produire un **plan** (`[ok]` / `[à fai
 | [0001](adr/0001-engine-language.md) | Langage du moteur : PowerShell 7 |
 | [0002](adr/0002-agent-assistance.md) | Assistance d'un agent sur une machine déjà utilisée |
 | [0003](adr/0003-in-house-dotfiles.md) | Déploiement des fichiers de configuration par le moteur |
+| [0004](adr/0004-store-updates-without-forced-close.md) | Applications du Store (PowerShell 7, Windows Terminal) mises à jour sans fermeture forcée |

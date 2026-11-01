@@ -96,6 +96,10 @@ function Register-OSSetupResumeTask {
     )
     $user = [Security.Principal.WindowsIdentity]::GetCurrent().Name
     $pwsh = (Get-Process -Id $PID).Path
+    # PowerShell du Store : le chemin du paquet contient sa version et change à chaque mise à jour ; l'alias d'exécution reste.
+    if ($pwsh -like '*\WindowsApps\Microsoft.PowerShell_*') {
+        $pwsh = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Microsoft\WindowsApps\pwsh.exe'
+    }
     $action = New-ScheduledTaskAction -Execute $pwsh -WorkingDirectory (Split-Path -Path $SetupPath -Parent) `
         -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$SetupPath`" -Resume"
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User $user
