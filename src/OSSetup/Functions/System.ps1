@@ -85,12 +85,60 @@ function Get-OSSetupAppxPresence {
     [pscustomobject]@{ Installed = @($installed); Provisioned = @($provisioned) }
 }
 
+function Get-OSSetupStoreCancelScript {
+    <#
+    .SYNOPSIS
+        Script Windows PowerShell 5.1 qui annule les mises à jour du Store en attente d'une application et écrit les
+        identifiants de produit annulés.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [ValidatePattern('^[\w.-]+$')]
+        [string]$Name
+    )
+    # Le nom d'assembly qui suit le type est ignoré par la résolution WinRT (seul l'espace de noms compte) : il est
+    # aligné sur StoreUpdate.User.ps1 par simple cohérence.
+    @"
+`$ErrorActionPreference = 'Stop'
+`$ProgressPreference = 'SilentlyContinue'
+[void][Windows.ApplicationModel.Store.Preview.InstallControl.AppInstallManager, Windows.ApplicationModel.Store.Preview, ContentType = WindowsRuntime]
+`$manager = [Windows.ApplicationModel.Store.Preview.InstallControl.AppInstallManager]::new()
+foreach (`$item in @(`$manager.AppInstallItems | Where-Object { `$_.PackageFamilyName -like '$($Name)_*' })) {
+    `$manager.Cancel(`$item.ProductId)
+    `$item.ProductId
+}
+"@
+}
+
+function Invoke-OSSetupWindowsPowerShell {
+    <#
+    .SYNOPSIS
+        Exécute un script dans Windows PowerShell 5.1 et retourne sa sortie, ses erreurs et son code de sortie.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Script
+    )
+    $powershell = Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($Script))
+    $all = @(& $powershell -NoProfile -NonInteractive -EncodedCommand $encoded 2>&1)
+    $exitCode = $LASTEXITCODE
+    [pscustomobject]@{
+        Output   = @($all | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] })
+        Errors   = @($all | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } | ForEach-Object { [string]$_ })
+        ExitCode = $exitCode
+    }
+}
+
 function Stop-OSSetupStoreUpdate {
     <#
     .SYNOPSIS
         Annule les téléchargements et mises à jour en attente du Store pour une application, avant sa suppression :
         sinon la mise à jour en cours s'achève après la suppression et réinstalle (et reprovisionne) l'application.
-        Retourne les identifiants de produit annulés.
+        Retourne les identifiants de produit annulés. Un échec de l'annulation est journalisé sans bloquer la suppression.
     .NOTES
         L'API de la file du Store (WinRT AppInstallManager) n'est pas accessible depuis PowerShell 7 : elle passe
         par Windows PowerShell 5.1.
@@ -102,18 +150,21 @@ function Stop-OSSetupStoreUpdate {
         [string]$Name
     )
     if (-not $PSCmdlet.ShouldProcess($Name, 'Annuler les mises à jour du Store en attente')) { return }
-    $script = @"
-`$ErrorActionPreference = 'Stop'
-[void][Windows.ApplicationModel.Store.Preview.InstallControl.AppInstallManager, Windows.ApplicationModel.Store, ContentType = WindowsRuntime]
-`$manager = [Windows.ApplicationModel.Store.Preview.InstallControl.AppInstallManager]::new()
-foreach (`$item in @(`$manager.AppInstallItems | Where-Object { `$_.PackageFamilyName -like '$($Name)_*' })) {
-    `$manager.Cancel(`$item.ProductId)
-    `$item.ProductId
-}
-"@
-    $powershell = Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe'
-    $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
-    @(& $powershell -NoProfile -NonInteractive -EncodedCommand $encoded 2>$null) | Where-Object { $_ } | Select-Object -Unique
+    $result = Invoke-OSSetupWindowsPowerShell -Script (Get-OSSetupStoreCancelScript -Name $Name)
+    # Le script s'arrête à la première erreur ($ErrorActionPreference = 'Stop') : le code de sortie suffit à détecter
+    # l'échec ; la sortie d'erreur ne sert qu'au message (elle peut contenir du bruit sans échec).
+    if ($result.ExitCode -ne 0) {
+        $detail = (@($result.Errors | ForEach-Object {
+                    $text = [string]$_
+                    if ($text -match '<S S="Error">') {
+                        [regex]::Matches($text, '<S S="Error">(.*?)</S>') | ForEach-Object { $_.Groups[1].Value -replace '_x000D__x000A_', ' ' }
+                    }
+                    elseif ($text -notlike '#< CLIXML*') { $text }
+                }) | ForEach-Object { $_.Trim() } | Where-Object { $_ }) -join ' '
+        if (-not $detail) { $detail = "code de sortie $($result.ExitCode)" }
+        Write-OSSetupLog -Level Warning -Message "  annulation des mises à jour du Store impossible pour $Name ($detail) : l'application peut revenir après un redémarrage"
+    }
+    @($result.Output | ForEach-Object { [string]$_ } | Where-Object { $_ } | Select-Object -Unique)
 }
 
 function Get-OSSetupUninstallEntry {

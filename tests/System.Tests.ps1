@@ -152,6 +152,46 @@ Describe 'Import-OSSetupCompatibilityModule' {
     }
 }
 
+Describe 'Stop-OSSetupStoreUpdate' {
+    BeforeEach {
+        Mock -ModuleName OSSetup Write-OSSetupLog {}
+    }
+
+    It 'génère un script d''annulation analysable par Windows PowerShell 5.1, qui l''exécute' {
+        $script = Get-OSSetupStoreCancelScript -Name 'Microsoft.SkypeApp'
+        $errors = $null
+        [void][System.Management.Automation.Language.Parser]::ParseInput($script, [ref]$null, [ref]$errors)
+        $errors | Should -BeNullOrEmpty
+        $powershell = Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        if (-not (Test-Path -Path $powershell)) { Set-ItResult -Skipped -Because 'Windows PowerShell 5.1 absent'; return }
+        $payload = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
+        $command = "`$s = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('$payload')); `$e = `$null; [void][System.Management.Automation.Language.Parser]::ParseInput(`$s, [ref]`$null, [ref]`$e); `$e | ForEach-Object { `$_.Message }"
+        $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
+        @(& $powershell -NoProfile -NonInteractive -EncodedCommand $encoded) | Should -BeNullOrEmpty
+    }
+
+    It 'retourne les identifiants annulés sans avertissement quand l''annulation réussit' {
+        Mock -ModuleName OSSetup Invoke-OSSetupWindowsPowerShell { [pscustomobject]@{ Output = @('9WZDNCRFJ364', '9WZDNCRFJ364'); Errors = @(); ExitCode = 0 } }
+        Stop-OSSetupStoreUpdate -Name 'Microsoft.SkypeApp' | Should -Be '9WZDNCRFJ364'
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 0 -Exactly
+    }
+
+    It 'journalise un échec de l''annulation sans le faire remonter' {
+        Mock -ModuleName OSSetup Invoke-OSSetupWindowsPowerShell {
+            [pscustomobject]@{
+                Output   = @()
+                Errors   = @('#< CLIXML', '<Objs Version="1.1.0.1" xmlns="http://schemas.microsoft.com/powershell/2004/04"><S S="Error">Classe non enregistrée_x000D__x000A_</S></Objs>')
+                ExitCode = 1
+            }
+        }
+        { Stop-OSSetupStoreUpdate -Name 'Microsoft.SkypeApp' } | Should -Not -Throw
+        @(Stop-OSSetupStoreUpdate -Name 'Microsoft.SkypeApp') | Should -BeNullOrEmpty
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -ParameterFilter {
+            $Level -eq 'Warning' -and $Message -like '*Microsoft.SkypeApp (Classe non enregistrée)*'
+        } -Times 2 -Exactly
+    }
+}
+
 Describe 'Provider appx' {
     It 'est conforme quand l''application n''est ni installée ni provisionnée' {
         Mock -ModuleName OSSetup Get-OSSetupAppxPresence { [pscustomobject]@{ Installed = @(); Provisioned = @() } }
