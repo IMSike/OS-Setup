@@ -124,7 +124,7 @@ try {
         return
     }
 
-    $open = @($installed | Where-Object { (Get-AppProcess -App $_).Count -gt 0 })
+    $open = @($installed | Where-Object { @(Get-AppProcess -App $_).Count -gt 0 })
     $closed = @($installed | Where-Object { $_ -notin $open })
     # Reprise du setup en attente (tâche de src/OSSetup/Functions/Resume.ps1, nom copié : ce script est autonome) : elle
     # lance PowerShell 7 à l'ouverture de session, peut-être pendant sa mise à jour. Vérification seule jusqu'à la fin du setup.

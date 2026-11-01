@@ -196,11 +196,11 @@ try {
     }
     $pending = @(Get-PendingApp -App $apps)
     if (-not $pending) { return }
-    $open = @($pending | Where-Object { (Get-AppProcess -App $_).Count -gt 0 })
+    $open = @($pending | Where-Object { @(Get-AppProcess -App $_).Count -gt 0 })
     if ($open.Count -lt $pending.Count -and -not (Test-RecentRun -State $state)) {
         # Applications fermées depuis la vérification : la tâche SYSTEM les met à jour sans rien demander.
         [void](Invoke-SystemRun -State $state)
-        $open = @(Get-PendingApp -App $apps | Where-Object { (Get-AppProcess -App $_).Count -gt 0 })
+        $open = @(Get-PendingApp -App $apps | Where-Object { @(Get-AppProcess -App $_).Count -gt 0 })
     }
     if (-not $open) { return }
 
