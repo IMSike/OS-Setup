@@ -29,6 +29,6 @@ param()
             Write-OSSetupLog -Level Detail -Message '  statistiques d''usage de rtk refusées (rtk telemetry enable pour les accepter)'
         }
         # Entrée vide : aucune question ne peut bloquer le setup.
-        Invoke-OSSetupNativeCommand -FilePath rtk -ArgumentList 'init', '--global', '--auto-patch' -NoInput -Label 'rtk init'
+        Invoke-OSSetupNativeCommand -FilePath rtk -ArgumentList 'init', '--global', '--auto-patch' -NoInput -Utf8 -Label 'rtk init'
     }
 }

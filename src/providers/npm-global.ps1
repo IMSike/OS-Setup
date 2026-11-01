@@ -22,6 +22,6 @@ param()
 
     Invoke   = {
         param($Action, $Context)
-        Invoke-OSSetupNativeCommand -FilePath npm -ArgumentList 'install', '--global', $Action['package'] -Label 'npm install'
+        Invoke-OSSetupNativeCommand -FilePath npm -ArgumentList 'install', '--global', $Action['package'] -Utf8 -Label 'npm install'
     }
 }

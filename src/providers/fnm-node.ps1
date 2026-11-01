@@ -29,7 +29,7 @@ param()
     Invoke   = {
         param($Action, $Context)
         foreach ($arguments in @(@('install', '--lts'), @('default', 'lts-latest'))) {
-            Invoke-OSSetupNativeCommand -FilePath fnm -ArgumentList $arguments -Label "fnm $($arguments -join ' ')"
+            Invoke-OSSetupNativeCommand -FilePath fnm -ArgumentList $arguments -Utf8 -Label "fnm $($arguments -join ' ')"
         }
     }
 }
