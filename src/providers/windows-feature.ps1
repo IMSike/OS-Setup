@@ -1,5 +1,7 @@
 ﻿# Provider windows-feature : activation (ou désactivation, enabled = false) d'une fonctionnalité facultative de Windows.
 # dism.exe plutôt que le module Dism : toujours présent, sortie en anglais avec /English, code 3010 = redémarrage requis.
+# Une fonctionnalité à désactiver qui n'existe pas dans cette version de Windows (PowerShell 2.0 sous Windows 11
+# récent) est conforme : son absence est le but.
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification = 'Interface commune des providers : chaque bloc reçoit $Action et $Context, utilisés ou non.')]
 param()
@@ -20,12 +22,21 @@ param()
             # « Enable Pending » (activée, redémarrage en attente) n'est pas conforme : l'activation est relancée
             # et signale de nouveau le redémarrage nécessaire. Idem pour « Disable Pending ».
             $output = & dism.exe /English /Online /Get-FeatureInfo "/FeatureName:$($Action['name'])"
+            # 0x800F080C : nom de fonctionnalité inconnu de cette version de Windows.
+            if ($LASTEXITCODE -eq -2146498548 -and -not $wantEnabled) {
+                Write-OSSetupLog -Level Detail -Message "  fonctionnalité $($Action['name']) inexistante dans cette version de Windows : rien à désactiver"
+                return $true
+            }
             if ($LASTEXITCODE -ne 0) { throw "Fonctionnalité '$($Action['name'])' introuvable (dism, code $LASTEXITCODE)." }
             if ($wantEnabled) { return [bool]($output -match '^State : Enabled$') }
             return [bool]($output -match '^State : Disabled')
         }
         # Sans droits administrateur (simulation) : lecture CIM, 1 = activée, 2 = désactivée.
         $feature = Get-CimInstance -ClassName Win32_OptionalFeature -Filter "Name='$($Action['name'])'"
+        if (-not $feature -and -not $wantEnabled) {
+            Write-OSSetupLog -Level Detail -Message "  fonctionnalité $($Action['name']) inexistante dans cette version de Windows : rien à désactiver"
+            return $true
+        }
         if (-not $feature) { throw "Fonctionnalité '$($Action['name'])' introuvable." }
         if ($wantEnabled) { $feature.InstallState -eq 1 } else { $feature.InstallState -ne 1 }
     }

@@ -142,6 +142,33 @@ Describe 'Provider appx' {
     }
 }
 
+Describe 'Provider windows-feature' {
+    BeforeEach {
+        Mock -ModuleName OSSetup Write-OSSetupLog {}
+    }
+
+    It 'est conforme, en le signalant, quand la fonctionnalité à désactiver n''existe pas dans cette version de Windows' {
+        Mock -ModuleName OSSetup Test-OSSetupElevated { $true }
+        # 0x800F080C : nom de fonctionnalité inconnu.
+        Mock -ModuleName OSSetup dism.exe { $global:LASTEXITCODE = -2146498548 }
+        Invoke-TestProviderTest -Name windows-feature -Action @{ name = 'MicrosoftWindowsPowerShellV2Root'; enabled = $false } | Should -BeTrue
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -ParameterFilter { $Message -like '*MicrosoftWindowsPowerShellV2Root inexistante*' } -Times 1 -Exactly
+    }
+
+    It 'échoue quand la fonctionnalité à activer n''existe pas' {
+        Mock -ModuleName OSSetup Test-OSSetupElevated { $true }
+        Mock -ModuleName OSSetup dism.exe { $global:LASTEXITCODE = -2146498548 }
+        { Invoke-TestProviderTest -Name windows-feature -Action @{ name = 'Microsoft-Windows-Subsystem-Linux' } } | Should -Throw '*introuvable*'
+    }
+
+    It 'sans droits administrateur, traite de même une fonctionnalité inexistante' {
+        Mock -ModuleName OSSetup Test-OSSetupElevated { $false }
+        Mock -ModuleName OSSetup Get-CimInstance {}
+        Invoke-TestProviderTest -Name windows-feature -Action @{ name = 'MicrosoftWindowsPowerShellV2Root'; enabled = $false } | Should -BeTrue
+        { Invoke-TestProviderTest -Name windows-feature -Action @{ name = 'Microsoft-Windows-Subsystem-Linux' } } | Should -Throw '*introuvable*'
+    }
+}
+
 Describe 'Provider windows-capability' {
     It 'compare l''état des capacités dont le nom commence par le nom donné' {
         Mock -ModuleName OSSetup Test-OSSetupElevated { $true }
@@ -153,11 +180,18 @@ Describe 'Provider windows-capability' {
         Invoke-TestProviderTest -Name windows-capability -Action @{ name = 'App.StepsRecorder' } | Should -BeTrue
     }
 
-    It 'accepte un caractère générique pour la partie propre à une version, et refuse un nom inconnu' {
+    It 'accepte un caractère générique pour la partie propre à une version' {
         Mock -ModuleName OSSetup Test-OSSetupElevated { $true }
         Mock -ModuleName OSSetup Get-WindowsCapability { [pscustomobject]@{ Name = 'Hello.Face.18967~~~~0.0.1.0'; State = 'Installed' } }
         Invoke-TestProviderTest -Name windows-capability -Action @{ name = 'Hello.Face.*' } | Should -BeFalse
-        { Invoke-TestProviderTest -Name windows-capability -Action @{ name = 'Hello.Face' } } | Should -Throw '*Aucune capacité*'
+    }
+
+    It 'est conforme, en le signalant, quand le composant n''existe pas dans cette version de Windows' {
+        Mock -ModuleName OSSetup Test-OSSetupElevated { $true }
+        Mock -ModuleName OSSetup Get-WindowsCapability { [pscustomobject]@{ Name = 'App.StepsRecorder~~~~0.0.1.0'; State = 'Installed' } }
+        Mock -ModuleName OSSetup Write-OSSetupLog {}
+        Invoke-TestProviderTest -Name windows-capability -Action @{ name = 'Microsoft.Windows.WordPad' } | Should -BeTrue
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -ParameterFilter { $Message -like '*Microsoft.Windows.WordPad inexistant*' } -Times 1 -Exactly
     }
 
     It 'reste à faire sans droits administrateur (lecture impossible)' {
