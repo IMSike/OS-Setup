@@ -32,6 +32,7 @@ PowerShell 7 is installed from the Store (`winget --source msstore`, product `9M
     - restores the block if it was lifted;
     - for a closed app: lifts the block, has the update installed without forced close, puts the block back;
     - for a running app: lifts the block only for the time of the Store query, which only checks that an update exists;
+    - while a setup resume is pending (task `OS-Setup - reprise`, which starts PowerShell 7 at logon): only checks, even for a closed app;
   - **`OS-Setup - Store (recherche)`** (user, no trigger): queries the Store on behalf of the user, because the Store API only acts for the calling account;
   - **`OS-Setup - Store (fenêtre)`** (user, at logon then every 15 minutes):
     - has the Store checked at most every 4 hours;

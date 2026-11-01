@@ -35,6 +35,7 @@ PowerShell 7 est installé depuis le Store (`winget --source msstore`, produit `
     - rétablit le blocage s'il a été levé ;
     - application fermée : lève le blocage, fait installer la mise à jour sans fermeture forcée, remet le blocage ;
     - application ouverte : ne lève le blocage que le temps de demander au Store si une mise à jour existe ;
+    - reprise du setup en attente (tâche `OS-Setup - reprise`, qui lance PowerShell 7 à l'ouverture de session) : vérification seule, même pour une application fermée ;
   - **`OS-Setup - Store (recherche)`** (utilisateur, sans déclencheur) : interroge le Store pour le compte de l'utilisateur. L'API du Store n'agit que pour le compte qui l'appelle ;
   - **`OS-Setup - Store (fenêtre)`** (utilisateur, à l'ouverture de session puis toutes les 15 minutes) :
     - fait vérifier le Store au plus toutes les 4 heures ;

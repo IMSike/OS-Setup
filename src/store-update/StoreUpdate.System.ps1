@@ -104,6 +104,13 @@ try {
 
     $open = @($installed | Where-Object { (Get-AppProcess $_).Count -gt 0 })
     $closed = @($installed | Where-Object { $_ -notin $open })
+    # Reprise du setup en attente (tâche de src/OSSetup/Functions/Resume.ps1, nom copié : ce script est autonome) : elle
+    # lance PowerShell 7 à l'ouverture de session, peut-être pendant sa mise à jour. Vérification seule jusqu'à la fin du setup.
+    if ($closed -and (Get-ScheduledTask -TaskName 'OS-Setup - reprise' -ErrorAction SilentlyContinue)) {
+        Write-StoreUpdateLog 'reprise du setup en attente : vérification seule'
+        $open = $installed
+        $closed = @()
+    }
     if ($open) {
         Write-StoreUpdateLog "ouvertes, vérification seule : $(($open | ForEach-Object { $_.name }) -join ', ')"
         Invoke-UserSearch -App $open -Mode 'check' -TimeoutMinutes 3

@@ -43,6 +43,12 @@ Describe 'Scripts des tâches des mises à jour du Store' {
         $text | Should -Match '\$installed\.Count -eq \$present\.Count'
         $text | Should -Not -Match '\$installed\.Count -eq \$apps\.Count'
     }
+
+    It 'la tâche SYSTEM reconnaît la tâche de reprise du setup sous son nom actuel' {
+        $resume = InModuleScope OSSetup { $script:ResumeTaskName }
+        $resume | Should -Not -BeNullOrEmpty
+        Get-Content -Path (Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.System.ps1') -Raw | Should -Match ([regex]::Escape("-TaskName '$resume'"))
+    }
 }
 
 Describe 'Fenêtre : attente de la tâche SYSTEM' {
