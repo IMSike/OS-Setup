@@ -84,12 +84,14 @@ try {
     # Sous Windows PowerShell 5.1, ConvertFrom-Json rend un tableau JSON d'un bloc : l'affectation puis @() le déplient.
     $apps = ConvertFrom-Json -InputObject (Get-Content -Path (Join-Path -Path $root -ChildPath 'apps.json') -Raw -Encoding UTF8)
     $apps = @($apps)
+    # Application encadrée puis désinstallée : elle reste dans apps.json mais n'apparaîtra jamais dans le pont WMI.
+    $present = @($apps | Where-Object { Get-AppVersion $_ })
     # Juste après le démarrage, le pont WMI du Store peut ne pas encore exposer les paquets : on les attend 3 min au plus.
     $deadline = (Get-Date).AddMinutes(3)
     while ($true) {
         $known = @(Get-CimInstance -Namespace $namespace -ClassName $class -ErrorAction SilentlyContinue | ForEach-Object { $_.InstanceID })
-        $installed = @($apps | Where-Object { $_.family -in $known })
-        if ($installed.Count -eq $apps.Count -or (Get-Date) -ge $deadline) { break }
+        $installed = @($present | Where-Object { $_.family -in $known })
+        if ($installed.Count -eq $present.Count -or (Get-Date) -ge $deadline) { break }
         Start-Sleep -Seconds 10
     }
     # Garde-fou : le blocage doit être en place en dehors des demandes au Store.

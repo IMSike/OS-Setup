@@ -36,6 +36,13 @@ Describe 'Scripts des tâches des mises à jour du Store' {
         $search | Should -Match 'LastRunTime -ge \$started'
         $search | Should -Match 'LASTEXITCODE'
     }
+
+    It 'la tâche SYSTEM n''attend dans le pont WMI que les applications installées' {
+        $text = Get-Content -Path (Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.System.ps1') -Raw
+        $text | Should -Match '\$present = @\(\$apps \| Where-Object \{ Get-AppVersion \$_ \}\)'
+        $text | Should -Match '\$installed\.Count -eq \$present\.Count'
+        $text | Should -Not -Match '\$installed\.Count -eq \$apps\.Count'
+    }
 }
 
 Describe 'Fenêtre : attente de la tâche SYSTEM' {
