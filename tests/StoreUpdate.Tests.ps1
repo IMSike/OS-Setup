@@ -62,6 +62,28 @@ Describe 'Scripts des tâches des mises à jour du Store' {
         $text | Should -Not -Match '&\s+(schtasks|icacls)\.exe'
     }
 
+    It '<Script> lance la tâche « <Role> » sous le nom que lui donne le module' -ForEach @(
+        @{ Script = 'StoreUpdate.System.ps1'; Variable = 'userTask'; Role = 'User' }
+        @{ Script = 'StoreUpdate.Prompt.ps1'; Variable = 'systemTask'; Role = 'System' }
+    ) {
+        # Les scripts déployés sont autonomes et recopient le nom : un renommage dans le module seul ferait échouer
+        # « schtasks /run » sans erreur visible (sortie jetée).
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path -Path $sourceRoot -ChildPath $Script), [ref]$null, [ref]$null)
+        $assignment = $ast.Find({
+                param($Node) $Node -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+                $Node.Left -is [System.Management.Automation.Language.VariableExpressionAst] -and $Node.Left.VariablePath.UserPath -eq $Variable
+            }, $false)
+        $assignment | Should -Not -BeNullOrEmpty
+        $expected = InModuleScope OSSetup -Parameters @{ Role = $Role } { param($Role) $script:StoreUpdateTask[$Role] }
+        $assignment.Right.Expression.Value | Should -Be $expected
+    }
+
+    It 'chaque script déclaré par le module existe dans src/store-update' {
+        $names = InModuleScope OSSetup { @($script:StoreUpdateScript.Values) }
+        $names.Count | Should -Be 3
+        foreach ($name in $names) { Join-Path -Path $sourceRoot -ChildPath $name | Should -Exist }
+    }
+
     It 'la tâche SYSTEM reconnaît la tâche de reprise du setup sous son nom actuel' {
         $resume = InModuleScope OSSetup { $script:ResumeTaskName }
         $resume | Should -Not -BeNullOrEmpty
