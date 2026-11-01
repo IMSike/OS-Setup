@@ -87,7 +87,8 @@ try {
                 $state = "$($status.InstallState)"
                 $available = $state -ne 'Completed'
                 $after = "$((Get-AppxPackage -Name $packageName | Sort-Object -Property Version -Descending | Select-Object -First 1).Version)"
-                Write-StoreUpdateLog ("$($app.name) $version -> $after : $state, code 0x{0:X8}" -f $status.ErrorCode.HResult)
+                $code = if ($status.ErrorCode) { ', code 0x{0:X8}' -f $status.ErrorCode.HResult }
+                Write-StoreUpdateLog "$($app.name) $version -> $after : $state$code"
                 $version = $after
             }
             else { Write-StoreUpdateLog "$($app.name) $version : à jour" }
