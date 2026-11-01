@@ -7,6 +7,29 @@ $script:PowerSettings = @{
     display   = @('SUB_VIDEO', 'VIDEOIDLE')
 }
 
+function Import-OSSetupCompatibilityModule {
+    <#
+    .SYNOPSIS
+        Charge un module par Windows PowerShell 5.1 (-UseWindowsPowerShell, objets désérialisés), même sous -WhatIf.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Name
+    )
+    # Sous -WhatIf, la création du module de compatibilité (copie de fichiers temporaires) serait elle aussi
+    # simulée et le module ne se chargerait pas. Elle s'exécute hors de cette fonction, d'où la préférence
+    # globale, rétablie ensuite. Charger un module ne modifie pas le système.
+    $savedWhatIf = $global:WhatIfPreference
+    $global:WhatIfPreference = $false
+    try {
+        Import-Module -Name $Name -UseWindowsPowerShell -Global -WarningAction SilentlyContinue -ErrorAction Stop
+    }
+    finally {
+        $global:WhatIfPreference = $savedWhatIf
+    }
+}
+
 function Import-OSSetupAppxModule {
     <#
     .SYNOPSIS
@@ -20,17 +43,7 @@ function Import-OSSetupAppxModule {
         Import-Module -Name Appx -Global -ErrorAction Stop
     }
     catch {
-        # Sous -WhatIf, la création du module de compatibilité (copie de fichiers temporaires) serait elle aussi
-        # simulée et le module ne se chargerait pas. Elle s'exécute hors de cette fonction, d'où la préférence
-        # globale, rétablie ensuite. Charger un module ne modifie pas le système.
-        $savedWhatIf = $global:WhatIfPreference
-        $global:WhatIfPreference = $false
-        try {
-            Import-Module -Name Appx -UseWindowsPowerShell -Global -WarningAction SilentlyContinue -ErrorAction Stop
-        }
-        finally {
-            $global:WhatIfPreference = $savedWhatIf
-        }
+        Import-OSSetupCompatibilityModule -Name Appx
     }
 }
 
@@ -47,15 +60,7 @@ function Import-OSSetupDismModule {
         Import-Module -Name Dism -Global -ErrorAction Stop
         return
     }
-    # Même précaution que pour Appx : sous -WhatIf, le module de compatibilité ne se chargerait pas.
-    $savedWhatIf = $global:WhatIfPreference
-    $global:WhatIfPreference = $false
-    try {
-        Import-Module -Name Dism -UseWindowsPowerShell -Global -WarningAction SilentlyContinue -ErrorAction Stop
-    }
-    finally {
-        $global:WhatIfPreference = $savedWhatIf
-    }
+    Import-OSSetupCompatibilityModule -Name Dism
 }
 
 function Get-OSSetupAppxPresence {

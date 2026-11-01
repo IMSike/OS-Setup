@@ -141,6 +141,7 @@
         'Get-OSSetupStartupEntry'
         'Get-OSSetupUninstallEntry'
         'Import-OSSetupAppxModule'
+        'Import-OSSetupCompatibilityModule'
         'Import-OSSetupDismModule'
         'Set-OSSetupPowerValue'
         'Stop-OSSetupStoreUpdate'

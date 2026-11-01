@@ -130,6 +130,28 @@ Describe 'Wait-OSSetupUninstallEntryRemoval' {
     }
 }
 
+Describe 'Import-OSSetupCompatibilityModule' {
+    It 'charge le module par Windows PowerShell 5.1 hors simulation, puis rétablit -WhatIf même en cas d''échec' {
+        Mock -ModuleName OSSetup Import-Module {
+            $global:OSSetupTestWhatIfDuringImport = $global:WhatIfPreference
+            throw 'échec simulé'
+        }
+        $savedWhatIf = $global:WhatIfPreference
+        try {
+            $global:WhatIfPreference = $true
+            { Import-OSSetupCompatibilityModule -Name Dism } | Should -Throw '*échec simulé*'
+            $restored = $global:WhatIfPreference
+        }
+        finally {
+            $global:WhatIfPreference = $savedWhatIf
+        }
+        $restored | Should -BeTrue
+        $global:OSSetupTestWhatIfDuringImport | Should -BeFalse
+        Should -Invoke -ModuleName OSSetup Import-Module -ParameterFilter { $Name -eq 'Dism' -and $UseWindowsPowerShell } -Times 1 -Exactly
+        Remove-Variable -Name OSSetupTestWhatIfDuringImport -Scope Global -ErrorAction SilentlyContinue
+    }
+}
+
 Describe 'Provider appx' {
     It 'est conforme quand l''application n''est ni installée ni provisionnée' {
         Mock -ModuleName OSSetup Get-OSSetupAppxPresence { [pscustomobject]@{ Installed = @(); Provisioned = @() } }
