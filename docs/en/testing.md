@@ -17,7 +17,7 @@ Invoke-Pester -Path tests/CodeQuality.Tests.ps1 -Output Detailed
 
 ## Hyper-V test VM
 
-Integration tests in a disposable Windows VM, recreatable identically, with no ISO and no clicks. The scripts are in [`tests/vm/`](../../tests/vm/).
+Integration tests in a disposable Windows VM, recreatable identically from a Windows image (install.esd, install.wim or ISO), with no clicks. The scripts are in [`tests/vm/`](../../tests/vm/).
 
 Prerequisites on the host: virtualization enabled in the BIOS, the Hyper-V feature, PowerShell 7, Git, a Windows image: `install.esd` or `install.wim` (for example on a USB stick created with the Microsoft media creation tool), or the installation ISO downloaded from Microsoft's website. The image is copied to a cache specific to each VM (`%ProgramData%\OSSetup-Tests\images\<VM>`). VMs have a virtual TPM and Secure Boot, like a Windows 11 machine.
 
