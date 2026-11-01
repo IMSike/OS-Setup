@@ -48,10 +48,26 @@ function Invoke-UserSearch([object[]]$App, [string]$Mode, [int]$TimeoutMinutes) 
     [IO.File]::WriteAllText((Join-Path -Path $root -ChildPath 'run.json'), (ConvertTo-Json -InputObject $request), [Text.UTF8Encoding]::new($false))
     try {
         foreach ($item in $App) { Write-DoNotUpdate -Family $item.family -Value 0 }
+        $started = Get-Date
         & schtasks.exe /run /tn $userTask | Out-Null
-        Start-Sleep -Seconds 5
-        $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
-        while ((Get-ScheduledTask -TaskName $userTask).State -eq 'Running' -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 2 }
+        if ($LASTEXITCODE -ne 0) {
+            Write-StoreUpdateLog "recherche non lancée (code $LASTEXITCODE)"
+            return
+        }
+        # Attend une exécution démarrée après la demande, puis terminée (même condition que la fenêtre de l'utilisateur).
+        $deadline = $started.AddMinutes($TimeoutMinutes)
+        do {
+            Start-Sleep -Seconds 2
+            $task = Get-ScheduledTask -TaskName $userTask
+            $ran = ($task | Get-ScheduledTaskInfo).LastRunTime -ge $started.AddSeconds(-2)
+            $done = $ran -and $task.State -ne 'Running'
+            if (-not $ran -and (Get-Date) -ge $started.AddMinutes(1)) {
+                # Demande ignorée (une recherche précédente tourne encore) ou session absente : pas de blocage levé pour rien.
+                Write-StoreUpdateLog 'recherche non démarrée après 1 min'
+                return
+            }
+        } until ($done -or (Get-Date) -ge $deadline)
+        if (-not $done) { Write-StoreUpdateLog "recherche non terminée après $TimeoutMinutes min" }
     }
     finally {
         foreach ($item in $App) { Write-DoNotUpdate -Family $item.family -Value 1 }

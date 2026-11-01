@@ -28,6 +28,14 @@ Describe 'Scripts des tâches des mises à jour du Store' {
         $loop.Body.Statements | Where-Object { $_ -is [System.Management.Automation.Language.TryStatementAst] } | Should -Not -BeNullOrEmpty
         $loop.Body.Statements | Where-Object { $_.Extent.Text -like '*WriteAllText($checkFile*' } | Should -Not -BeNullOrEmpty
     }
+
+    It 'la tâche SYSTEM attend une recherche démarrée après sa demande' {
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.System.ps1'), [ref]$null, [ref]$null)
+        $search = $ast.Find({ param($Node) $Node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $Node.Name -eq 'Invoke-UserSearch' }, $true).Extent.Text
+        $search | Should -Not -Match 'Start-Sleep -Seconds 5'
+        $search | Should -Match 'LastRunTime -ge \$started'
+        $search | Should -Match 'LASTEXITCODE'
+    }
 }
 
 Describe 'Fenêtre : attente de la tâche SYSTEM' {
