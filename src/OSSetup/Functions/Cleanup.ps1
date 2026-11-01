@@ -126,6 +126,7 @@ function Invoke-OSSetupCleanup {
     # @(...) autour du if : sinon un résultat vide devient $null et un résultat unique une simple chaîne.
     $uninstall = @(if ($info -and $null -ne $SelectedWingetId) { Get-OSSetupToolToRemove -InstalledTool $info.installedTools -SelectedWingetId $SelectedWingetId })
     $remove = [System.Collections.Generic.List[string]]::new()
+    $historyRoot = $null
     $logPath = $null
 
     if ($info -and $info.ownsClone) {
@@ -159,7 +160,7 @@ function Invoke-OSSetupCleanup {
     }
     # Copie en dernier : le journal conservé contient aussi les lignes ci-dessus.
     if ($logPath) {
-        [void](Save-OSSetupHistory -Root $Root -RunId $RunId -HistoryRoot (Split-Path -Path (Split-Path -Path $logPath -Parent) -Parent))
+        [void](Save-OSSetupHistory -Root $Root -RunId $RunId -HistoryRoot $historyRoot)
     }
     if ($uninstall.Count -eq 0 -and $remove.Count -eq 0 -and -not $Logoff) { return }
 
