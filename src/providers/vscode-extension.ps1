@@ -24,9 +24,6 @@ param()
     Invoke   = {
         param($Action, $Context)
         $command = if ($Action['editor']) { $Action['editor'] } else { 'code' }
-        $output = & $command --install-extension $Action['id'] --force 2>&1
-        $exitCode = $LASTEXITCODE
-        foreach ($line in $output) { if ("$line".Trim()) { Write-OSSetupLog -Level Detail -Message "  $line" } }
-        if ($exitCode -ne 0) { throw "$command --install-extension a échoué (code $exitCode)." }
+        Invoke-OSSetupNativeCommand -FilePath $command -ArgumentList '--install-extension', $Action['id'], '--force' -Label "$command --install-extension"
     }
 }

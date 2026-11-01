@@ -23,9 +23,6 @@ param()
     Invoke   = {
         param($Action, $Context)
         # --yes : sans console interactive, herdr refuse d'installer sans confirmation (pas d'aperçu).
-        $output = & herdr plugin install $Action['repo'] --yes 2>&1
-        $exitCode = $LASTEXITCODE
-        foreach ($line in $output) { if ("$line".Trim()) { Write-OSSetupLog -Level Detail -Message "  $line" } }
-        if ($exitCode -ne 0) { throw "herdr plugin install a échoué (code $exitCode)." }
+        Invoke-OSSetupNativeCommand -FilePath herdr -ArgumentList 'plugin', 'install', $Action['repo'], '--yes' -Label 'herdr plugin install'
     }
 }

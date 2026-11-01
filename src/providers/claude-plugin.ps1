@@ -22,24 +22,11 @@ param()
     Invoke   = {
         param($Action, $Context)
         $id = "$($Action['plugin'])@$($Action['marketplace'])"
-        $previousEncoding = [Console]::OutputEncoding
-        try {
-            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-            # Déjà installé : la commande réussit sans rien changer.
-            $output = & claude plugin install $Action['plugin'] --marketplace $Action['source'] --scope user 2>&1
-            $exitCode = $LASTEXITCODE
-            foreach ($line in $output) { if ("$line".Trim()) { Write-OSSetupLog -Level Detail -Message "  $line" } }
-            if ($exitCode -ne 0) { throw "claude plugin install a échoué (code $exitCode)." }
+        # Déjà installé : la commande réussit sans rien changer.
+        Invoke-OSSetupNativeCommand -FilePath claude -ArgumentList 'plugin', 'install', $Action['plugin'], '--marketplace', $Action['source'], '--scope', 'user' -Utf8 -Label 'claude plugin install'
 
-            if (Get-OSSetupClaudePlugin | Where-Object { $_.Id -eq $id -and -not $_.Enabled }) {
-                $output = & claude plugin enable $id 2>&1
-                $exitCode = $LASTEXITCODE
-                foreach ($line in $output) { if ("$line".Trim()) { Write-OSSetupLog -Level Detail -Message "  $line" } }
-                if ($exitCode -ne 0) { throw "claude plugin enable a échoué (code $exitCode)." }
-            }
-        }
-        finally {
-            [Console]::OutputEncoding = $previousEncoding
+        if (Get-OSSetupClaudePlugin | Where-Object { $_.Id -eq $id -and -not $_.Enabled }) {
+            Invoke-OSSetupNativeCommand -FilePath claude -ArgumentList 'plugin', 'enable', $id -Utf8 -Label 'claude plugin enable'
         }
     }
 }

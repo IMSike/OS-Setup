@@ -31,19 +31,13 @@ param()
         $arguments = if ($Action['skills']) { @('install', "--skills=$($Action['skills'])", '--global') } else { @('install-browser', $Action['browser']) }
         # Les skills globales ne dépendent pas du dossier courant ; le profil évite de créer .playwright ailleurs.
         # La CLI écrit en UTF-8 : sans ce réglage, PowerShell décode sa sortie avec la page de code OEM.
-        $previousEncoding = [Console]::OutputEncoding
+        # Barre de progression du téléchargement (lignes « | ») : seules les lignes de texte sont journalisées.
         Push-Location -Path $env:USERPROFILE
         try {
-            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-            $output = & playwright-cli @arguments 2>&1
-            $exitCode = $LASTEXITCODE
+            Invoke-OSSetupNativeCommand -FilePath playwright-cli -ArgumentList $arguments -Utf8 -LogFilter '^\|' -Label "playwright-cli $($arguments[0])"
         }
         finally {
-            [Console]::OutputEncoding = $previousEncoding
             Pop-Location
         }
-        # Barre de progression du téléchargement : seules les lignes de texte sont journalisées.
-        foreach ($line in $output) { if ("$line".Trim() -and "$line" -notmatch '^\|') { Write-OSSetupLog -Level Detail -Message "  $line" } }
-        if ($exitCode -ne 0) { throw "playwright-cli $($arguments[0]) a échoué (code $exitCode)." }
     }
 }

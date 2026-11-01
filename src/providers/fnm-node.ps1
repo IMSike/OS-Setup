@@ -29,10 +29,7 @@ param()
     Invoke   = {
         param($Action, $Context)
         foreach ($arguments in @(@('install', '--lts'), @('default', 'lts-latest'))) {
-            $output = & fnm @arguments 2>&1
-            $exitCode = $LASTEXITCODE
-            foreach ($line in $output) { if ("$line".Trim()) { Write-OSSetupLog -Level Detail -Message "  $line" } }
-            if ($exitCode -ne 0) { throw "fnm $($arguments -join ' ') a échoué (code $exitCode)." }
+            Invoke-OSSetupNativeCommand -FilePath fnm -ArgumentList $arguments -Label "fnm $($arguments -join ' ')"
         }
     }
 }

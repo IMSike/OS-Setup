@@ -22,9 +22,6 @@ param()
 
     Invoke   = {
         param($Action, $Context)
-        $output = & npm install --global $Action['package'] 2>&1
-        $exitCode = $LASTEXITCODE
-        foreach ($line in $output) { if ("$line".Trim()) { Write-OSSetupLog -Level Detail -Message "  $line" } }
-        if ($exitCode -ne 0) { throw "npm install a échoué (code $exitCode)." }
+        Invoke-OSSetupNativeCommand -FilePath npm -ArgumentList 'install', '--global', $Action['package'] -Label 'npm install'
     }
 }

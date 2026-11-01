@@ -91,6 +91,8 @@
         'Save-OSSetupOriginalValue'
         'Show-OSSetupPlan'
         'Show-OSSetupSummary'
+        # Process.ps1
+        'Invoke-OSSetupNativeCommand'
         # Prompt.ps1
         'Get-OSSetupWizardStep'
         'New-OSSetupDefaultAnswer'
