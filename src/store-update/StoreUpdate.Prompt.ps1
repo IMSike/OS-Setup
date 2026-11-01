@@ -25,6 +25,8 @@ $log = Join-Path -Path $root -ChildPath 'store-update.log'
 $stateFile = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'OS-Setup\store-update.json'
 $title = 'Mise à jour du Store'
 
+# Copies (scripts autonomes) : Write-StoreUpdateLog aussi dans StoreUpdate.System.ps1 et StoreUpdate.User.ps1 (étiquette
+# différente) ; Get-AppProcess et Get-AppVersion aussi dans StoreUpdate.System.ps1, en ligne dans StoreUpdate.User.ps1.
 function Write-StoreUpdateLog {
     param([string]$Message)
     $line = '{0:yyyy-MM-dd HH:mm:ss} [{1}, fenêtre] {2}' -f (Get-Date), $env:USERNAME, $Message

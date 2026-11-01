@@ -57,6 +57,22 @@ function Get-OSSetupStoreUpdateTaskArgument {
     "--headless `"$powershell`" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$script`""
 }
 
+function Get-OSSetupDoNotUpdateInstance {
+    <#
+    .SYNOPSIS
+        Instance du pont WMI du fournisseur MDM (nœud EnterpriseModernAppManagement) pour une famille de paquets, ou rien
+        si le Store ne connaît pas (encore) le paquet. Même requête que StoreUpdate.System.ps1 (script autonome).
+    #>
+    [CmdletBinding()]
+    [OutputType([Microsoft.Management.Infrastructure.CimInstance])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Family
+    )
+    Get-CimInstance -Namespace 'root\cimv2\mdm\dmmap' -ClassName 'MDM_EnterpriseModernAppManagement_AppManagement01_02' |
+        Where-Object { $_.InstanceID -eq $Family }
+}
+
 function Get-OSSetupDoNotUpdate {
     <#
     .SYNOPSIS
@@ -69,8 +85,7 @@ function Get-OSSetupDoNotUpdate {
         [Parameter(Mandatory)]
         [string]$Family
     )
-    $instance = Get-CimInstance -Namespace 'root\cimv2\mdm\dmmap' -ClassName 'MDM_EnterpriseModernAppManagement_AppManagement01_02' |
-        Where-Object { $_.InstanceID -eq $Family }
+    $instance = Get-OSSetupDoNotUpdateInstance -Family $Family
     if ($instance) { [int]$instance.DoNotUpdate }
 }
 
@@ -90,8 +105,7 @@ function Set-OSSetupDoNotUpdate {
     if (-not $PSCmdlet.ShouldProcess($Family, 'Bloquer les mises à jour automatiques du Store')) { return }
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     while ($true) {
-        $instance = Get-CimInstance -Namespace 'root\cimv2\mdm\dmmap' -ClassName 'MDM_EnterpriseModernAppManagement_AppManagement01_02' |
-            Where-Object { $_.InstanceID -eq $Family }
+        $instance = Get-OSSetupDoNotUpdateInstance -Family $Family
         if ($instance -or (Get-Date) -ge $deadline) { break }
         Start-Sleep -Seconds 5
     }

@@ -127,6 +127,7 @@
         # StoreUpdate.ps1
         'ConvertTo-OSSetupStoreUpdateApp'
         'Get-OSSetupDoNotUpdate'
+        'Get-OSSetupDoNotUpdateInstance'
         'Get-OSSetupStoreUpdateApp'
         'Get-OSSetupStoreUpdateRoot'
         'Get-OSSetupStoreUpdateTaskArgument'

@@ -13,6 +13,7 @@ $root = $PSScriptRoot
 $log = Join-Path -Path $root -ChildPath 'store-update.log'
 $checkFile = Join-Path -Path $root -ChildPath 'check.json'
 
+# Copie (scripts autonomes) : Write-StoreUpdateLog aussi dans StoreUpdate.System.ps1 et StoreUpdate.Prompt.ps1.
 function Write-StoreUpdateLog {
     param([string]$Message)
     $line = '{0:yyyy-MM-dd HH:mm:ss} [{1}] {2}' -f (Get-Date), $env:USERNAME, $Message
@@ -54,6 +55,7 @@ try {
         $id = $app.productId
         $version = ''
         try {
+            # Version et processus : mêmes calculs que Get-AppVersion et Get-AppProcess de StoreUpdate.Prompt.ps1.
             $packageName = $app.family.Split('_')[0]
             $version = "$((Get-AppxPackage -Name $packageName | Sort-Object -Property Version -Descending | Select-Object -First 1).Version)"
             $available = $false

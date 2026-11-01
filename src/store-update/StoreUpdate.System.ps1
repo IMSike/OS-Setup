@@ -18,9 +18,12 @@ $schtasks = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'schtask
 $icacls = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'icacls.exe'
 $root = $PSScriptRoot
 $log = Join-Path -Path $root -ChildPath 'store-update.log'
+# Pont WMI du fournisseur MDM : même requête que Get-OSSetupDoNotUpdateInstance (src/OSSetup/Functions/StoreUpdate.ps1).
 $namespace = 'root\cimv2\mdm\dmmap'
 $class = 'MDM_EnterpriseModernAppManagement_AppManagement01_02'
 
+# Copies (scripts autonomes) : Write-StoreUpdateLog aussi dans StoreUpdate.User.ps1 et StoreUpdate.Prompt.ps1 (étiquette
+# différente) ; Get-AppProcess et Get-AppVersion aussi dans StoreUpdate.Prompt.ps1, en ligne dans StoreUpdate.User.ps1.
 function Write-StoreUpdateLog {
     param([string]$Message)
     # Journal partagé avec les tâches de l'utilisateur : quelques essais si un autre écrit au même moment.
