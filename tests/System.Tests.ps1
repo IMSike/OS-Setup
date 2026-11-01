@@ -140,6 +140,22 @@ Describe 'Provider appx' {
         Mock -ModuleName OSSetup Get-OSSetupAppxPresence { [pscustomobject]@{ Installed = @(); Provisioned = @('Microsoft.BingWeather_1_neutral_~_8wekyb3d8bbwe') } }
         Invoke-TestProviderTest -Name appx -Action @{ name = 'Microsoft.BingWeather' } | Should -BeFalse
     }
+
+    It 'annule la mise à jour du Store en attente avant de lire ce qu''il faut supprimer' {
+        $global:OSSetupTestAppxCalls = [System.Collections.Generic.List[string]]::new()
+        Mock -ModuleName OSSetup Stop-OSSetupStoreUpdate { $global:OSSetupTestAppxCalls.Add('annulation'); '9WZDNCRFJ364' }
+        Mock -ModuleName OSSetup Get-OSSetupAppxPresence { $global:OSSetupTestAppxCalls.Add('présence'); [pscustomobject]@{ Installed = @(); Provisioned = @() } }
+        Mock -ModuleName OSSetup Write-OSSetupLog {}
+        try {
+            InModuleScope OSSetup { & (Get-OSSetupProvider -Name appx).Invoke @{ name = 'Microsoft.SkypeApp' } @{} }
+            $global:OSSetupTestAppxCalls | Should -Be @('annulation', 'présence')
+            Should -Invoke -ModuleName OSSetup Stop-OSSetupStoreUpdate -ParameterFilter { $Name -eq 'Microsoft.SkypeApp' } -Times 1 -Exactly
+            Should -Invoke -ModuleName OSSetup Write-OSSetupLog -ParameterFilter { $Message -like '*9WZDNCRFJ364*' } -Times 1 -Exactly
+        }
+        finally {
+            Remove-Variable -Name OSSetupTestAppxCalls -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 Describe 'Provider windows-feature' {

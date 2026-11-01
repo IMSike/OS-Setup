@@ -55,6 +55,37 @@ function Get-OSSetupAppxPresence {
     [pscustomobject]@{ Installed = @($installed); Provisioned = @($provisioned) }
 }
 
+function Stop-OSSetupStoreUpdate {
+    <#
+    .SYNOPSIS
+        Annule les téléchargements et mises à jour en attente du Store pour une application, avant sa suppression :
+        sinon la mise à jour en cours s'achève après la suppression et réinstalle (et reprovisionne) l'application.
+        Retourne les identifiants de produit annulés.
+    .NOTES
+        L'API de la file du Store (WinRT AppInstallManager) n'est pas accessible depuis PowerShell 7 : elle passe
+        par Windows PowerShell 5.1.
+    #>
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [Parameter(Mandatory)]
+        [ValidatePattern('^[\w.-]+$')]
+        [string]$Name
+    )
+    if (-not $PSCmdlet.ShouldProcess($Name, 'Annuler les mises à jour du Store en attente')) { return }
+    $script = @"
+`$ErrorActionPreference = 'Stop'
+[void][Windows.ApplicationModel.Store.Preview.InstallControl.AppInstallManager, Windows.ApplicationModel.Store, ContentType = WindowsRuntime]
+`$manager = [Windows.ApplicationModel.Store.Preview.InstallControl.AppInstallManager]::new()
+foreach (`$item in @(`$manager.AppInstallItems | Where-Object { `$_.PackageFamilyName -like '$($Name)_*' })) {
+    `$manager.Cancel(`$item.ProductId)
+    `$item.ProductId
+}
+"@
+    $powershell = Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
+    @(& $powershell -NoProfile -NonInteractive -EncodedCommand $encoded 2>$null) | Where-Object { $_ } | Select-Object -Unique
+}
+
 function Get-OSSetupUninstallEntry {
     <#
     .SYNOPSIS
