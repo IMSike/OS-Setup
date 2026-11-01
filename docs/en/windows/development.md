@@ -78,11 +78,21 @@ Key by key: the user's other settings are kept, and a key changed on the machine
 
 ## PowerShell 7 — `pwsh`
 
-✔ · admin · winget `Microsoft.PowerShell` (MSI, machine-wide)
+✔ · admin · winget `9MZ1SNWT0N5D` (Microsoft Store, `msstore` source) · guarded updates (`store-update-guard`)
 
-- **Effect**: installs PowerShell 7 alongside Windows PowerShell 5.1 (which stays: it is a Windows component). Not pinned to the taskbar: it is used from Windows Terminal.
-- **Implications**: the default package is an MSIX, which cannot be installed machine-wide on Windows 10: the MSI is forced.
-- **Rollback**: Settings > Apps > PowerShell 7 > Uninstall.
+- **Effect**: installs PowerShell 7 from the Microsoft Store, alongside Windows PowerShell 5.1 (which stays: it is a Windows component). Not pinned to the taskbar: it is used from Windows Terminal. A PowerShell 7 installed by MSI (older setup, manual installation) is uninstalled, so that an existing machine ends like a fresh one.
+- **Updates**: the Store force-closes a running PowerShell to update it (herdr sessions and agents lost). Its automatic updates are therefore blocked and handed to three scheduled tasks (see [ADR 0004](../adr/0004-store-updates-without-forced-close.md)):
+  - PowerShell closed: silent update, daily and at each logon;
+  - PowerShell running: the Store is queried at most every 4 hours. If an update is offered, a window offers **Update now** or a delay (10 min, 1 h, 5 h, tomorrow);
+  - **Update now** checks with the Store again, then closes herdr and all PowerShell 7 sessions before installing. Closing the window delays by one hour.
+- **Implications**:
+  - updates follow the Store, including the move to 7.7 (not an LTS version);
+  - a session left open all day delays the update until you agree or until the next logon;
+  - log: `%ProgramFiles%\OS-Setup\store-update\store-update.log`.
+- **Rollback**:
+  1. Delete the tasks `OS-Setup - Store (système)`, `OS-Setup - Store (recherche)` and `OS-Setup - Store (fenêtre)` (Task Scheduler), then the `%ProgramFiles%\OS-Setup\store-update` folder.
+  2. Give the Store back its automatic updates: in an administrator PowerShell, `Get-CimInstance -Namespace root\cimv2\mdm\dmmap -ClassName MDM_EnterpriseModernAppManagement_AppManagement01_02 | Where-Object InstanceID -eq 'Microsoft.PowerShell_8wekyb3d8bbwe' | ForEach-Object { $_.DoNotUpdate = 0; Set-CimInstance -CimInstance $_ }`.
+  3. To uninstall PowerShell 7: Settings > Apps > PowerShell > Uninstall.
 
 ### PowerShell 7 profile — `pwsh-profile`
 
@@ -94,11 +104,14 @@ auto (with `pwsh`) · template file
 
 ## Windows Terminal — `windows-terminal`
 
-✔ · per account · winget `Microsoft.WindowsTerminal`
+✔ · per account · admin · winget `Microsoft.WindowsTerminal` · guarded updates (`store-update-guard`)
 
-- **Effect**: installs Windows Terminal (tabs, panes, modern rendering), then updated by winget.
-- **Implications**: Store application (MSIX), installed for the account: machine-wide installation is not supported on Windows 10. On Windows 10, Terminal cannot become the default terminal of Windows (Windows 11 only): a script launched by double-click still opens in the classic console.
-- **Rollback**: Settings > Apps > Windows Terminal > Uninstall.
+- **Effect**: installs Windows Terminal (tabs, panes, modern rendering). Its Store updates are guarded like PowerShell 7's (see `pwsh`): silent when Terminal is closed, offered in the same window when it is running.
+- **Implications**:
+  - Store application (MSIX), installed for the account: machine-wide installation is not supported on Windows 10;
+  - on Windows 10, Terminal cannot become the default terminal of Windows (Windows 11 only): a script launched by double-click still opens in the classic console;
+  - **Update now** closes all Terminal windows and what runs in them. herdr survives and reattaches when relaunched.
+- **Rollback**: as for `pwsh` (tasks, folder, then `DoNotUpdate` back to 0 for `Microsoft.WindowsTerminal_8wekyb3d8bbwe`). The tasks and the folder are shared by both apps: only delete them if neither should stay guarded. Uninstall: Settings > Apps > Windows Terminal > Uninstall.
 
 ### Windows Terminal settings
 

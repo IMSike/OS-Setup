@@ -5,8 +5,16 @@
   "category": "dev",
   "platforms": ["windows"],
   "requiresAdmin": true,
-  "notes": "Le paquet par défaut est un MSIX, non installable pour toute la machine sous Windows 10 : on force le MSI (wix).",
+  "notes": "Version du Store (source msstore : sous licence, contrairement au MSIX de la source winget), mises à jour sans fermeture forcée (ADR 0004). Un MSI de PowerShell 7 existant est désinstallé, pour finir comme un poste neuf.",
   "actions": [
-    { "provider": "winget", "id": "Microsoft.PowerShell", "scope": "machine", "installerType": "wix" }
+    { "provider": "winget", "id": "9MZ1SNWT0N5D", "source": "msstore" },
+    { "provider": "win32-uninstall", "displayName": "PowerShell 7-x64" },
+    {
+      "provider": "store-update-guard",
+      "family": "Microsoft.PowerShell_8wekyb3d8bbwe",
+      "productId": "9MZ1SNWT0N5D",
+      "name": "PowerShell 7",
+      "closeFirst": ["herdr"]
+    }
   ]
 }

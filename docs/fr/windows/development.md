@@ -78,11 +78,21 @@ Clé par clé : les autres réglages de l'utilisateur sont conservés, et une cl
 
 ## PowerShell 7 — `pwsh`
 
-✔ · admin · winget `Microsoft.PowerShell` (MSI, pour toute la machine)
+✔ · admin · winget `9MZ1SNWT0N5D` (Microsoft Store, source `msstore`) · mises à jour encadrées (`store-update-guard`)
 
-- **Effet** : installe PowerShell 7 à côté de Windows PowerShell 5.1 (qui reste : composant de Windows). Pas épinglé à la barre des tâches : on l'utilise depuis Windows Terminal.
-- **Implications** : le paquet par défaut est un MSIX, non installable pour toute la machine sous Windows 10 : le MSI est forcé.
-- **Revenir en arrière** : Paramètres > Applications > PowerShell 7 > Désinstaller.
+- **Effet** : installe PowerShell 7 depuis le Microsoft Store, à côté de Windows PowerShell 5.1 (qui reste : composant de Windows). Pas épinglé à la barre des tâches : on l'utilise depuis Windows Terminal. Un PowerShell 7 installé par MSI (ancien setup, installation manuelle) est désinstallé, pour qu'un poste existant finisse comme un poste neuf.
+- **Mises à jour** : le Store ferme de force un PowerShell ouvert pour le mettre à jour (sessions herdr et agents perdus). Ses mises à jour automatiques sont donc bloquées et confiées à trois tâches planifiées (voir l'[ADR 0004](../adr/0004-store-updates-without-forced-close.md)) :
+  - PowerShell fermé : mise à jour silencieuse, chaque jour et à chaque ouverture de session ;
+  - PowerShell ouvert : le Store est interrogé au plus toutes les 4 heures. Si une mise à jour est proposée, une fenêtre offre **Mettre à jour maintenant** ou un report (10 min, 1 h, 5 h, demain) ;
+  - **Maintenant** revérifie auprès du Store, puis ferme herdr et toutes les sessions PowerShell 7 avant d'installer. Fermer la fenêtre reporte d'une heure.
+- **Implications** :
+  - les mises à jour suivent le Store, y compris le passage à la 7.7 (version non LTS) ;
+  - une session ouverte toute la journée retarde la mise à jour jusqu'à votre accord ou à la prochaine ouverture de session ;
+  - journal : `%ProgramFiles%\OS-Setup\store-update\store-update.log`.
+- **Revenir en arrière** :
+  1. Supprimer les tâches `OS-Setup - Store (système)`, `OS-Setup - Store (recherche)` et `OS-Setup - Store (fenêtre)` (Planificateur de tâches), puis le dossier `%ProgramFiles%\OS-Setup\store-update`.
+  2. Rendre au Store ses mises à jour automatiques : dans un PowerShell administrateur, `Get-CimInstance -Namespace root\cimv2\mdm\dmmap -ClassName MDM_EnterpriseModernAppManagement_AppManagement01_02 | Where-Object InstanceID -eq 'Microsoft.PowerShell_8wekyb3d8bbwe' | ForEach-Object { $_.DoNotUpdate = 0; Set-CimInstance -CimInstance $_ }`.
+  3. Pour désinstaller PowerShell 7 : Paramètres > Applications > PowerShell > Désinstaller.
 
 ### Profil PowerShell 7 — `pwsh-profile`
 
@@ -94,11 +104,14 @@ auto (avec `pwsh`) · fichier gabarit
 
 ## Windows Terminal — `windows-terminal`
 
-✔ · pour le compte · winget `Microsoft.WindowsTerminal`
+✔ · pour le compte · admin · winget `Microsoft.WindowsTerminal` · mises à jour encadrées (`store-update-guard`)
 
-- **Effet** : installe Windows Terminal (onglets, volets, rendu moderne), mis à jour ensuite par winget.
-- **Implications** : application du Store (MSIX), installée pour le compte : l'installation pour toute la machine n'est pas prise en charge sous Windows 10. Sous Windows 10, Terminal ne peut pas devenir le terminal par défaut de Windows (Windows 11 seulement) : un script lancé par double-clic s'ouvre encore dans la console classique.
-- **Revenir en arrière** : Paramètres > Applications > Windows Terminal > Désinstaller.
+- **Effet** : installe Windows Terminal (onglets, volets, rendu moderne). Ses mises à jour du Store sont encadrées comme celles de PowerShell 7 (voir `pwsh`) : silencieuses quand Terminal est fermé, proposées dans la même fenêtre quand il est ouvert.
+- **Implications** :
+  - application du Store (MSIX), installée pour le compte : l'installation pour toute la machine n'est pas prise en charge sous Windows 10 ;
+  - sous Windows 10, Terminal ne peut pas devenir le terminal par défaut de Windows (Windows 11 seulement) : un script lancé par double-clic s'ouvre encore dans la console classique ;
+  - **Mettre à jour maintenant** ferme toutes les fenêtres de Terminal et ce qui y tourne. herdr survit et se rattache à la relance.
+- **Revenir en arrière** : comme pour `pwsh` (tâches, dossier, puis `DoNotUpdate` à 0 pour `Microsoft.WindowsTerminal_8wekyb3d8bbwe`). Les tâches et le dossier sont communs aux deux applications : ne les supprimer que si aucune ne doit plus être encadrée. Désinstaller : Paramètres > Applications > Windows Terminal > Désinstaller.
 
 ### Réglages de Windows Terminal
 
