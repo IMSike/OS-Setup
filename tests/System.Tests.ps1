@@ -536,6 +536,14 @@ Describe 'Test-OSSetupWingetInstalled' {
         InModuleScope OSSetup { Test-OSSetupWingetInstalled -Id 'Git.Git' } | Should -BeTrue
         Should -Invoke -ModuleName OSSetup Get-OSSetupWingetExportId -Times 0
     }
+
+    It 'ne lit pas l''export avec -ListOnly ni pour une autre source que winget' {
+        Mock -ModuleName OSSetup winget { $global:LASTEXITCODE = -1978335212 }
+        Mock -ModuleName OSSetup Get-OSSetupWingetExportId { @('Microsoft.PowerShell', '9MZ1SNWT0N5D') }
+        InModuleScope OSSetup { Test-OSSetupWingetInstalled -Id 'Microsoft.PowerShell' -ListOnly } | Should -BeFalse
+        InModuleScope OSSetup { Test-OSSetupWingetInstalled -Id '9MZ1SNWT0N5D' -Source msstore } | Should -BeFalse
+        Should -Invoke -ModuleName OSSetup Get-OSSetupWingetExportId -Times 0
+    }
 }
 
 Describe 'Provider winget : présence' {

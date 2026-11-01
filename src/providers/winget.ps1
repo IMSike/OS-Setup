@@ -17,7 +17,7 @@ param()
         param($Action, $Context)
         # Application du Store : jugée par son paquet appx, car winget list rattache aussi un MSI au produit du Store.
         if ($Action['packageName']) { return Test-OSSetupAppxInstalled -Name $Action['packageName'] }
-        Test-OSSetupWingetInstalled -Id $Action['id']
+        Test-OSSetupWingetInstalled -Id $Action['id'] -Source $(if ($Action['source']) { $Action['source'] } else { 'winget' })
     }
 
     Invoke   = {
@@ -63,13 +63,21 @@ param()
         }
         # Certains installeurs rendent la main avant d'avoir fini (ex. Squirrel pour Discord : l'installation continue
         # en arrière-plan une dizaine de secondes) : attendre que le paquet soit détecté.
+        # Le premier sondage relit l'export (paquet que seul l'export rattache) ; les suivants s'en tiennent à winget list,
+        # l'export complet étant lourd. Il est relu une dernière fois si le paquet n'a pas été trouvé (cache à jour).
+        $source = if ($Action['source']) { $Action['source'] } else { 'winget' }
         $deadline = (Get-Date).AddSeconds(60)
+        $found = $false
+        $firstPoll = $true
         while (-not $rebootRequired -and (Get-Date) -lt $deadline) {
-            if ($Action['packageName']) {
-                if (Test-OSSetupAppxInstalled -Name $Action['packageName']) { break }
-            }
-            elseif (Test-OSSetupWingetInstalled -Id $Action['id'] -Refresh) { break }
+            $found = if ($Action['packageName']) { Test-OSSetupAppxInstalled -Name $Action['packageName'] }
+            else { Test-OSSetupWingetInstalled -Id $Action['id'] -Source $source -Refresh:$firstPoll -ListOnly:(-not $firstPoll) }
+            if ($found) { break }
+            $firstPoll = $false
             Start-Sleep -Seconds 3
+        }
+        if (-not $rebootRequired -and -not $found -and -not $firstPoll -and -not $Action['packageName'] -and $source -eq 'winget') {
+            Get-OSSetupWingetExportId -Refresh | Out-Null
         }
         # L'installeur a pu modifier le PATH dans le registre : la session doit le voir pour les étapes suivantes.
         Update-OSSetupSessionPath
