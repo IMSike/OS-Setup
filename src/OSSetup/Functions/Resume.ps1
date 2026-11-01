@@ -83,6 +83,24 @@ function Write-OSSetupRunResult {
     }
 }
 
+function Get-OSSetupPwshPath {
+    <#
+    .SYNOPSIS
+        Exécutable PowerShell à relancer (élévation, tâche de reprise) : celui du processus courant, ou l'alias
+        d'exécution %LOCALAPPDATA%\Microsoft\WindowsApps\pwsh.exe si c'est le PowerShell du Store.
+    .DESCRIPTION
+        Le chemin du paquet du Store contient sa version et change à chaque mise à jour ; l'alias d'exécution reste.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param()
+    $pwsh = (Get-Process -Id $PID).Path
+    if ($pwsh -like '*\WindowsApps\Microsoft.PowerShell_*') {
+        $pwsh = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Microsoft\WindowsApps\pwsh.exe'
+    }
+    $pwsh
+}
+
 function Register-OSSetupResumeTask {
     <#
     .SYNOPSIS
@@ -95,11 +113,7 @@ function Register-OSSetupResumeTask {
         [string]$SetupPath
     )
     $user = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-    $pwsh = (Get-Process -Id $PID).Path
-    # PowerShell du Store : le chemin du paquet contient sa version et change à chaque mise à jour ; l'alias d'exécution reste.
-    if ($pwsh -like '*\WindowsApps\Microsoft.PowerShell_*') {
-        $pwsh = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Microsoft\WindowsApps\pwsh.exe'
-    }
+    $pwsh = Get-OSSetupPwshPath
     $action = New-ScheduledTaskAction -Execute $pwsh -WorkingDirectory (Split-Path -Path $SetupPath -Parent) `
         -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$SetupPath`" -Resume"
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User $user

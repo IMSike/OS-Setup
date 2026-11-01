@@ -111,6 +111,7 @@
         'Write-OSSetupChoiceWarning'
         # Resume.ps1
         'Get-OSSetupMaxPass'
+        'Get-OSSetupPwshPath'
         'Read-OSSetupRunState'
         'Register-OSSetupResumeTask'
         'Remove-OSSetupRunState'

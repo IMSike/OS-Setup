@@ -61,9 +61,8 @@ if ($IsWindows -and -not $WhatIfPreference -and -not (Test-OSSetupElevated)) {
     $command = "Set-Location -LiteralPath '$((Get-Location).Path -replace "'", "''")'; " +
         "& '$($PSCommandPath -replace "'", "''")' $(ConvertTo-OSSetupCommandArgument -Parameter $parameters); exit `$LASTEXITCODE"
     $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
-    $pwsh = (Get-Process -Id $PID).Path
     # PowerShell du Store : passer par l'alias d'exécution plutôt que par le dossier du paquet.
-    if ($pwsh -like '*\WindowsApps\Microsoft.PowerShell_*') { $pwsh = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Microsoft\WindowsApps\pwsh.exe' }
+    $pwsh = Get-OSSetupPwshPath
     try {
         $process = Start-Process -FilePath $pwsh -Verb RunAs -Wait -PassThru `
             -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $encoded

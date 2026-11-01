@@ -184,3 +184,17 @@ Describe 'Request-OSSetupRestart' {
         Should -Invoke -ModuleName OSSetup Restart-Computer -Times 0 -Exactly
     }
 }
+
+Describe 'Get-OSSetupPwshPath' {
+    It 'remplace le dossier versionné du PowerShell du Store par l''alias d''exécution' {
+        Mock -ModuleName OSSetup Get-Process {
+            [pscustomobject]@{ Path = 'C:\Program Files\WindowsApps\Microsoft.PowerShell_7.5.4.0_x64__8wekyb3d8bbwe\pwsh.exe' }
+        }
+        Get-OSSetupPwshPath | Should -Be (Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Microsoft\WindowsApps\pwsh.exe')
+    }
+
+    It 'garde le chemin d''un PowerShell hors Store' {
+        Mock -ModuleName OSSetup Get-Process { [pscustomobject]@{ Path = 'C:\Program Files\PowerShell\7\pwsh.exe' } }
+        Get-OSSetupPwshPath | Should -Be 'C:\Program Files\PowerShell\7\pwsh.exe'
+    }
+}
