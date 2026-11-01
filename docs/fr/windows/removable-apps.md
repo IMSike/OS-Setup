@@ -76,13 +76,13 @@ Avertissements : un élément dont la suppression efface des données locales le
 | Élément | Défaut | Composant | Implications |
 |---|---|---|---|
 | `remove-internet-explorer` | ✔ | Internet Explorer 11 (capacité `Browser.InternetExplorer`) | Retiré par Microsoft depuis 2023 (il redirige vers Edge). Le moteur de rendu utilisé par d'anciennes applications reste dans Windows. |
-| `remove-powershell-v2` | ✔ | Windows PowerShell 2.0 (fonctionnalité `MicrosoftWindowsPowerShellV2Root`) | Moteur obsolète qui permet de contourner l'antivirus (AMSI) et la journalisation de PowerShell ; retiré par Microsoft des versions récentes. PowerShell 5.1 et 7 ne sont pas concernés. |
+| `remove-powershell-v2` | ✔ | Windows PowerShell 2.0 (fonctionnalité `MicrosoftWindowsPowerShellV2Root`) | Moteur obsolète qui permet de contourner l'antivirus (AMSI) et la journalisation de PowerShell ; retiré par Microsoft des versions récentes (rien à faire sur celles-ci). PowerShell 5.1 et 7 ne sont pas concernés. |
 | `remove-steps-recorder` | ✔ | Enregistreur d'actions (`App.StepsRecorder`) | Enregistrait clics et captures d'écran pour un support technique ; abandonné par Microsoft. |
-| `remove-wordpad` | ✔ | WordPad (`Microsoft.Windows.WordPad`) | Abandonné (retiré de Windows 11 24H2) ; les `.rtf` s'ouvrent avec un traitement de texte installé. |
+| `remove-wordpad` | ✔ | WordPad (`Microsoft.Windows.WordPad`) | Abandonné (retiré de Windows 11 24H2, rien à faire sur celui-ci) ; les `.rtf` s'ouvrent avec un traitement de texte installé. |
 | `remove-powershell-ise` | ✔ | PowerShell ISE (`Microsoft.Windows.PowerShell.ISE`) | Ancien éditeur de scripts de PowerShell 5.1, sans prise en charge de PowerShell 7 ; remplacé par VS Code. |
 | `remove-math-input` | ○ | Panneau de saisie mathématique (`MathRecognizer`) | Saisie de formules au stylet, rarement utilisée. |
 | `remove-hello-face` | ✔ | Windows Hello : reconnaissance faciale (`Hello.Face.*`, le numéro dépend de la version de Windows) | Inutile sans caméra infrarouge compatible. **Avertissement** : plus de connexion par le visage. |
-| `remove-quick-assist` | ✔ | Assistance rapide (`App.Support.QuickAssist`) | Plus d'aide à distance intégrée (version Store disponible). |
+| `remove-quick-assist` | ✔ | Assistance rapide : capacité `App.Support.QuickAssist` (Windows 10) et application du Store `MicrosoftCorporationII.QuickAssist` (Windows 11, ou Windows 10 si elle a été installée depuis le Store), retirées toutes deux | Plus d'aide à distance intégrée ; elle se réinstalle depuis le Store. |
 | `remove-fax-scan` | ○ | Télécopie et numérisation Windows (`Print.Fax.Scan`) | **Avertissement** : certains scanners ne fonctionnent qu'avec cet outil. |
 | `remove-print-management` | ✔ | Console de gestion de l'impression (`Print.Management.Console`) | Outil d'administration de serveurs d'impression. |
 | `remove-work-folders` | ✔ | Dossiers de travail (fonctionnalité `WorkFolders-Client`) | Synchronisation de fichiers d'entreprise, inutile chez un particulier. |
