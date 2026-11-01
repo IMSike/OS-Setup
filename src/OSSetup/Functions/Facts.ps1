@@ -36,7 +36,10 @@ function Get-OSSetupFact {
     $facts['OSName'] = if ($build -ge 22000) { 'windows-11' } else { 'windows-10' }
     $facts['Edition'] = (Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').EditionID
 
-    $license = Get-CimInstance -ClassName SoftwareLicensingProduct -Filter "PartialProductKey IS NOT NULL AND Name LIKE 'Windows%'" |
+    # Pas de LIKE dans le filtre WMI : le fournisseur des licences (SPP) le traite en plus d'une minute, contre
+    # 1,5 s en filtrant ici.
+    $license = Get-CimInstance -ClassName SoftwareLicensingProduct -Filter 'PartialProductKey IS NOT NULL' |
+        Where-Object { $_.Name -like 'Windows*' } |
         Select-Object -First 1
     $facts['Activated'] = $null -ne $license -and $license.LicenseStatus -eq 1
 

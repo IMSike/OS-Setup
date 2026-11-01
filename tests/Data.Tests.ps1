@@ -102,6 +102,17 @@ Describe 'Faits' {
         $facts = Get-OSSetupFact
         @($facts.Keys) | Should -Be (Get-OSSetupFactName)
     }
+
+    It 'Get-OSSetupFact détecte l''activation sans LIKE dans le filtre WMI (lent)' -Skip:(-not $IsWindows) {
+        Mock -ModuleName OSSetup Get-CimInstance -ParameterFilter { $ClassName -eq 'SoftwareLicensingProduct' } {
+            [pscustomobject]@{ Name = 'Office 16, OfficeProPlus edition'; LicenseStatus = 5 }
+            [pscustomobject]@{ Name = 'Windows(R), Professional edition'; LicenseStatus = 1 }
+        }
+        (Get-OSSetupFact)['Activated'] | Should -BeTrue
+        Should -Invoke -ModuleName OSSetup Get-CimInstance -Times 1 -Exactly -ParameterFilter {
+            $ClassName -eq 'SoftwareLicensingProduct' -and $Filter -notmatch 'LIKE'
+        }
+    }
 }
 
 Describe 'Import-OSSetupData' {
