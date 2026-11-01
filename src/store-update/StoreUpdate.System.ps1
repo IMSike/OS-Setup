@@ -64,6 +64,11 @@ function Invoke-UserSearch {
     [IO.File]::WriteAllText((Join-Path -Path $root -ChildPath 'run.json'), (ConvertTo-Json -InputObject $request), [Text.UTF8Encoding]::new($false))
     try {
         foreach ($item in $App) { Write-DoNotUpdate -Family $item.family -Value 0 }
+        # Exécution lancée par cette demande : vue en cours, LastRunTime changé, ou check.json écrit depuis (la recherche
+        # l'écrit après chaque application). LastRunTime seul ne suffit pas : le Planificateur peut le dater de plusieurs
+        # secondes trop tôt et ne pas le changer pour deux exécutions rapprochées (observé en VM).
+        $previous = (Get-ScheduledTask -TaskName $userTask | Get-ScheduledTaskInfo).LastRunTime
+        $checkPath = Join-Path -Path $root -ChildPath 'check.json'
         $started = Get-Date
         & $schtasks /run /tn $userTask | Out-Null
         if ($LASTEXITCODE -ne 0) {
@@ -72,10 +77,12 @@ function Invoke-UserSearch {
         }
         # Attend une exécution démarrée après la demande, puis terminée (même condition que la fenêtre de l'utilisateur).
         $deadline = $started.AddMinutes($TimeoutMinutes)
+        $ran = $false
         do {
-            Start-Sleep -Seconds 2
+            Start-Sleep -Seconds 1
             $task = Get-ScheduledTask -TaskName $userTask
-            $ran = ($task | Get-ScheduledTaskInfo).LastRunTime -ge $started.AddSeconds(-2)
+            $ran = $ran -or $task.State -eq 'Running' -or ($task | Get-ScheduledTaskInfo).LastRunTime -ne $previous -or
+                (Get-Item -Path $checkPath -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $started })
             $done = $ran -and $task.State -ne 'Running'
             if (-not $ran -and (Get-Date) -ge $started.AddMinutes(1)) {
                 # Demande ignorée (une recherche précédente tourne encore) ou session absente : pas de blocage levé pour rien.

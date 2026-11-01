@@ -105,14 +105,21 @@ function Invoke-SystemRun {
         Start-Sleep -Seconds 3
         $running = Get-ScheduledTask -TaskName $systemTask -ErrorAction SilentlyContinue
     }
+    # Exécution lancée par cette demande : vue en cours, LastRunTime changé, ou journal écrit depuis (la tâche SYSTEM y
+    # écrit à chaque passage où elle a quelque chose à faire). LastRunTime seul ne suffit pas : le Planificateur peut le
+    # dater de plusieurs secondes trop tôt et ne pas le changer pour deux exécutions rapprochées (observé en VM).
+    $previous = if ($running) { ($running | Get-ScheduledTaskInfo -ErrorAction SilentlyContinue).LastRunTime }
     $started = Get-Date
-    & $schtasks /run /tn $systemTask | Out-Null
     $deadline = $started.AddMinutes($limit)
+    & $schtasks /run /tn $systemTask | Out-Null
+    $ran = $false
     do {
-        Start-Sleep -Seconds 3
+        Start-Sleep -Seconds 2
         $task = Get-ScheduledTask -TaskName $systemTask -ErrorAction SilentlyContinue
         $info = if ($task) { $task | Get-ScheduledTaskInfo -ErrorAction SilentlyContinue }
-        $done = [bool]($task -and $task.State -ne 'Running' -and $info -and $info.LastRunTime -ge $started.AddSeconds(-2))
+        $ran = [bool]($ran -or ($task -and $task.State -eq 'Running') -or ($info -and $info.LastRunTime -ne $previous) -or
+            (Get-Item -Path $log -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $started }))
+        $done = [bool]($task -and $task.State -ne 'Running' -and $ran)
     } until ($done -or -not $task -or (Get-Date) -gt $deadline)
     if (-not $done) { Write-StoreUpdateLog 'tâche système non terminée' }
     $done

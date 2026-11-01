@@ -31,7 +31,7 @@ Describe 'Scripts des tâches des mises à jour du Store' {
         $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.System.ps1'), [ref]$null, [ref]$null)
         $search = $ast.Find({ param($Node) $Node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $Node.Name -eq 'Invoke-UserSearch' }, $true).Extent.Text
         $search | Should -Not -Match 'Start-Sleep -Seconds 5'
-        $search | Should -Match 'LastRunTime -ge \$started'
+        $search | Should -Match 'LastRunTime -ne \$previous'
         $search | Should -Match 'LASTEXITCODE'
     }
 
@@ -95,6 +95,8 @@ Describe 'Fenêtre : attente de la tâche SYSTEM' {
         $function = $ast.Find({ param($Node) $Node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $Node.Name -eq 'Invoke-SystemRun' }, $true).Extent.Text
         $stubs = @'
 $systemTask = 'OS-Setup - Store (système)'
+$log = 'store-update.log'
+function Get-Item { [CmdletBinding()] param([string]$Path) }
 function Save-State($State) {}
 function Write-StoreUpdateLog([string]$Message) { $sim.log.Add($Message) }
 function Get-Date { $sim.clock }
@@ -107,7 +109,7 @@ function Invoke-FakeSchtasks {
     $sim.runs.Add($sim.clock)
     # Une seule instance (IgnoreNew) : demande ignorée pendant une exécution.
     if ($sim.startOnRun -and -not ($sim.busyUntil -and $sim.clock -lt $sim.busyUntil)) {
-        $sim.lastRunTime = $sim.clock
+        if ($sim.stampRuns) { $sim.lastRunTime = $sim.clock.AddSeconds($sim.skew) }
         $sim.busyUntil = $sim.clock.AddSeconds($sim.duration)
     }
 }
@@ -117,7 +119,7 @@ function Invoke-FakeSchtasks {
 
     BeforeEach {
         $now = [datetime]'2026-11-01T10:00:00'
-        $sim = @{ clock = $now; busyUntil = $null; lastRunTime = $now.AddDays(-1); startOnRun = $true; duration = 60
+        $sim = @{ clock = $now; busyUntil = $null; lastRunTime = $now.AddDays(-1); startOnRun = $true; duration = 60; skew = 0; stampRuns = $true
             runs = [System.Collections.Generic.List[datetime]]::new(); log = [System.Collections.Generic.List[string]]::new() }
     }
 
@@ -142,6 +144,22 @@ function Invoke-FakeSchtasks {
         Invoke-SystemRun ([pscustomobject]@{ lastRun = $null }) | Should -BeTrue
         $sim.runs.Count | Should -Be 1
         $sim.runs[0] | Should -Be $now
+        $sim.log | Should -BeNullOrEmpty
+    }
+
+    It 'reconnaît l''exécution lancée quand le Planificateur la date quelques secondes trop tôt' {
+        # Observé en VM : LastRunTime 10 s avant l'heure réelle de la demande.
+        $sim.skew = -10
+        . ([scriptblock]::Create($load))
+        Invoke-SystemRun ([pscustomobject]@{ lastRun = $null }) | Should -BeTrue
+        $sim.log | Should -BeNullOrEmpty
+    }
+
+    It 'reconnaît l''exécution lancée vue en cours quand LastRunTime ne change pas' {
+        # Observé en VM : deux exécutions à 5 s d'intervalle gardent le même LastRunTime.
+        $sim.stampRuns = $false
+        . ([scriptblock]::Create($load))
+        Invoke-SystemRun ([pscustomobject]@{ lastRun = $null }) | Should -BeTrue
         $sim.log | Should -BeNullOrEmpty
     }
 }
