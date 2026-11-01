@@ -25,17 +25,7 @@ param()
         param($Action, $Context)
         $command = "`$ProgressPreference = 'SilentlyContinue'; Invoke-RestMethod -Uri '$($Action['url'] -replace "'", "''")' | Invoke-Expression"
         # Sortie en UTF-8 (sinon accents et symboles corrompus dans le journal).
-        $previousEncoding = [Console]::OutputEncoding
-        try {
-            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-            $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $command" 2>&1
-            $exitCode = $LASTEXITCODE
-        }
-        finally {
-            [Console]::OutputEncoding = $previousEncoding
-        }
-        foreach ($line in $output) { if ("$line".Trim()) { Write-OSSetupLog -Level Detail -Message "  $line" } }
-        if ($exitCode -ne 0) { throw "le script d'installation a échoué (code $exitCode)." }
+        Invoke-OSSetupNativeCommand -FilePath powershell.exe -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $command" -Utf8 -Label "le script d'installation"
         Update-OSSetupSessionPath
     }
 }

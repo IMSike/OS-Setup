@@ -29,9 +29,6 @@ param()
             Write-OSSetupLog -Level Detail -Message '  statistiques d''usage de rtk refusées (rtk telemetry enable pour les accepter)'
         }
         # Entrée vide : aucune question ne peut bloquer le setup.
-        $output = $null | & rtk init --global --auto-patch 2>&1
-        $exitCode = $LASTEXITCODE
-        foreach ($line in $output) { if ("$line".Trim()) { Write-OSSetupLog -Level Detail -Message "  $line" } }
-        if ($exitCode -ne 0) { throw "rtk init a échoué (code $exitCode)." }
+        Invoke-OSSetupNativeCommand -FilePath rtk -ArgumentList 'init', '--global', '--auto-patch' -NoInput -Label 'rtk init'
     }
 }
