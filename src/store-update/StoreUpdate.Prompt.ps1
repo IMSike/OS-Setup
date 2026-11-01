@@ -16,6 +16,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $systemTask = 'OS-Setup - Store (système)'
+# Tâche de reprise du setup ($script:ResumeTaskName du module) : tant qu'elle existe, la tâche SYSTEM ne fait que vérifier.
+$resumeTask = 'OS-Setup - reprise'
 # Exécutable système par son chemin complet, pas par le PATH.
 $schtasks = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'schtasks.exe'
 # Vérification auprès du Store au plus toutes les 4 heures.
@@ -50,7 +52,9 @@ function Save-State {
 
 function Get-AppVersion {
     param([Parameter(Mandatory)][pscustomobject]$App)
-    "$((Get-AppxPackage -Name $App.family.Split('_')[0] | Sort-Object -Property Version -Descending | Select-Object -First 1).Version)"
+    # Paquet absent : chaîne vide (sous StrictMode, lire Version sur $null lèverait une erreur).
+    $package = Get-AppxPackage -Name $App.family.Split('_')[0] | Sort-Object -Property Version -Descending | Select-Object -First 1
+    if ($package) { "$($package.Version)" } else { '' }
 }
 
 function Get-AppProcess {
@@ -95,8 +99,11 @@ function Invoke-SystemRun {
     # Une seule instance à la fois : une demande faite pendant une exécution déjà en cours (ouverture de session, tâche
     # quotidienne) serait ignorée. On attend d'abord sa fin.
     $wait = (Get-Date).AddMinutes($limit)
-    while ((Get-ScheduledTask -TaskName $systemTask -ErrorAction SilentlyContinue).State -eq 'Running' -and (Get-Date) -lt $wait) {
+    # Tâche absente : pas d'attente (sous StrictMode, lire State sur $null lèverait une erreur).
+    $running = Get-ScheduledTask -TaskName $systemTask -ErrorAction SilentlyContinue
+    while ($running -and $running.State -eq 'Running' -and (Get-Date) -lt $wait) {
         Start-Sleep -Seconds 3
+        $running = Get-ScheduledTask -TaskName $systemTask -ErrorAction SilentlyContinue
     }
     $started = Get-Date
     & $schtasks /run /tn $systemTask | Out-Null
@@ -109,6 +116,10 @@ function Invoke-SystemRun {
     } until ($done -or -not $task -or (Get-Date) -gt $deadline)
     if (-not $done) { Write-StoreUpdateLog 'tâche système non terminée' }
     $done
+}
+
+function Test-ResumePending {
+    [bool](Get-ScheduledTask -TaskName $resumeTask -ErrorAction SilentlyContinue)
 }
 
 function Test-RecentRun {
@@ -190,6 +201,9 @@ function Invoke-StoreUpdatePrompt {
             if ($saved -and $saved.PSObject.Properties[$name] -and ($saved.$name -is [string] -or $saved.$name -is [datetime])) { $state.$name = "$($saved.$name)" }
         }
         if ($state.snoozeUntil -and (Get-Date) -lt [datetime]$state.snoozeUntil) { return }
+        # Reprise du setup en attente : la tâche SYSTEM ne ferait que vérifier, « Maintenant » fermerait les applications
+        # pour rien (et peut-être le PowerShell 7 de la reprise). Rien n'est proposé avant la fin du setup.
+        if (Test-ResumePending) { return }
         $apps = @(Read-JsonFile -Path (Join-Path -Path $root -ChildPath 'apps.json') | Where-Object { Get-AppVersion -App $_ })
         if (-not $apps) { return }
 

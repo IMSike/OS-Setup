@@ -22,6 +22,14 @@ function Write-StoreUpdateLog {
     }
 }
 
+function Get-PackageVersion {
+    # Même calcul que Get-AppVersion de StoreUpdate.Prompt.ps1. Paquet absent : chaîne vide (sous StrictMode, lire
+    # Version sur $null lèverait une erreur).
+    param([Parameter(Mandatory)][string]$Name)
+    $package = Get-AppxPackage -Name $Name | Sort-Object -Property Version -Descending | Select-Object -First 1
+    if ($package) { "$($package.Version)" } else { '' }
+}
+
 function Wait-StoreOperation {
     # Opération asynchrone WinRT (IAsyncOperation) : pas de type PowerShell plus précis.
     param([Parameter(Mandatory)][object]$Operation)
@@ -57,7 +65,7 @@ try {
         try {
             # Version et processus : mêmes calculs que Get-AppVersion et Get-AppProcess de StoreUpdate.Prompt.ps1.
             $packageName = $app.family.Split('_')[0]
-            $version = "$((Get-AppxPackage -Name $packageName | Sort-Object -Property Version -Descending | Select-Object -First 1).Version)"
+            $version = Get-PackageVersion -Name $packageName
             $available = $false
             $state = ''
             $queued = @($manager.AppInstallItems | Where-Object { $_.ProductId -eq $id })
@@ -74,12 +82,11 @@ try {
                 if ($item) {
                     $available = $true
                     $state = "$($item.GetCurrentStatus().InstallState)"
-                    if ($open) {
-                        # Mise à jour lancée par le Store pendant la levée du blocage : reportée puis forcée si l'application
-                        # reste ouverte, donc retirée. La fenêtre la redemande, application fermée.
-                        $manager.Cancel($id)
-                        $state += ', annulée'
-                    }
+                    # Mise à jour lancée par le Store pendant la levée du blocage : reportée puis forcée si l'application
+                    # reste ouverte, ou en course avec la reprise du setup (vérification seule) : retirée. La fenêtre ou la
+                    # tâche SYSTEM la redemande plus tard, application fermée.
+                    $manager.Cancel($id)
+                    $state += ', annulée'
                 }
                 else {
                     $options = [Windows.ApplicationModel.Store.Preview.InstallControl.AppUpdateOptions]::new()
@@ -108,7 +115,7 @@ try {
                     } while ("$($status.InstallState)" -notin 'Completed', 'Canceled', 'Error' -and (Get-Date) -lt $deadline)
                     $state = "$($status.InstallState)"
                     $available = $state -ne 'Completed'
-                    $after = "$((Get-AppxPackage -Name $packageName | Sort-Object -Property Version -Descending | Select-Object -First 1).Version)"
+                    $after = Get-PackageVersion -Name $packageName
                     $code = if ($status.ErrorCode) { ', code 0x{0:X8}' -f $status.ErrorCode.HResult }
                     Write-StoreUpdateLog "$($app.name) $version -> $after : $state$code"
                     $version = $after

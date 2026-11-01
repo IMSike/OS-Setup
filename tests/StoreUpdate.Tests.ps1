@@ -80,6 +80,11 @@ Describe 'Scripts des tâches des mises à jour du Store' {
         $resume | Should -Not -BeNullOrEmpty
         Get-Content -Path (Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.System.ps1') -Raw | Should -Match ([regex]::Escape("-TaskName '$resume'"))
     }
+
+    It 'la fenêtre reconnaît la tâche de reprise du setup sous son nom actuel' {
+        $resume = InModuleScope OSSetup { $script:ResumeTaskName }
+        Get-Content -Path (Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.Prompt.ps1') -Raw | Should -Match ([regex]::Escape("$resumeTask = '$resume'"))
+    }
 }
 
 Describe 'Fenêtre : attente de la tâche SYSTEM' {
@@ -152,7 +157,7 @@ Describe 'Fenêtre : décisions sous Windows PowerShell 5.1' {
         function Invoke-PromptScenario {
             # Lance la fenêtre (ou $Call) avec la version installée, l'état ouvert et le choix indiqués ; renvoie les appels
             # remplacés et le fichier d'état écrit.
-            param([string]$Root, [string]$Version = '1.0', [bool]$Open = $true, [string]$Choice = '1h', [string]$Call = 'Invoke-StoreUpdatePrompt')
+            param([string]$Root, [string]$Version = '1.0', [bool]$Open = $true, [string]$Choice = '1h', [string]$Call = 'Invoke-StoreUpdatePrompt', [bool]$Resume = $false)
             $command = @"
 `$ErrorActionPreference = 'Stop'
 `$ProgressPreference = 'SilentlyContinue'
@@ -166,6 +171,7 @@ function Get-AppProcess { param(`$App) if (`$$Open) { @(1) } else { @() } }
 function Invoke-SystemRun { param(`$State) `$global:calls.systemRuns++; `$State.lastRun = (Get-Date).ToString('o'); Save-State -State `$State; `$true }
 function Show-UpdatePrompt { param(`$App) `$global:calls.prompts++; '$Choice' }
 function Show-Message { param(`$Text) }
+function Test-ResumePending { `$$Resume }
 `$global:calls.output = @($Call | ForEach-Object { "`$_" })
 `$global:calls.state = if (Test-Path -Path `$stateFile) { [IO.File]::ReadAllText(`$stateFile) }
 ConvertTo-Json -InputObject `$global:calls -Compress
@@ -247,6 +253,26 @@ ConvertTo-Json -InputObject `$global:calls -Compress
         $result = Invoke-PromptScenario -Root $root -Open $false
         $result.systemRuns | Should -Be 1
         $result.prompts | Should -Be 0
+    }
+
+    It 'ne propose rien et ne lance rien pendant une reprise du setup' {
+        Set-CheckFile -Root $root -Entry @{ available = $true; version = '1.0'; checked = $fresh; state = 'proposée' }
+        $result = Invoke-PromptScenario -Root $root -Resume $true -Choice 'Now'
+        $result.prompts | Should -Be 0
+        $result.systemRuns | Should -Be 0
+    }
+
+    It 'lit la version d''un paquet absent comme une chaîne vide, sans erreur sous StrictMode' {
+        # Vraie fonction Get-AppVersion (extraite du script), sous Windows PowerShell 5.1 et StrictMode.
+        $command = @"
+Set-StrictMode -Version Latest
+`$ErrorActionPreference = 'Stop'
+`$ast = [System.Management.Automation.Language.Parser]::ParseFile('$promptScript', [ref]`$null, [ref]`$null)
+. ([scriptblock]::Create(`$ast.Find({ param(`$Node) `$Node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and `$Node.Name -eq 'Get-AppVersion' }, `$true).Extent.Text))
+'[' + (Get-AppVersion -App ([pscustomobject]@{ family = 'OSSetup.PaquetInexistant_0000000000000' })) + ']'
+"@
+        $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
+        & $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded | Should -Be '[]'
     }
 
     It 'ignore une mise à jour déjà installée depuis la vérification' {
