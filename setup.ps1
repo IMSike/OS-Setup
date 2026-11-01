@@ -105,9 +105,7 @@ try {
         Wait-OSSetupUserSession
     }
 
-    if (Test-OSSetupElevated) {
-        Assert-OSSetupInteractiveUser
-    }
+    Assert-OSSetupInteractiveUser
 
     $data = Import-OSSetupData -Root $root
     Write-OSSetupLog -Level Detail -Message "$($data.Items.Count) élément(s), $($data.Profiles.Count) profil(s) chargés et validés."
