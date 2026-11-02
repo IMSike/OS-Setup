@@ -484,7 +484,8 @@ foreach (`$script in '$promptScript', '$systemScript') {
         $expected = @('valide=', 'setup=setup.ps1 introuvable', 'exe=True', 'ancienne=aucune passe depuis plus de 48 h', 'etat=aucune exécution en attente (state\run.json absent)')
         $output = @(& $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded)
         # Sortie standard de l'enfant : accents comparés sans dépendre de la page de code de la console.
-        ($output -replace '[^\x20-\x7E]', '?') | Should -Be (@($expected + $expected) -replace '[^\x20-\x7E]', '?')
+        # Une lettre accentuée peut arriver en un ou deux caractères : chaque suite non ASCII compte pour un seul '?'.
+        ($output -replace '[^\x20-\x7E]+', '?') | Should -Be (@($expected + $expected) -replace '[^\x20-\x7E]+', '?')
     }
 
     It 'n''avertit pas après une vérification aboutie récente' {
