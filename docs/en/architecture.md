@@ -31,6 +31,8 @@ A freshly installed Windows only has:
 
 Everything else is installed by the setup itself: no tool is assumed to be present without having been checked or installed.
 
+Prerequisite: the **Microsoft Store, present and reachable**. PowerShell 7 is installed only from the Store (winget `msstore` source, see [ADR 0004](adr/0004-store-updates-without-forced-close.md)): on an edition without the Store (LTSC, IoT), with the Store removed or blocked (policy, "debloat" tool), the `msstore` source disabled, or a network that filters the Store, the bootstrap stops with a message giving these causes and what to do.
+
 ## Principles
 
 1. **Idempotence**: rerunning the setup breaks nothing and does not reinstall what is in place. Each action checks the state before acting (`Test` → `Set`).

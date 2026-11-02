@@ -169,7 +169,9 @@ function Install-WingetPackage {
         [string]$InstallerType,
         [string]$Source = 'winget',
         [string]$Scope = 'machine',
-        [scriptblock]$Present = { Get-Command -Name $Command -ErrorAction SilentlyContinue }
+        [scriptblock]$Present = { Get-Command -Name $Command -ErrorAction SilentlyContinue },
+        # Explication ajoutée au message d'échec : causes probables et quoi faire.
+        [string]$FailureHelp
     )
     if (& $Present) {
         Write-Host -Object "    $Id déjà présent."
@@ -184,7 +186,9 @@ function Install-WingetPackage {
     # décoderait avec la page de code OEM et corromprait les accents).
     & winget @arguments
     if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $script:WingetAlreadyInstalled) {
-        throw ("Échec de l'installation de {0} (code 0x{1:X8})." -f $Id, $LASTEXITCODE)
+        $message = "Échec de l'installation de {0} (code 0x{1:X8})." -f $Id, $LASTEXITCODE
+        if ($FailureHelp) { $message += [Environment]::NewLine + $FailureHelp }
+        throw $message
     }
     Update-SessionPath
     if (-not (Get-Command -Name $Command -ErrorAction SilentlyContinue)) {
@@ -259,7 +263,18 @@ try {
     Install-WingetPackage -Id 'Git.Git' -Command 'git'
     # PowerShell 7 du Store, aux mises à jour encadrées (ADR 0004). Source msstore : le MSIX de la source winget n'a pas de licence et ne démarre pas.
     # Présence vérifiée par le paquet, pas par la commande (un MSI de PowerShell fournirait aussi pwsh).
-    Install-WingetPackage -Id '9MZ1SNWT0N5D' -Command 'pwsh' -Source 'msstore' -Scope '' -Present { Get-AppxPackage -Name Microsoft.PowerShell }
+    # Prérequis : Microsoft Store présent et joignable (pas d'autre source pour PowerShell 7).
+    $storeHelp = @(
+        'PowerShell 7 s''installe depuis le Microsoft Store, qui doit être présent et joignable. Causes probables :'
+        '  - édition de Windows sans Store (LTSC, IoT…) ;'
+        '  - Store retiré, ou bloqué par une stratégie de groupe ou un outil de « debloat » ;'
+        '  - source msstore désactivée dans winget (vérifier avec « winget source list ») ;'
+        '  - réseau ou pare-feu qui filtre le Store.'
+        'Que faire : rétablir le Store (ou la source msstore : « winget source reset --force » en administrateur), vérifier'
+        'que l''application Microsoft Store s''ouvre et peut installer une application, puis relancer le bootstrap.'
+    ) -join [Environment]::NewLine
+    Install-WingetPackage -Id '9MZ1SNWT0N5D' -Command 'pwsh' -Source 'msstore' -Scope '' -Present { Get-AppxPackage -Name Microsoft.PowerShell } `
+        -FailureHelp $storeHelp
 
     # Lancé depuis un clone : on l'utilise tel quel. Sinon : clone ou mise à jour dans $Destination.
     if ($PSScriptRoot -and (Test-Path -Path (Join-Path -Path $PSScriptRoot -ChildPath 'setup.ps1'))) {

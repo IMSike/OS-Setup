@@ -17,6 +17,17 @@ Le setup se déroule en deux étapes :
 
 Le compte utilisé doit être administrateur : depuis un compte standard, le setup s'arrête (les réglages iraient dans le profil d'un autre compte).
 
+Le **Microsoft Store** doit être présent et joignable : PowerShell 7 s'installe depuis le Store. En cas d'échec, le bootstrap affiche le code d'erreur et les causes probables :
+
+| Cause | Quoi faire |
+|---|---|
+| Édition sans Store (LTSC, IoT…) | Pas pris en charge : utiliser une édition avec le Store. |
+| Store retiré, ou bloqué par une stratégie de groupe ou un outil de « debloat » | Réinstaller ou débloquer le Store, vérifier qu'il installe une application. |
+| Source `msstore` désactivée dans winget | `winget source list` ; la rétablir avec `winget source reset --force` (administrateur). |
+| Réseau ou pare-feu qui filtre le Store | Autoriser le Store ou changer de réseau. |
+
+Relancer ensuite le bootstrap.
+
 ### Dans les menus
 
 | Touche | Effet |

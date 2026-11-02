@@ -31,6 +31,8 @@ Un Windows fraîchement installé n'a que :
 
 Tout le reste est installé par le setup lui-même : aucun outil n'est supposé présent sans avoir été vérifié ou installé.
 
+Prérequis : le **Microsoft Store présent et joignable**. PowerShell 7 n'est installé que depuis le Store (source `msstore` de winget, voir l'[ADR 0004](adr/0004-store-updates-without-forced-close.md)) : sur une édition sans Store (LTSC, IoT), un Store retiré ou bloqué (stratégie, outil de « debloat »), une source `msstore` désactivée ou un réseau qui filtre le Store, le bootstrap s'arrête avec un message qui donne ces causes et quoi faire.
+
 ## Principes
 
 1. **Idempotence** : relancer le setup ne casse rien et ne réinstalle pas ce qui est en place. Chaque action vérifie l'état avant d'agir (`Test` → `Set`).
