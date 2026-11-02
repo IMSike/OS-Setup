@@ -93,6 +93,7 @@
         'Show-OSSetupSummary'
         # Process.ps1
         'Invoke-OSSetupNativeCommand'
+        'Invoke-OSSetupUnelevatedCommand'
         # Prompt.ps1
         'Get-OSSetupWizardStep'
         'New-OSSetupDefaultAnswer'

@@ -236,7 +236,7 @@ Volontairement absents : `css.validate`/`scss.validate` à `false` (désactivera
 
 ## Agents et terminal — `claude-code`, `rtk`, `rtk-claude`, `cursor-cli`, `herdr`
 
-Menu « Agents et terminal », tout coché. Claude Code, Cursor CLI et herdr s'installent par le **script officiel** de leur éditeur (provider `install-script`, `irm <url> | iex` dans Windows PowerShell) : c'est la méthode recommandée, avec mises à jour automatiques. Les scripts ont été relus avant leur ajout au catalogue ; ils s'installent dans le profil du compte, sans droits administrateur.
+Menu « Agents et terminal », tout coché. Claude Code, Cursor CLI et herdr s'installent par le **script officiel** de leur éditeur (provider `install-script`, `irm <url> | iex` dans Windows PowerShell) : c'est la méthode recommandée, avec mises à jour automatiques. Les scripts ont été relus avant leur ajout au catalogue, mais c'est le contenu servi par leur adresse au moment de l'installation qui s'exécute ; ils s'exécutent sans droits administrateur (jeton limité, voir [Architecture](../architecture.md#principes)) et s'installent dans le profil du compte.
 
 | Élément | Installation | Commande | Revenir en arrière |
 |---|---|---|---|

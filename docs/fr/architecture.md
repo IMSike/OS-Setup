@@ -43,6 +43,7 @@ Prérequis : le **Microsoft Store présent et joignable**. PowerShell 7 n'est in
 6. **Aucun secret dans le dépôt** : les secrets sont demandés à l'exécution ou lus hors du dépôt.
 7. **Aucun chemin propre à une machine** : `$env:USERPROFILE`, `$env:LOCALAPPDATA`, `[Environment]::GetFolderPath(...)`…
 8. **Élévation unique** : le bootstrap (ou `setup.ps1` lancé seul, hors `-WhatIf`) se relance une fois en administrateur ; tout le reste hérite des droits, donc **une seule invite UAC**. Le setup vérifie que le compte élevé est celui de la session ouverte, sinon les réglages du compte iraient dans le profil d'un autre ; il s'arrête dans ce cas.
+9. **Code tiers sans droits administrateur** : les scripts d'installation des éditeurs (provider `install-script` : Claude Code, Cursor CLI, herdr) installent dans le profil de l'utilisateur et n'ont pas besoin des droits du setup. Ils s'exécutent avec un jeton limité, par une tâche planifiée ponctuelle dans la session de l'utilisateur (aucune nouvelle invite UAC), supprimée ensuite. Leur contenu reste celui que sert leur adresse au moment de l'installation : il n'est ni figé ni vérifié par le setup.
 
 ## Organisation du dépôt
 

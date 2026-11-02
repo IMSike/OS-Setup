@@ -43,6 +43,7 @@ Prerequisite: the **Microsoft Store, present and reachable**. PowerShell 7 is in
 6. **No secrets in the repository**: secrets are requested at run time or read from outside the repository.
 7. **No machine-specific paths**: `$env:USERPROFILE`, `$env:LOCALAPPDATA`, `[Environment]::GetFolderPath(...)`…
 8. **Single elevation**: the bootstrap (or `setup.ps1` launched alone, outside `-WhatIf`) relaunches itself once as administrator; everything else inherits the rights, hence **a single UAC prompt**. The setup checks that the elevated account is the one of the logged-on session, otherwise the account's settings would go into another profile; it stops in that case.
+9. **Third-party code without administrator rights**: the publishers' install scripts (`install-script` provider: Claude Code, Cursor CLI, herdr) install into the user's profile and do not need the setup's rights. They run with a limited token, through a one-off scheduled task in the user's session (no new UAC prompt), deleted afterwards. Their content remains whatever their URL serves at installation time: the setup neither pins nor verifies it.
 
 ## Repository layout
 

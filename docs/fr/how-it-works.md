@@ -42,7 +42,7 @@ Chaque provider fournit au moteur :
 | `manual` | Étape manuelle guidée (voir plus bas). | Vérification et aide écrites dans le moteur. | — |
 | `git-config` | Une clé de la configuration Git globale (`git config --global`). | Clé par clé : les autres réglages de l'utilisateur restent. | valeur ou absence |
 | `vscode-extension` | Installe une extension de VS Code ou de Cursor (`code` / `cursor --install-extension`, champ `editor`). | | — |
-| `install-script` | Installe un logiciel par le script officiel de son éditeur (`irm <url> \| iex`, Windows PowerShell), quand c'est la méthode recommandée. Présence testée par la commande installée. | Seules des adresses `https` sont acceptées ; chaque script est relu avant son ajout au catalogue (il s'exécute avec les droits du setup). | — |
+| `install-script` | Installe un logiciel par le script officiel de son éditeur (`irm <url> \| iex`, Windows PowerShell), quand c'est la méthode recommandée. Présence testée par la commande installée. | Seules des adresses `https` sont acceptées ; chaque script est relu avant son ajout au catalogue, mais c'est le contenu servi par l'adresse au moment de l'installation qui s'exécute. **Sans droits administrateur** : tâche planifiée ponctuelle au nom de l'utilisateur de la session (jeton limité, environnement de son profil), attendue 15 min au plus, sortie recopiée dans le journal, supprimée ensuite même en cas d'échec. | — |
 | `fnm-node` | Installe la dernière LTS de Node.js avec fnm et en fait la version par défaut. | | versions installées |
 | `npm-global` | Installe un paquet npm global (version de Node.js par défaut). | | — |
 | `gh-extension` | Installe une extension de GitHub CLI. | gh doit être connecté. | — |
