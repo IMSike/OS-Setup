@@ -68,6 +68,30 @@ function Get-AppProcess {
     @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -like $pattern })
 }
 
+function Get-OpenSnapshot {
+    param([Parameter(Mandatory)][datetime]$Since)
+    # open.json de la tâche SYSTEM s'il est complet et a été écrit depuis $Since, rien sinon.
+    $seen = Read-JsonFile -Path (Join-Path -Path $root -ChildPath 'open.json')
+    if (-not $seen -or -not $seen.PSObject.Properties['written'] -or -not $seen.PSObject.Properties['apps'] -or -not $seen.apps) { return }
+    try { $written = [datetime]$seen.written } catch { return }
+    if ($written -ge $Since -and $written -le (Get-Date).AddMinutes(1)) { $seen }
+}
+
+function Get-HiddenProcess {
+    param([Parameter(Mandatory)][pscustomobject]$App, [Parameter(Mandatory)][datetime]$Since)
+    # Processus de l'application que la tâche SYSTEM a vus ouverts (open.json, toutes sessions) et que cette fenêtre ne
+    # voit pas : console administrateur, session d'un autre compte. open.json absent, incomplet ou écrit avant $Since :
+    # rien (il peut dater d'une exécution précédente). Un processus fermé depuis n'est pas compté.
+    $seen = Get-OpenSnapshot -Since $Since
+    if (-not $seen) { return }
+    $entry = $seen.apps.PSObject.Properties[$App.productId]
+    if (-not $entry) { return }
+    $mine = @(Get-AppProcess -App $App | ForEach-Object { $_.Id })
+    foreach ($id in @($entry.Value | Where-Object { $null -ne $_ })) {
+        if ($id -notin $mine -and (Get-Process -Id $id -ErrorAction SilentlyContinue)) { $id }
+    }
+}
+
 function Get-PendingApp {
     param([object[]]$App)
     # Mise à jour proposée lors de la dernière vérification, et pas encore installée depuis.
@@ -298,7 +322,10 @@ function Invoke-StoreUpdatePrompt {
         $pending = @(Get-PendingApp -App $apps)
         if (-not $pending) { return }
         $open = @($pending | Where-Object { @(Get-AppProcess -App $_).Count -gt 0 })
-        if ($open.Count -lt $pending.Count -and -not (Test-RecentRun -State $state)) {
+        # Vue fermée d'ici mais ouverte pour la tâche SYSTEM (console administrateur, autre compte) : elle ne ferait que
+        # vérifier. Pas de relance toutes les heures : la vérification normale, toutes les 4 heures, suffit.
+        $elsewhere = @($pending | Where-Object { $_ -notin $open -and @(Get-HiddenProcess -App $_ -Since (Get-Date).AddHours(-$checkHours)).Count -gt 0 })
+        if ($open.Count + $elsewhere.Count -lt $pending.Count -and -not (Test-RecentRun -State $state)) {
             # Applications fermées depuis la vérification : la tâche SYSTEM les met à jour sans rien demander.
             [void](Invoke-SystemRun -State $state)
             $open = @(Get-PendingApp -App $apps | Where-Object { @(Get-AppProcess -App $_).Count -gt 0 })
@@ -318,6 +345,7 @@ function Invoke-StoreUpdatePrompt {
         $state.snoozeUntil = $null
         # Vérification auprès du Store juste avant de fermer quoi que ce soit : la mise à jour est-elle toujours proposée ?
         # Petite fenêtre pendant l'attente : Annuler ne ferme rien et repose la question dans 10 min.
+        $requested = Get-Date
         Show-Progress
         try { $checked = Invoke-SystemRun -State $state } finally { Close-Progress }
         if ($progress.cancelled) {
@@ -335,6 +363,19 @@ function Invoke-StoreUpdatePrompt {
         $targets = @(Get-PendingApp -App $open)
         if (-not $targets) {
             Show-Message -Text 'Le Store ne propose plus de mise à jour pour ces applications : rien n''a été fermé.'
+            return
+        }
+        # La tâche SYSTEM fait foi : un processus qu'elle voit (open.json écrit pendant la revérification) et que cette
+        # fenêtre ne voit pas (console administrateur, session d'un autre compte) ne serait pas fermé d'ici, et la mise à
+        # jour échouerait après avoir fermé le reste. Rien n'est fermé, herdr compris.
+        if (-not (Get-OpenSnapshot -Since $requested)) {
+            Write-StoreUpdateLog 'open.json absent ou antérieur à la revérification : processus des autres sessions non vérifiés'
+        }
+        $elsewhere = @($targets | Where-Object { @(Get-HiddenProcess -App $_ -Since $requested).Count -gt 0 })
+        if ($elsewhere) {
+            $state.snoozeUntil = (Get-Date).AddMinutes(10).ToString('o')
+            Save-State -State $state
+            Show-Message -Text "Une fenêtre administrateur ou la session d'un autre utilisateur utilise $(($elsewhere | ForEach-Object { $_.name }) -join ', ') : fermez-la, la mise à jour se fera ensuite."
             return
         }
         $before = @{}

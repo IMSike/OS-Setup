@@ -36,13 +36,17 @@ PowerShell 7 est installé depuis le Store (`winget --source msstore`, produit `
     - application fermée : lève le blocage, fait installer la mise à jour sans fermeture forcée, remet le blocage ;
     - application ouverte : ne lève le blocage que le temps de demander au Store si une mise à jour existe ;
     - reprise du setup en attente (tâche `OS-Setup - reprise`, qui lance PowerShell 7 à l'ouverture de session) : vérification seule, même pour une application fermée ;
+    - à chaque passage, note dans `open.json` les processus de chaque application qu'elle voit ouverts, dans toutes les sessions (consoles administrateur et autres comptes compris, que la fenêtre de l'utilisateur ne voit pas) ;
   - **`OS-Setup - Store (recherche)`** (utilisateur, sans déclencheur) : interroge le Store pour le compte de l'utilisateur. L'API du Store n'agit que pour le compte qui l'appelle ;
   - **`OS-Setup - Store (fenêtre)`** (utilisateur, à l'ouverture de session puis toutes les 15 minutes) :
     - fait vérifier le Store au plus toutes les 4 heures ;
-    - mise à jour en attente pour une application fermée : la fait installer sans rien demander ;
+    - mise à jour en attente pour une application fermée : la fait installer sans rien demander. Une application que la fenêtre voit fermée mais que la tâche SYSTEM voit ouverte (processus toujours en cours dans `open.json`) est laissée à la vérification normale toutes les 4 heures, sans relance de la tâche SYSTEM chaque heure ;
     - mise à jour en attente pour une application ouverte : propose **Mettre à jour maintenant** ou un report (10 min, 1 h, 5 h, demain) ;
     - **Maintenant** revérifie d'abord auprès du Store et ne ferme rien si la mise à jour n'est plus proposée. Sinon, ferme l'application (et d'abord herdr, qui relancerait le shell), puis la met à jour ;
-    - pendant cette revérification (jusqu'à 30 minutes si une exécution SYSTEM est déjà en cours), une petite fenêtre « Vérification auprès du Store… » reste affichée avec un bouton **Annuler**. Annuler (ou Échap) arrête l'attente, ne ferme rien et repose la question dans 10 minutes (ligne dans le journal).
+    - pendant cette revérification (jusqu'à 30 minutes si une exécution SYSTEM est déjà en cours), une petite fenêtre « Vérification auprès du Store… » reste affichée avec un bouton **Annuler**. Annuler (ou Échap) arrête l'attente, ne ferme rien et repose la question dans 10 minutes (ligne dans le journal) ;
+    - la tâche SYSTEM fait foi : si, dans l'`open.json` écrit pendant cette revérification, elle voit un processus de l'application toujours en cours que la fenêtre ne voit pas, rien n'est fermé (herdr compris) et la fenêtre affiche « Une fenêtre administrateur ou la session d'un autre utilisateur utilise <application> : fermez-la, la mise à jour se fera ensuite. », puis repose la question dans 10 minutes. Un `open.json` absent ou antérieur à la revérification est ignoré (ligne dans le journal).
+
+Fichiers à côté des scripts, en lecture seule pour les utilisateurs : `apps.json` (applications encadrées, écrit par le setup), `run.json` (demande de la tâche SYSTEM à la tâche de recherche) et `open.json` (processus vus par la tâche SYSTEM), écrits par SYSTEM. Modifiables par les utilisateurs : `check.json` (résultats des vérifications) et `store-update.log` (journal commun). Supprimer le dossier les retire tous.
 
 Un MSI de PowerShell 7 existant est désinstallé (`win32-uninstall`), pour qu'un poste déjà utilisé finisse comme un poste neuf. Le nettoyage considère l'identifiant `Microsoft.PowerShell` noté par un ancien bootstrap et le produit du Store comme le même outil.
 

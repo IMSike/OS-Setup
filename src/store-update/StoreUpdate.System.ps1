@@ -4,6 +4,7 @@
 #   sans lui, le Store ferme de force une application ouverte pour la mettre à jour.
 # - Application ouverte : lève son blocage le temps de demander au Store si une mise à jour existe, sans l'installer
 #   (résultat dans check.json, lu par la fenêtre de l'utilisateur).
+# - Note à chaque passage les processus ouverts qu'elle voit, toutes sessions comprises (open.json, lu par la fenêtre).
 # - Application fermée : lève son blocage, demande la mise à jour au Store sans fermeture forcée, remet le blocage.
 # La demande au Store se fait dans la session de l'utilisateur (tâche « OS-Setup - Store (recherche) ») : l'API du Store
 # n'agit que pour le compte qui l'appelle. Le blocage est toujours remis, même en cas d'erreur.
@@ -53,6 +54,17 @@ function Get-AppVersion {
     # Paquet absent : rien (sous StrictMode, lire Version sur $null lèverait une erreur).
     $package = Get-AppxPackage -AllUsers -Name $App.family.Split('_')[0] | Sort-Object -Property Version -Descending | Select-Object -First 1
     if ($package) { $package.Version }
+}
+
+function Save-OpenProcess {
+    param([object[]]$App)
+    # Processus de chaque application vus par SYSTEM, toutes sessions comprises (une console administrateur ou la session
+    # d'un autre compte échappent à la fenêtre de l'utilisateur) : open.json, lu par la fenêtre, qui ne ferme rien si
+    # SYSTEM en voit qu'elle ne voit pas. Écrit par SYSTEM seul, lisible par les utilisateurs (droits du dossier).
+    $seen = [ordered]@{}
+    foreach ($item in $App) { $seen[$item.productId] = @(Get-AppProcess -App $item | ForEach-Object { $_.Id }) }
+    $content = [ordered]@{ written = (Get-Date).ToString('o'); apps = $seen }
+    [IO.File]::WriteAllText((Join-Path -Path $root -ChildPath 'open.json'), (ConvertTo-Json -InputObject $content -Depth 4), [Text.UTF8Encoding]::new($false))
 }
 
 function Invoke-UserSearch {
@@ -127,6 +139,8 @@ try {
     }
     # Garde-fou : le blocage doit être en place en dehors des demandes au Store.
     foreach ($app in $installed) { Write-DoNotUpdate -Family $app.family -Value 1 }
+    # À chaque passage, avant toute demande au Store : la fenêtre s'y fie seulement s'il a été écrit après sa demande.
+    try { Save-OpenProcess -App $installed } catch { Write-StoreUpdateLog "ERREUR open.json : $($_.Exception.Message)" }
     if (-not $installed) { return }
     if (-not (Get-Process -Name explorer -ErrorAction SilentlyContinue)) {
         Write-StoreUpdateLog 'aucune session ouverte : rien à demander au Store'

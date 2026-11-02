@@ -197,7 +197,9 @@ Describe 'Fenêtre : décisions sous Windows PowerShell 5.1' {
             # Lance la fenêtre (ou $Call) avec la version installée, l'état ouvert et le choix indiqués ; renvoie les appels
             # remplacés et le fichier d'état écrit.
             param([string]$Root, [string]$Version = '1.0', [bool]$Open = $true, [string]$Choice = '1h', [string]$Call = 'Invoke-StoreUpdatePrompt', [bool]$Resume = $false,
-                [string]$TestChoice = '')
+                [string]$TestChoice = '', [string]$SystemSees = '', [string]$Alive = $SystemSees)
+            # SystemSees : PID (séparés par des virgules) que la tâche SYSTEM simulée note dans open.json à chaque exécution ;
+            # Alive : PID toujours en cours pour Get-Process -Id. La fenêtre voit elle-même le PID 4242.
             $command = @"
 `$ErrorActionPreference = 'Stop'
 `$ProgressPreference = 'SilentlyContinue'
@@ -211,8 +213,12 @@ function Get-AppVersion { param(`$App) '$Version' }
 # Processus ouverts jusqu'à leur fermeture par la fenêtre (Stop-Process remplacé).
 function Get-AppProcess { param(`$App) if (`$$Open -and `$global:calls.stopped -eq 0) { @([pscustomobject]@{ Id = 4242; Name = 'pwsh' }) } else { @() } }
 function Stop-Process { [CmdletBinding()] param([Parameter(ValueFromPipeline)]`$InputObject, [switch]`$Force) process { `$global:calls.stopped++ } }
+`$systemSees = @('$SystemSees' -split ',' | Where-Object { `$_ } | ForEach-Object { [int]`$_ })
+`$alive = @('$Alive' -split ',' | Where-Object { `$_ } | ForEach-Object { [int]`$_ })
+function Get-Process { [CmdletBinding()] param([int[]]`$Id, [string[]]`$Name) foreach (`$item in @(`$Id)) { if (`$item -in `$alive) { [pscustomobject]@{ Id = `$item } } } }
 # Tâche SYSTEM remplacée ; l'attente passe par la vraie Wait-Step (Annuler simulé par -TestChoice NowCancel).
 function Invoke-SystemRun { param(`$State) `$global:calls.systemRuns++; if (`$progress.active) { `$global:calls.progress++ }
+    if (`$systemSees) { [IO.File]::WriteAllText((Join-Path -Path `$root -ChildPath 'open.json'), (ConvertTo-Json -Depth 4 -InputObject @{ written = (Get-Date).ToString('o'); apps = @{ '9MZ1SNWT0N5D' = `$systemSees } })) }
     `$State.lastRun = (Get-Date).ToString('o'); Save-State -State `$State; Wait-Step -Seconds 0; -not `$progress.cancelled }
 function Show-UpdatePrompt { param(`$App) `$global:calls.prompts++; '$Choice' }
 function Show-Message { param(`$Text) `$global:calls.messages += `$Text }
@@ -231,6 +237,13 @@ ConvertTo-Json -InputObject `$global:calls -Compress
             param([string]$Root, [object]$Entry)
             $check = if ($null -ne $Entry) { @{ $app.productId = $Entry } } else { @{} }
             Set-Content -Path (Join-Path -Path $Root -ChildPath 'check.json') -Value (ConvertTo-Json -InputObject $check -Depth 4) -Encoding utf8
+        }
+
+        function Set-OpenFile {
+            # open.json tel que l'écrit la tâche SYSTEM, daté de $Written.
+            param([string]$Root, [datetime]$Written, [int[]]$Id)
+            $content = @{ written = $Written.ToString('o'); apps = @{ $app.productId = @($Id) } }
+            Set-Content -Path (Join-Path -Path $Root -ChildPath 'open.json') -Value (ConvertTo-Json -InputObject $content -Depth 4) -Encoding utf8
         }
     }
 
@@ -324,6 +337,43 @@ ConvertTo-Json -InputObject `$global:calls -Compress
         $snooze | Should -BeLessOrEqual (Get-Date).AddMinutes(10)
     }
 
+    It '« Maintenant » ne ferme rien quand la tâche SYSTEM voit un processus que la fenêtre ne voit pas' {
+        Set-CheckFile -Root $root -Entry @{ available = $true; version = '1.0'; checked = $fresh; state = 'proposée' }
+        $before = Get-Date
+        $result = Invoke-PromptScenario -Root $root -Choice 'Now' -TestChoice 'Now' -SystemSees '4242,9999'
+        $result.stopped | Should -Be 0
+        $result.systemRuns | Should -Be 1
+        $result.messages | Should -HaveCount 1
+        $result.messages[0] | Should -Be 'Une fenêtre administrateur ou la session d''un autre utilisateur utilise PowerShell 7 : fermez-la, la mise à jour se fera ensuite.'
+        [datetime]($result.state | ConvertFrom-Json).snoozeUntil | Should -BeGreaterOrEqual $before.AddMinutes(10)
+    }
+
+    It '« Maintenant » ferme quand la tâche SYSTEM ne voit que les processus de la fenêtre, ou un processus fermé depuis' {
+        Set-CheckFile -Root $root -Entry @{ available = $true; version = '1.0'; checked = $fresh; state = 'proposée' }
+        (Invoke-PromptScenario -Root $root -Choice 'Now' -TestChoice 'Now' -SystemSees '4242').stopped | Should -BeGreaterThan 0
+        # Report d'une heure posé par l'essai précédent (version inchangée, simulée) : retiré.
+        Remove-Item -Path (Join-Path -Path $root -ChildPath 'state.json')
+        (Invoke-PromptScenario -Root $root -Choice 'Now' -TestChoice 'Now' -SystemSees '4242,9999' -Alive '4242').stopped | Should -BeGreaterThan 0
+    }
+
+    It '« Maintenant » ignore un open.json antérieur à la revérification, et le note' {
+        Set-CheckFile -Root $root -Entry @{ available = $true; version = '1.0'; checked = $fresh; state = 'proposée' }
+        Set-OpenFile -Root $root -Written (Get-Date).AddMinutes(-5) -Id 9999
+        $result = Invoke-PromptScenario -Root $root -Choice 'Now' -TestChoice 'Now' -Alive '9999'
+        $result.stopped | Should -BeGreaterThan 0
+        $result.log | Should -Match 'open\.json absent ou antérieur'
+    }
+
+    It 'ne relance pas la tâche SYSTEM chaque heure pour une application ouverte ailleurs (console administrateur)' {
+        Set-CheckFile -Root $root -Entry @{ available = $true; version = '1.0'; checked = $fresh; state = 'proposée' }
+        Set-OpenFile -Root $root -Written (Get-Date).AddHours(-1) -Id 9999
+        $result = Invoke-PromptScenario -Root $root -Open $false -Alive '9999'
+        $result.systemRuns | Should -Be 0
+        $result.prompts | Should -Be 0
+        # Processus fermé depuis : la tâche SYSTEM est relancée pour installer.
+        (Invoke-PromptScenario -Root $root -Open $false -Alive '').systemRuns | Should -Be 1
+    }
+
     It 'ne propose rien et ne lance rien pendant une reprise du setup' {
         Set-CheckFile -Root $root -Entry @{ available = $true; version = '1.0'; checked = $fresh; state = 'proposée' }
         $result = Invoke-PromptScenario -Root $root -Resume $true -Choice 'Now'
@@ -342,6 +392,31 @@ Set-StrictMode -Version Latest
 "@
         $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
         & $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded | Should -Be '[]'
+    }
+
+    It 'open.json écrit par la tâche SYSTEM se relit dans la fenêtre, même avec un seul processus' {
+        # Vraies fonctions des deux scripts sous Windows PowerShell 5.1 (un tableau d'un élément doit rester un tableau).
+        $systemScript = (Resolve-Path -Path (Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.System.ps1')).Path
+        $command = @"
+Set-StrictMode -Version Latest
+`$ErrorActionPreference = 'Stop'
+function Import-ScriptFunction([string]`$Path, [string[]]`$Name) {
+    `$ast = [System.Management.Automation.Language.Parser]::ParseFile(`$Path, [ref]`$null, [ref]`$null)
+    `$ast.FindAll({ param(`$Node) `$Node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and `$Node.Name -in `$Name }, `$true) | ForEach-Object { `$_.Extent.Text }
+}
+`$root = '$root'
+. ([scriptblock]::Create((Import-ScriptFunction -Path '$systemScript' -Name 'Save-OpenProcess') -join "``n"))
+function Get-AppProcess { param(`$App) if (`$App.productId -eq 'A') { @([pscustomobject]@{ Id = 9999 }) } else { @() } }
+Save-OpenProcess -App @([pscustomobject]@{ productId = 'A' }, [pscustomobject]@{ productId = 'B' })
+. ([scriptblock]::Create((Import-ScriptFunction -Path '$promptScript' -Name 'Read-JsonFile', 'Get-OpenSnapshot', 'Get-HiddenProcess') -join "``n"))
+function Get-AppProcess { param(`$App) @() }
+function Get-Process { [CmdletBinding()] param([int[]]`$Id) [pscustomobject]@{ Id = `$Id[0] } }
+'A=' + (@(Get-HiddenProcess -App ([pscustomobject]@{ productId = 'A' }) -Since (Get-Date).AddMinutes(-1)) -join ',')
+'B=' + (@(Get-HiddenProcess -App ([pscustomobject]@{ productId = 'B' }) -Since (Get-Date).AddMinutes(-1)) -join ',')
+'ancien=' + (@(Get-HiddenProcess -App ([pscustomobject]@{ productId = 'A' }) -Since (Get-Date).AddMinutes(1)) -join ',')
+"@
+        $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
+        & $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded | Should -Be @('A=9999', 'B=', 'ancien=')
     }
 
     It 'ignore une mise à jour déjà installée depuis la vérification' {

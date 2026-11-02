@@ -33,13 +33,17 @@ PowerShell 7 is installed from the Store (`winget --source msstore`, product `9M
     - for a closed app: lifts the block, has the update installed without forced close, puts the block back;
     - for a running app: lifts the block only for the time of the Store query, which only checks that an update exists;
     - while a setup resume is pending (task `OS-Setup - reprise`, which starts PowerShell 7 at logon): only checks, even for a closed app;
+    - at each run, records in `open.json` the processes of each app it sees open, in every session (administrator consoles and other accounts included, which the user window cannot see);
   - **`OS-Setup - Store (recherche)`** (user, no trigger): queries the Store on behalf of the user, because the Store API only acts for the calling account;
   - **`OS-Setup - Store (fenêtre)`** (user, at logon then every 15 minutes):
     - has the Store checked at most every 4 hours;
-    - an update pending for a closed app: installs it silently;
+    - an update pending for a closed app: installs it silently. An app the window sees closed but the SYSTEM task sees open (still running process in `open.json`) is left to the normal 4-hour check, without an hourly SYSTEM run;
     - an update pending for a running app: offers **Update now** or a delay (10 min, 1 h, 5 h, tomorrow);
     - **Update now** first checks with the Store again, and closes nothing if the update is no longer offered. Otherwise it closes the app (and herdr first, which would restart the shell), then updates it;
-    - during that check (up to 30 minutes if a SYSTEM run is already in progress), a small window "Vérification auprès du Store…" ("Checking with the Store…") stays on screen with a **Cancel** button. Cancel (or Esc) stops waiting, closes nothing, and asks again in 10 minutes (line in the log).
+    - during that check (up to 30 minutes if a SYSTEM run is already in progress), a small window "Vérification auprès du Store…" ("Checking with the Store…") stays on screen with a **Cancel** button. Cancel (or Esc) stops waiting, closes nothing, and asks again in 10 minutes (line in the log);
+    - the SYSTEM task is the reference: if, in the `open.json` written during that check, it sees a still running process of the app that the window does not see, nothing is closed (herdr included) and the window shows "Une fenêtre administrateur ou la session d'un autre utilisateur utilise <app> : fermez-la, la mise à jour se fera ensuite." ("An administrator window or another user's session is using <app>: close it, the update will follow."), then asks again in 10 minutes. An `open.json` missing or older than the check is ignored (line in the log).
+
+Files next to the scripts, read-only for users: `apps.json` (guarded apps, written by the setup), `run.json` (request of the SYSTEM task to the search task) and `open.json` (processes seen by the SYSTEM task), written by SYSTEM. Writable by users: `check.json` (check results) and `store-update.log` (shared log), writable by users. Deleting the folder removes them all.
 
 An existing MSI of PowerShell 7 is uninstalled (`win32-uninstall`) so that a machine already in use ends like a fresh one. The cleanup treats the `Microsoft.PowerShell` identifier recorded by an older bootstrap and the Store product as the same tool.
 
