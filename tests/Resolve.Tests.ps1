@@ -226,6 +226,16 @@ Describe 'Test-OSSetupAnswer' {
         { Test-OSSetupAnswer -Data (New-TestData) -Answers @{ profiles = @('dev'); choices = @{ one = @('x', 'y', 'retiree') } } } | Should -Throw '*entre 0 et 1*'
     }
 
+    It 'ignore un groupe de choix retiré du catalogue avec un avertissement, et garde le reste des réponses' {
+        $answers = @{ profiles = @('dev'); choices = @{ retire = @('x'); one = @('x') } }
+        { Test-OSSetupAnswer -Data (New-TestData) -Answers $answers } | Should -Not -Throw
+        $answers['choices'].Contains('retire') | Should -BeFalse
+        $answers['choices']['one'] | Should -Be @('x')
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter {
+            $Level -eq 'Warning' -and $Message -eq "Groupe de choix 'retire' inconnu, ignoré."
+        }
+    }
+
     It 'rejette un groupe de choix hors des profils sélectionnés' {
         { Test-OSSetupAnswer -Data (New-TestData) -Answers @{ profiles = @('base'); choices = @{ one = @('x') } } } | Should -Throw '*aucun profil*'
     }
