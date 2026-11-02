@@ -42,7 +42,7 @@ Each provider gives the engine:
 | `manual` | Guided manual step (see below). | Check and help written in the engine. | — |
 | `git-config` | A key of the global Git configuration (`git config --global`). | Key by key: the user's other settings remain. | value or absence |
 | `vscode-extension` | Installs a VS Code or Cursor extension (`code` / `cursor --install-extension`, `editor` field). | | — |
-| `install-script` | Installs software with its publisher's official script (`irm <url> \| iex`, Windows PowerShell), when that is the recommended method. Presence tested through the installed command. | Only `https` addresses are accepted; each script is reviewed before being added to the catalog (it runs with the setup's rights). | — |
+| `install-script` | Installs software with its publisher's official script (`irm <url> \| iex`, Windows PowerShell), when that is the recommended method. Presence tested through the installed command. | Only `https` addresses are accepted; each script is reviewed before being added to the catalog, but what runs is the content served by the URL at installation time. **Without administrator rights**: one-off scheduled task in the name of the session's user (limited token, environment of their profile), waited for 15 min at most, output copied into the log, deleted afterwards even on failure. | — |
 | `fnm-node` | Installs the latest Node.js LTS with fnm and makes it the default version. | | installed versions |
 | `npm-global` | Installs a global npm package (default Node.js version). | | — |
 | `gh-extension` | Installs a GitHub CLI extension. | gh must be signed in. | — |

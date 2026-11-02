@@ -1,7 +1,9 @@
 ﻿# Provider install-script : logiciel installé par le script officiel de son éditeur (ex. irm https://herdr.dev/install.ps1
 # | iex), quand il n'est pas dans winget ou que le script est la méthode recommandée (mises à jour automatiques).
-# Le script est exécuté tel que publié, dans Windows PowerShell : il s'installe dans le profil du compte. Seules des
-# adresses https sont acceptées (schéma) ; elles sont relues à chaque ajout au catalogue.
+# Le script est exécuté tel que servi par l'adresse au moment de l'installation, dans Windows PowerShell, sans droits
+# administrateur (Invoke-OSSetupUnelevatedCommand : tâche planifiée ponctuelle à jeton limité) : il s'installe dans le
+# profil du compte et n'a pas besoin des droits du setup. Seules des adresses https sont acceptées (schéma) ; elles sont
+# relues à chaque ajout au catalogue.
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification = 'Interface commune des providers : chaque bloc reçoit $Action et $Context, utilisés ou non.')]
 param()
@@ -24,8 +26,7 @@ param()
     Invoke   = {
         param($Action, $Context)
         $command = "`$ProgressPreference = 'SilentlyContinue'; Invoke-RestMethod -Uri '$($Action['url'] -replace "'", "''")' | Invoke-Expression"
-        # Sortie en UTF-8 (sinon accents et symboles corrompus dans le journal).
-        Invoke-OSSetupNativeCommand -FilePath powershell.exe -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $command" -Utf8 -Label "le script d'installation"
+        Invoke-OSSetupUnelevatedCommand -Command $command -Label "le script d'installation"
         Update-OSSetupSessionPath
     }
 }

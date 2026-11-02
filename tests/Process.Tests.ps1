@@ -84,3 +84,148 @@ Describe 'Invoke-OSSetupNativeCommand' {
         }
     }
 }
+
+Describe 'Invoke-OSSetupUnelevatedCommand' -Skip:(-not $IsWindows) {
+    # Aucune tâche planifiée réelle : enregistrement, lancement, état et suppression sont simulés. Le lancement simulé
+    # écrit ce qu'écrirait l'enveloppe (journal, code de sortie), ou l'exécute réellement avec Windows PowerShell 5.1.
+    BeforeEach {
+        $workRoot = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid().ToString('N'))
+        New-Item -Path $workRoot -ItemType Directory | Out-Null
+        $child = @{ Mode = 'fake'; Lines = @('première ligne', '', 'installé ✓'); ExitCode = '0' }
+        $taskState = 'Running'
+        $global:OSSetupTestWrapper = $null
+        $global:OSSetupTestCommandBytes = $null
+        Mock -ModuleName OSSetup Write-OSSetupLog
+        Mock -ModuleName OSSetup Register-ScheduledTask
+        Mock -ModuleName OSSetup Unregister-ScheduledTask
+        Mock -ModuleName OSSetup Stop-ScheduledTask
+        Mock -ModuleName OSSetup Start-Sleep
+        Mock -ModuleName OSSetup Get-ScheduledTask { [pscustomobject]@{ TaskName = $TaskName; State = $taskState } }
+        Mock -ModuleName OSSetup Start-ScheduledTask {
+            $work = @(Get-ChildItem -Path $workRoot -Directory)
+            $wrapper = Join-Path -Path $work[0].FullName -ChildPath 'run.ps1'
+            $global:OSSetupTestWrapper = Get-Content -Path $wrapper -Raw
+            $global:OSSetupTestCommandBytes = [System.IO.File]::ReadAllBytes((Join-Path -Path $work[0].FullName -ChildPath 'command.ps1'))
+            switch ($child.Mode) {
+                'fake' {
+                    Set-Content -Path (Join-Path -Path $work[0].FullName -ChildPath 'output.log') -Value $child.Lines -Encoding utf8
+                    Set-Content -Path (Join-Path -Path $work[0].FullName -ChildPath 'exitcode.txt') -Value $child.ExitCode
+                }
+                'real' {
+                    $powershell = Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe'
+                    & $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $wrapper | Out-Null
+                }
+            }
+        }
+    }
+
+    AfterEach {
+        Remove-Variable -Name OSSetupTestWrapper, OSSetupTestCommandBytes -Scope Global -ErrorAction SilentlyContinue
+    }
+
+    It 'enregistre une tâche ponctuelle à jeton limité au nom de l''utilisateur, recopie la sortie et nettoie' {
+        Invoke-OSSetupUnelevatedCommand -Command "Write-Output 'ok'" -Label 'le script' -WorkRoot $workRoot
+
+        $user = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+        Should -Invoke -ModuleName OSSetup Register-ScheduledTask -Times 1 -Exactly -ParameterFilter {
+            $Principal.RunLevel -eq 'Limited' -and $Principal.LogonType -eq 'Interactive' -and $Principal.UserId -eq $user -and
+            -not $Trigger -and $Action[0].Execute -like '*\WindowsPowerShell\v1.0\powershell.exe' -and $Action[0].Arguments -match 'run\.ps1' -and
+            $Action[0].WorkingDirectory -eq [Environment]::GetFolderPath('UserProfile')
+        }
+        Should -Invoke -ModuleName OSSetup Start-ScheduledTask -Times 1 -Exactly
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 2 -Exactly -ParameterFilter { $Level -eq 'Detail' }
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -eq '  installé ✓' }
+        Should -Invoke -ModuleName OSSetup Unregister-ScheduledTask -Times 1 -Exactly -ParameterFilter { $TaskName -eq 'OS-Setup - sans droits administrateur' }
+        @(Get-ChildItem -Path $workRoot -Force) | Should -BeNullOrEmpty
+    }
+
+    It 'passe la commande telle quelle à l''enfant (script lancé par -File, UTF-8 avec BOM), sortie en UTF-8' {
+        $command = "Invoke-RestMethod -Uri 'https://example.test/it''s.ps1' | Invoke-Expression"
+        Invoke-OSSetupUnelevatedCommand -Command $command -Label 'le script' -WorkRoot $workRoot
+        $global:OSSetupTestWrapper | Should -Match '-File ''[^'']+\\command\.ps1'' 2>&1'
+        $global:OSSetupTestCommandBytes[0..2] | Should -Be @(0xEF, 0xBB, 0xBF)
+        [System.Text.Encoding]::UTF8.GetString($global:OSSetupTestCommandBytes, 3, $global:OSSetupTestCommandBytes.Length - 3) |
+            Should -Be "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8`r`n$command`r`n"
+    }
+
+    It 'lève une exception avec le code de sortie, après avoir recopié la sortie et nettoyé' {
+        $child.ExitCode = '3'
+        { Invoke-OSSetupUnelevatedCommand -Command 'exit 3' -Label 'le script' -WorkRoot $workRoot } | Should -Throw 'le script a échoué (code 3).'
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -eq '  première ligne' }
+        Should -Invoke -ModuleName OSSetup Unregister-ScheduledTask -Times 1 -Exactly
+        @(Get-ChildItem -Path $workRoot -Force) | Should -BeNullOrEmpty
+    }
+
+    It 'arrête la tâche et échoue clairement quand le délai est dépassé' {
+        $child.Mode = 'none'
+        { Invoke-OSSetupUnelevatedCommand -Command 'Start-Sleep 60' -Label 'le script' -TimeoutSeconds 0 -WorkRoot $workRoot } |
+            Should -Throw "le script n'a pas fini en 0 s : arrêté."
+        Should -Invoke -ModuleName OSSetup Stop-ScheduledTask -Times 1 -Exactly
+        Should -Invoke -ModuleName OSSetup Unregister-ScheduledTask -Times 1 -Exactly
+        @(Get-ChildItem -Path $workRoot -Force) | Should -BeNullOrEmpty
+    }
+
+    It 'échoue sans attendre la fin du délai quand la tâche s''arrête sans code de sortie' {
+        $child.Mode = 'none'
+        $taskState = 'Ready'
+        { Invoke-OSSetupUnelevatedCommand -Command 'x' -Label 'le script' -StartGraceSeconds 0 -WorkRoot $workRoot } |
+            Should -Throw '*sans code de sortie*'
+        Should -Invoke -ModuleName OSSetup Stop-ScheduledTask -Times 0 -Exactly
+        Should -Invoke -ModuleName OSSetup Unregister-ScheduledTask -Times 1 -Exactly
+    }
+
+    It 'nettoie même quand l''enregistrement de la tâche échoue' {
+        Mock -ModuleName OSSetup Register-ScheduledTask { throw 'accès refusé' }
+        { Invoke-OSSetupUnelevatedCommand -Command 'x' -Label 'le script' -WorkRoot $workRoot } | Should -Throw '*accès refusé*'
+        Should -Invoke -ModuleName OSSetup Start-ScheduledTask -Times 0 -Exactly
+        Should -Invoke -ModuleName OSSetup Unregister-ScheduledTask -Times 1 -Exactly
+        @(Get-ChildItem -Path $workRoot -Force) | Should -BeNullOrEmpty
+    }
+
+    It 'avec -WhatIf, n''enregistre ni ne lance rien' {
+        Invoke-OSSetupUnelevatedCommand -Command 'x' -Label 'le script' -WorkRoot $workRoot -WhatIf
+        Should -Invoke -ModuleName OSSetup Register-ScheduledTask -Times 0 -Exactly
+        Should -Invoke -ModuleName OSSetup Start-ScheduledTask -Times 0 -Exactly
+        @(Get-ChildItem -Path $workRoot -Force) | Should -BeNullOrEmpty
+    }
+
+    It 'l''enveloppe, exécutée par Windows PowerShell 5.1, écrit la sortie (accents compris) et le code de sortie de l''enfant' {
+        $powershell = Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        if (-not (Test-Path -Path $powershell)) { Set-ItResult -Skipped -Because 'Windows PowerShell 5.1 absent'; return }
+        $child.Mode = 'real'
+        { Invoke-OSSetupUnelevatedCommand -Command "Write-Output 'déjà installé'; [Console]::Error.WriteLine('avertissement'); exit 4" -Label 'le script' -WorkRoot $workRoot } |
+            Should -Throw 'le script a échoué (code 4).'
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -eq '  déjà installé' }
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -match 'avertissement' }
+
+        $child.Mode = 'real'
+        Invoke-OSSetupUnelevatedCommand -Command "Write-Output 'fini'" -Label 'le script' -WorkRoot $workRoot
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -eq '  fini' }
+        @(Get-ChildItem -Path $workRoot -Force) | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'Provider install-script' {
+    BeforeEach {
+        $provider = InModuleScope OSSetup { Get-OSSetupProvider -Name 'install-script' }
+        Mock -ModuleName OSSetup Invoke-OSSetupUnelevatedCommand
+        Mock -ModuleName OSSetup Invoke-OSSetupNativeCommand
+        Mock -ModuleName OSSetup Update-OSSetupSessionPath
+    }
+
+    It 'exécute le script de l''éditeur sans droits administrateur, puis relit le PATH' {
+        & $provider.Invoke ([ordered]@{ provider = 'install-script'; url = "https://example.test/it's.ps1"; command = 'tool' }) @{}
+        Should -Invoke -ModuleName OSSetup Invoke-OSSetupUnelevatedCommand -Times 1 -Exactly -ParameterFilter {
+            $Command -eq "`$ProgressPreference = 'SilentlyContinue'; Invoke-RestMethod -Uri 'https://example.test/it''s.ps1' | Invoke-Expression" -and
+            $Label -eq "le script d'installation"
+        }
+        Should -Invoke -ModuleName OSSetup Invoke-OSSetupNativeCommand -Times 0 -Exactly
+        Should -Invoke -ModuleName OSSetup Update-OSSetupSessionPath -Times 1 -Exactly
+    }
+
+    It 'propage l''échec du script' {
+        Mock -ModuleName OSSetup Invoke-OSSetupUnelevatedCommand { throw "le script d'installation a échoué (code 1)." }
+        { & $provider.Invoke ([ordered]@{ provider = 'install-script'; url = 'https://example.test/i.ps1'; command = 'tool' }) @{} } |
+            Should -Throw '*code 1*'
+    }
+}
