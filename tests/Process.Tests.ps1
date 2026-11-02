@@ -100,7 +100,8 @@ Describe 'Invoke-OSSetupUnelevatedCommand' -Skip:(-not $IsWindows) {
         Mock -ModuleName OSSetup Unregister-ScheduledTask
         Mock -ModuleName OSSetup Stop-ScheduledTask
         Mock -ModuleName OSSetup Start-Sleep
-        Mock -ModuleName OSSetup Get-ScheduledTask { [pscustomobject]@{ TaskName = $TaskName; State = $taskState } }
+        # Recherche des restes d'une exécution précédente (nom générique) : aucun.
+        Mock -ModuleName OSSetup Get-ScheduledTask { if ("$TaskName".EndsWith('*')) { return }; [pscustomobject]@{ TaskName = $TaskName; State = $taskState } }
         Mock -ModuleName OSSetup Start-ScheduledTask {
             $work = @(Get-ChildItem -Path $workRoot -Directory)
             $wrapper = Join-Path -Path $work[0].FullName -ChildPath 'run.ps1'
@@ -135,7 +136,7 @@ Describe 'Invoke-OSSetupUnelevatedCommand' -Skip:(-not $IsWindows) {
         Should -Invoke -ModuleName OSSetup Start-ScheduledTask -Times 1 -Exactly
         Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 2 -Exactly -ParameterFilter { $Level -eq 'Detail' }
         Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -eq '  installé ✓' }
-        Should -Invoke -ModuleName OSSetup Unregister-ScheduledTask -Times 1 -Exactly -ParameterFilter { $TaskName -eq 'OS-Setup - sans droits administrateur' }
+        Should -Invoke -ModuleName OSSetup Unregister-ScheduledTask -Times 1 -Exactly -ParameterFilter { $TaskName -match '^OS-Setup - sans droits administrateur \([0-9a-f]{8}\)$' }
         @(Get-ChildItem -Path $workRoot -Force) | Should -BeNullOrEmpty
     }
 
@@ -156,13 +157,32 @@ Describe 'Invoke-OSSetupUnelevatedCommand' -Skip:(-not $IsWindows) {
         @(Get-ChildItem -Path $workRoot -Force) | Should -BeNullOrEmpty
     }
 
-    It 'arrête la tâche et échoue clairement quand le délai est dépassé' {
+    It 'passé le délai, laisse la commande finir en arrière-plan (ni arrêt ni suppression) et échoue comme non terminée' {
         $child.Mode = 'none'
         { Invoke-OSSetupUnelevatedCommand -Command 'Start-Sleep 60' -Label 'le script' -TimeoutSeconds 0 -WorkRoot $workRoot } |
-            Should -Throw "le script n'a pas fini en 0 s : arrêté."
-        Should -Invoke -ModuleName OSSetup Stop-ScheduledTask -Times 1 -Exactly
-        Should -Invoke -ModuleName OSSetup Unregister-ScheduledTask -Times 1 -Exactly
-        @(Get-ChildItem -Path $workRoot -Force) | Should -BeNullOrEmpty
+            Should -Throw "le script non terminé après 0 s : il continue en arrière-plan (tâche « OS-Setup - sans droits administrateur (*) ») ; relancer le setup une fois qu'il a fini pour vérifier."
+        Should -Invoke -ModuleName OSSetup Stop-ScheduledTask -Times 0 -Exactly
+        Should -Invoke -ModuleName OSSetup Unregister-ScheduledTask -Times 0 -Exactly
+        @(Get-ChildItem -Path $workRoot -Directory).Name | Should -Match '^os-setup-[0-9a-f]{32}$'
+    }
+
+    It 'laisse la tâche s''arrêter d''elle-même au bout de 4 h au moins, au-delà du délai d''attente' {
+        Invoke-OSSetupUnelevatedCommand -Command 'x' -Label 'le script' -WorkRoot $workRoot
+        Should -Invoke -ModuleName OSSetup Register-ScheduledTask -Times 1 -Exactly -ParameterFilter {
+            [System.Xml.XmlConvert]::ToTimeSpan($Settings.ExecutionTimeLimit) -eq [TimeSpan]::FromHours(4)
+        }
+    }
+
+    It 'signale une commande toujours en cours à chaque intervalle' {
+        $child.Mode = 'none'
+        Mock -ModuleName OSSetup Start-Sleep {
+            $work = @(Get-ChildItem -Path $workRoot -Directory)[0].FullName
+            if ($global:OSSetupTestSleeps++ -ge 1) { Set-Content -Path (Join-Path -Path $work -ChildPath 'exitcode.txt') -Value '0' }
+        }
+        $global:OSSetupTestSleeps = 0
+        Invoke-OSSetupUnelevatedCommand -Command 'x' -Label 'le script' -ProgressSeconds 0 -WorkRoot $workRoot
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -eq '  le script : toujours en cours (0 min)' }
+        Remove-Variable -Name OSSetupTestSleeps -Scope Global
     }
 
     It 'échoue sans attendre la fin du délai quand la tâche s''arrête sans code de sortie' {
@@ -202,6 +222,40 @@ Describe 'Invoke-OSSetupUnelevatedCommand' -Skip:(-not $IsWindows) {
         Invoke-OSSetupUnelevatedCommand -Command "Write-Output 'fini'" -Label 'le script' -WorkRoot $workRoot
         Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -eq '  fini' }
         @(Get-ChildItem -Path $workRoot -Force) | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'Clear-OSSetupUnelevatedLeftover' -Skip:(-not $IsWindows) {
+    # Restes d'une commande qui avait dépassé le délai : tâches et dossiers simulés.
+    BeforeEach {
+        $workRoot = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid().ToString('N'))
+        $running = Join-Path -Path $workRoot -ChildPath "os-setup-$('a' * 32)"
+        $finished = Join-Path -Path $workRoot -ChildPath "os-setup-$('b' * 32)"
+        $other = Join-Path -Path $workRoot -ChildPath 'os-setup-winget'
+        foreach ($folder in $running, $finished, $other) { New-Item -Path $folder -ItemType Directory -Force | Out-Null }
+        Mock -ModuleName OSSetup Unregister-ScheduledTask
+        Mock -ModuleName OSSetup Get-ScheduledTask {
+            [pscustomobject]@{ TaskName = 'OS-Setup - sans droits administrateur (aaaaaaaa)'; State = 'Running'
+                Actions = @([pscustomobject]@{ Arguments = "-NoProfile -File `"$running\run.ps1`"" }) }
+            [pscustomobject]@{ TaskName = 'OS-Setup - sans droits administrateur (bbbbbbbb)'; State = 'Ready'
+                Actions = @([pscustomobject]@{ Arguments = "-NoProfile -File `"$finished\run.ps1`"" }) }
+        }
+    }
+
+    It 'supprime les tâches terminées et les dossiers inutilisés, garde une commande encore en cours et son dossier' {
+        Clear-OSSetupUnelevatedLeftover -WorkRoot $workRoot -Confirm:$false
+        Should -Invoke -ModuleName OSSetup Get-ScheduledTask -Times 1 -Exactly -ParameterFilter { $TaskName -eq 'OS-Setup - sans droits administrateur*' }
+        Should -Invoke -ModuleName OSSetup Unregister-ScheduledTask -Times 1 -Exactly
+        Should -Invoke -ModuleName OSSetup Unregister-ScheduledTask -Times 1 -Exactly -ParameterFilter { $TaskName -eq 'OS-Setup - sans droits administrateur (bbbbbbbb)' }
+        $running | Should -Exist
+        $finished | Should -Not -Exist
+        $other | Should -Exist
+    }
+
+    It 'avec -WhatIf, ne supprime rien' {
+        Clear-OSSetupUnelevatedLeftover -WorkRoot $workRoot -WhatIf
+        Should -Invoke -ModuleName OSSetup Unregister-ScheduledTask -Times 0 -Exactly
+        $finished | Should -Exist
     }
 }
 

@@ -92,6 +92,7 @@
         'Show-OSSetupPlan'
         'Show-OSSetupSummary'
         # Process.ps1
+        'Clear-OSSetupUnelevatedLeftover'
         'Invoke-OSSetupNativeCommand'
         'Invoke-OSSetupUnelevatedCommand'
         # Prompt.ps1
