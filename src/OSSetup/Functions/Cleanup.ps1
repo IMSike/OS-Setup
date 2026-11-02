@@ -100,7 +100,8 @@ function Save-OSSetupHistory {
 function Invoke-OSSetupCleanup {
     <#
     .SYNOPSIS
-        Fin de setup : désinstalle les outils du bootstrap non choisis et, si la copie du dépôt appartient au
+        Fin de setup : exécute les commandes reportées à la fermeture du setup (ex. désinstallation du PowerShell
+        qui l'exécute), désinstalle les outils du bootstrap non choisis et, si la copie du dépôt appartient au
         bootstrap, demande quoi garder (avec -Yes : l'historique). Le travail est fait par un processus détaché
         qui attend la fermeture du setup.
     #>
@@ -117,6 +118,10 @@ function Invoke-OSSetupCleanup {
         [string[]]$SelectedWingetId,
 
         [switch]$Yes,
+
+        # Commandes reportées par les actions (statut « atclose ») : { displayName; registryKey; filePath; arguments }.
+        [AllowEmptyCollection()]
+        [object[]]$RunAtClose = @(),
 
         # Ferme la session une fois le nettoyage fait (éléments effectifs à la prochaine ouverture de session).
         [switch]$Logoff
@@ -155,6 +160,10 @@ function Invoke-OSSetupCleanup {
             Write-OSSetupLog -Message "√ Fichiers conservés : $Root"
         }
     }
+    $run = @($RunAtClose | Where-Object { $_ })
+    if ($run.Count -gt 0) {
+        Write-OSSetupLog -Message "√ Désinstallation à la fermeture du setup : $(@($run | ForEach-Object { $_['displayName'] }) -join ', ')"
+    }
     if ($uninstall.Count -gt 0) {
         Write-OSSetupLog -Message "√ Désinstallation à la fermeture (outils du bootstrap non choisis) : $($uninstall -join ', ')"
     }
@@ -162,7 +171,7 @@ function Invoke-OSSetupCleanup {
     if ($logPath) {
         [void](Save-OSSetupHistory -Root $Root -RunId $RunId -HistoryRoot $historyRoot)
     }
-    if ($uninstall.Count -eq 0 -and $remove.Count -eq 0 -and -not $Logoff) { return }
+    if ($run.Count -eq 0 -and $uninstall.Count -eq 0 -and $remove.Count -eq 0 -and -not $Logoff) { return }
 
     # Journal où le nettoyage consigne son résultat : l'historique conservé, sinon le journal du dépôt s'il reste
     # en place (clone non créé par le bootstrap, ou « tout garder »). Avec « tout supprimer », aucun.
@@ -173,8 +182,8 @@ function Invoke-OSSetupCleanup {
         $script = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "OS-Setup-cleanup-$id.ps1"
         $config = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "OS-Setup-cleanup-$id.json"
         Copy-Item -Path (Join-Path -Path $Root -ChildPath 'src\cleanup.ps1') -Destination $script
-        [ordered]@{ waitPid = $PID; uninstall = $uninstall; remove = $remove.ToArray(); logPath = $cleanupLogPath; logoff = [bool]$Logoff } |
-            ConvertTo-Json | Set-Content -Path $config -Encoding utf8
+        [ordered]@{ waitPid = $PID; run = $run; uninstall = $uninstall; remove = $remove.ToArray(); logPath = $cleanupLogPath; logoff = [bool]$Logoff } |
+            ConvertTo-Json -Depth 4 | Set-Content -Path $config -Encoding utf8
         # Dossier de travail hors du dépôt : sinon le dossier à supprimer resterait verrouillé.
         Start-Process -FilePath (Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe') `
             -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', "`"$script`"", '-ConfigPath', "`"$config`"" `

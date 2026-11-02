@@ -371,6 +371,108 @@ Describe 'Provider win32-uninstall' {
     }
 }
 
+Describe 'Provider win32-uninstall : PowerShell qui exécute le setup' {
+    BeforeEach {
+        Mock -ModuleName OSSetup Write-OSSetupLog {}
+        Mock -ModuleName OSSetup Start-Process { [pscustomobject]@{ ExitCode = 0 } }
+        $global:OSSetupTestMsiPresent = $true
+        Mock -ModuleName OSSetup Get-OSSetupUninstallEntry {
+            if ($global:OSSetupTestMsiPresent) {
+                [pscustomobject]@{
+                    DisplayName     = 'PowerShell 7-x64'
+                    UninstallString = 'MsiExec.exe /X{0F5E7A11-0000-4000-8000-0000000000AA}'
+                    PSChildName     = '{0F5E7A11-0000-4000-8000-0000000000AA}'
+                    PSPath          = 'Microsoft.PowerShell.Core\Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{0F5E7A11-0000-4000-8000-0000000000AA}'
+                }
+            }
+        }
+        function Invoke-TestUninstall {
+            InModuleScope OSSetup { & (Get-OSSetupProvider -Name win32-uninstall).Invoke @{ displayName = 'PowerShell 7-x64' } @{} }
+        }
+    }
+
+    AfterEach {
+        Remove-Variable -Name OSSetupTestMsiPresent -Scope Global -ErrorAction SilentlyContinue
+    }
+
+    It 'reporte la désinstallation à la fermeture du setup, sans lancer msiexec' {
+        Mock -ModuleName OSSetup Test-OSSetupUninstallEntryHostsSetup { $true }
+        $outcome = @(Invoke-TestUninstall)
+        Should -Invoke -ModuleName OSSetup Start-Process -Times 0 -Exactly
+        $outcome.Count | Should -Be 1
+        $command = @($outcome[0]['RunAtClose'])
+        $command.Count | Should -Be 1
+        $command[0]['displayName'] | Should -Be 'PowerShell 7-x64'
+        $command[0]['filePath'] | Should -Be 'msiexec.exe'
+        $command[0]['arguments'] | Should -Be '/x {0F5E7A11-0000-4000-8000-0000000000AA} /qn /norestart'
+        $command[0]['registryKey'] | Should -BeLike '*\Uninstall\{0F5E7A11-0000-4000-8000-0000000000AA}'
+    }
+
+    It 'désinstalle aussitôt quand le setup tourne sous un autre PowerShell' {
+        Mock -ModuleName OSSetup Test-OSSetupUninstallEntryHostsSetup { $false }
+        @(Invoke-TestUninstall) | Should -BeNullOrEmpty
+        Should -Invoke -ModuleName OSSetup Start-Process -Times 1 -Exactly -ParameterFilter {
+            $FilePath -eq 'msiexec.exe' -and $ArgumentList -eq '/x {0F5E7A11-0000-4000-8000-0000000000AA} /qn /norestart'
+        }
+    }
+
+    It 'l''annonce dans le plan et la marque « atclose » au lieu d''un échec' {
+        Mock -ModuleName OSSetup Test-OSSetupUninstallEntryHostsSetup { $true }
+        $data = [pscustomobject]@{
+            Items = @{
+                pwsh = [ordered]@{ id = 'pwsh'; name = 'PowerShell 7'; actions = @([ordered]@{ provider = 'win32-uninstall'; displayName = 'PowerShell 7-x64' }) }
+            }
+        }
+        $context = @{ Variables = [ordered]@{} }
+        $plan = @(Get-OSSetupPlan -Data $data -ItemId 'pwsh' -Context $context)
+        $plan[0].Status | Should -Be 'todo'
+        $plan[0].Description | Should -BeLike '*à la fermeture du setup*'
+        $results = @(Invoke-OSSetupPlan -Plan $plan -Context $context)
+        $results[0].Status | Should -Be 'atclose'
+        $results[0].RebootRequired | Should -BeFalse
+        @($results[0].RunAtClose)[0]['filePath'] | Should -Be 'msiexec.exe'
+        Should -Invoke -ModuleName OSSetup Start-Process -Times 0 -Exactly
+    }
+}
+
+Describe 'Test-OSSetupUninstallEntryHostsSetup' {
+    BeforeAll {
+        $script:msiEntry = [pscustomobject]@{
+            DisplayName     = 'PowerShell 7-x64'
+            InstallLocation = ''
+            UninstallString = 'MsiExec.exe /X{0F5E7A11-0000-4000-8000-0000000000AA}'
+            PSChildName     = '{0F5E7A11-0000-4000-8000-0000000000AA}'
+        }
+    }
+
+    BeforeEach {
+        # Dossier enregistré par le MSI de PowerShell avec son code produit (InstallLocation vide dans l'entrée).
+        Mock -ModuleName OSSetup Get-ItemProperty {
+            [pscustomobject]@{ ProductCode = '{0F5E7A11-0000-4000-8000-0000000000AA}'; InstallLocation = 'C:\Program Files\PowerShell\7\'; InstallDir = 'C:\Program Files\PowerShell\7\' }
+        } -ParameterFilter { $Path -like '*PowerShellCore\InstalledVersions*' }
+    }
+
+    It 'reconnaît le MSI de PowerShell qui exécute le setup par son code produit' {
+        Test-OSSetupUninstallEntryHostsSetup -Entry $script:msiEntry -PowerShellHome 'C:\Program Files\PowerShell\7' | Should -BeTrue
+    }
+
+    It 'ne retient pas le PowerShell du Store ni un autre dossier' {
+        Test-OSSetupUninstallEntryHostsSetup -Entry $script:msiEntry -PowerShellHome 'C:\Program Files\WindowsApps\Microsoft.PowerShell_7.5.4.0_x64__8wekyb3d8bbwe' |
+            Should -BeFalse
+        Test-OSSetupUninstallEntryHostsSetup -Entry $script:msiEntry -PowerShellHome 'C:\Program Files\PowerShell\7-preview' | Should -BeFalse
+    }
+
+    It 'ne retient pas une entrée dont le dossier est inconnu' {
+        $other = [pscustomobject]@{ DisplayName = 'Autre'; InstallLocation = ''; UninstallString = 'MsiExec.exe /X{00000000-0000-0000-0000-000000000001}'; PSChildName = '{00000000-0000-0000-0000-000000000001}' }
+        Test-OSSetupUninstallEntryHostsSetup -Entry $other -PowerShellHome 'C:\Program Files\PowerShell\7' | Should -BeFalse
+    }
+
+    It 'utilise InstallLocation quand l''entrée le renseigne' {
+        $entry = [pscustomobject]@{ DisplayName = 'Autre PowerShell'; InstallLocation = 'D:\Outils\pwsh'; UninstallString = '"D:\Outils\pwsh\uninstall.exe"' }
+        Test-OSSetupUninstallEntryHostsSetup -Entry $entry -PowerShellHome 'D:\Outils\pwsh' | Should -BeTrue
+    }
+}
+
 Describe 'Provider power' {
     It 'compare la valeur actuelle du paramètre' {
         Mock -ModuleName OSSetup Get-OSSetupPowerValue { 270 } -ParameterFilter { $Setting -eq 'display' -and $Source -eq 'ac' }

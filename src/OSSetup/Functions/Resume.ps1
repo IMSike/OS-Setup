@@ -86,18 +86,22 @@ function Write-OSSetupRunResult {
 function Get-OSSetupPwshPath {
     <#
     .SYNOPSIS
-        Exécutable PowerShell à relancer (élévation, tâche de reprise) : celui du processus courant, ou l'alias
-        d'exécution %LOCALAPPDATA%\Microsoft\WindowsApps\pwsh.exe si c'est le PowerShell du Store.
+        Exécutable PowerShell à relancer (élévation, tâche de reprise) : l'alias d'exécution du PowerShell du Store
+        (%LOCALAPPDATA%\Microsoft\WindowsApps\pwsh.exe) dès qu'il existe, quel que soit le PowerShell courant ;
+        sinon celui du processus courant.
     .DESCRIPTION
         Le chemin du paquet du Store contient sa version et change à chaque mise à jour ; l'alias d'exécution reste.
+        Sur un ancien poste lancé depuis un MSI de PowerShell 7, que l'élément pwsh désinstalle, la relance et la
+        reprise ne doivent pas dépendre de ce MSI.
     #>
     [CmdletBinding()]
     [OutputType([string])]
     param()
+    $alias = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Microsoft\WindowsApps\pwsh.exe'
+    if (Test-Path -LiteralPath $alias) { return $alias }
     $pwsh = (Get-Process -Id $PID).Path
-    if ($pwsh -like '*\WindowsApps\Microsoft.PowerShell_*') {
-        $pwsh = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Microsoft\WindowsApps\pwsh.exe'
-    }
+    # Alias absent mais PowerShell du Store en cours (cas improbable) : le chemin versionné ne survivrait pas à une mise à jour.
+    if ($pwsh -like '*\WindowsApps\Microsoft.PowerShell_*') { return $alias }
     $pwsh
 }
 

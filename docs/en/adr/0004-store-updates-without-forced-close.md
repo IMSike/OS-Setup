@@ -49,7 +49,8 @@ An existing MSI of PowerShell 7 is uninstalled (`win32-uninstall`) so that a mac
 - During the availability check of a running app, the block is lifted for the time of the Store query (usually a few seconds, at most 3 minutes). The Store may start its own update in that window: the check sees it and cancels it while the app is running, and the window offers it again. Only an update the Store starts after the check and before the block is back would follow its usual rules (deferral, forced close only after 3 dates and a locked session). For a closed app, the block stays lifted during its update (at most 15 minutes).
 - The user tasks are registered for the account that runs the setup.
 - Under the Store PowerShell, a few engine paths needed adjusting:
-  - the package path contains its version, so the resume task and elevation go through the execution alias `%LOCALAPPDATA%\Microsoft\WindowsApps\pwsh.exe`;
+  - the package path contains its version, so the resume task and elevation go through the execution alias `%LOCALAPPDATA%\Microsoft\WindowsApps\pwsh.exe`, as soon as it exists, even when the setup was started from a PowerShell 7 MSI;
   - the DISM module goes through Windows PowerShell 5.1.
+- On an older machine, the setup may run under the PowerShell 7 MSI it must uninstall: `msiexec` would stop it on the spot. That uninstall is postponed until the setup closes and done by the end-of-setup cleanup; if a reboot comes first, the resume pass, under the Store PowerShell, uninstalls the MSI directly.
 - How long `DoNotUpdate` holds on a machine not managed by an MDM is not verified over months. The SYSTEM task restores it at each run.
 - Rollback: delete the three tasks and `%ProgramFiles%\OS-Setup\store-update`, then set `DoNotUpdate` back to 0 (see [`windows/development.md`](../windows/development.md#powershell-7--pwsh)).

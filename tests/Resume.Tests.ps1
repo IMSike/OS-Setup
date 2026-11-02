@@ -186,15 +186,60 @@ Describe 'Request-OSSetupRestart' {
 }
 
 Describe 'Get-OSSetupPwshPath' {
+    BeforeAll {
+        $script:storeAlias = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Microsoft\WindowsApps\pwsh.exe'
+    }
+
     It 'remplace le dossier versionné du PowerShell du Store par l''alias d''exécution' {
+        Mock -ModuleName OSSetup Test-Path { $true } -ParameterFilter { $LiteralPath -like '*\WindowsApps\pwsh.exe' }
         Mock -ModuleName OSSetup Get-Process {
             [pscustomobject]@{ Path = 'C:\Program Files\WindowsApps\Microsoft.PowerShell_7.5.4.0_x64__8wekyb3d8bbwe\pwsh.exe' }
         }
-        Get-OSSetupPwshPath | Should -Be (Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Microsoft\WindowsApps\pwsh.exe')
+        Get-OSSetupPwshPath | Should -Be $script:storeAlias
     }
 
-    It 'garde le chemin d''un PowerShell hors Store' {
+    It 'choisit l''alias du Store dès qu''il existe, même sous le MSI de PowerShell 7' {
+        Mock -ModuleName OSSetup Test-Path { $true } -ParameterFilter { $LiteralPath -like '*\WindowsApps\pwsh.exe' }
+        Mock -ModuleName OSSetup Get-Process { [pscustomobject]@{ Path = 'C:\Program Files\PowerShell\7\pwsh.exe' } }
+        Get-OSSetupPwshPath | Should -Be $script:storeAlias
+    }
+
+    It 'garde le chemin d''un PowerShell hors Store quand celui du Store est absent' {
+        Mock -ModuleName OSSetup Test-Path { $false } -ParameterFilter { $LiteralPath -like '*\WindowsApps\pwsh.exe' }
         Mock -ModuleName OSSetup Get-Process { [pscustomobject]@{ Path = 'C:\Program Files\PowerShell\7\pwsh.exe' } }
         Get-OSSetupPwshPath | Should -Be 'C:\Program Files\PowerShell\7\pwsh.exe'
+    }
+}
+
+Describe 'Register-OSSetupResumeTask' {
+    It 'lance la reprise par l''alias du Store, même depuis le MSI de PowerShell 7' {
+        Mock -ModuleName OSSetup Test-Path { $true } -ParameterFilter { $LiteralPath -like '*\WindowsApps\pwsh.exe' }
+        Mock -ModuleName OSSetup Get-Process { [pscustomobject]@{ Path = 'C:\Program Files\PowerShell\7\pwsh.exe' } }
+        Mock -ModuleName OSSetup New-ScheduledTaskAction { 'action' }
+        Mock -ModuleName OSSetup New-ScheduledTaskTrigger { 'trigger' }
+        Mock -ModuleName OSSetup New-ScheduledTaskPrincipal { 'principal' }
+        Mock -ModuleName OSSetup New-ScheduledTaskSettingsSet { 'settings' }
+        Mock -ModuleName OSSetup Register-ScheduledTask {} -RemoveParameterType Action, Trigger, Principal, Settings
+        # Simulation en plus du remplacement : aucune tâche réelle ne peut être créée.
+        Register-OSSetupResumeTask -SetupPath 'C:\OS-Setup\setup.ps1' -WhatIf
+        Should -Invoke -ModuleName OSSetup New-ScheduledTaskAction -Times 1 -Exactly -ParameterFilter {
+            $Execute -eq (Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Microsoft\WindowsApps\pwsh.exe') -and $Argument -like '*-File "C:\OS-Setup\setup.ps1" -Resume'
+        }
+        Should -Invoke -ModuleName OSSetup Register-ScheduledTask -Times 0 -Exactly
+    }
+}
+
+Describe 'setup.ps1 : relance élevée' {
+    It 'relance par Get-OSSetupPwshPath (alias du Store dès qu''il existe)' {
+        $setup = Join-Path -Path $PSScriptRoot -ChildPath '..\setup.ps1'
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($setup, [ref]$null, [ref]$null)
+        $elevation = $ast.FindAll({
+                param($node)
+                $node -is [System.Management.Automation.Language.CommandAst] -and $node.GetCommandName() -eq 'Start-Process' -and
+                $node.Extent.Text -match '-Verb RunAs'
+            }, $true)
+        @($elevation).Count | Should -Be 1
+        $elevation[0].Extent.Text | Should -Match '-FilePath \$pwsh\b'
+        $ast.Extent.Text | Should -Match '\$pwsh = Get-OSSetupPwshPath'
     }
 }

@@ -147,6 +147,7 @@
         'Get-OSSetupStartupEntry'
         'Get-OSSetupStoreCancelScript'
         'Get-OSSetupUninstallEntry'
+        'Get-OSSetupUninstallEntryLocation'
         'Get-OSSetupWindowsCapabilityList'
         'Get-OSSetupWindowsCapabilityMatch'
         'Import-OSSetupAppxModule'
@@ -157,6 +158,7 @@
         'Stop-OSSetupStoreUpdate'
         'Split-OSSetupTaskPath'
         'Test-OSSetupAppxInstalled'
+        'Test-OSSetupUninstallEntryHostsSetup'
         'Wait-OSSetupUninstallEntryRemoval'
         # Variables.ps1
         'Expand-OSSetupAction'

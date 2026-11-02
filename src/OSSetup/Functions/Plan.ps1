@@ -106,6 +106,9 @@ function Invoke-OSSetupPlan {
         le déclarer (requiresReboot). Les actions suivantes du même élément continuent ; les éléments qui en
         dépendent sont reportés (statut « deferred ») et seront traités après le redémarrage.
         Chaque résultat porte RebootRequired : vrai si un redémarrage est nécessaire pour terminer.
+        Fermeture du setup : une action peut confier son travail au nettoyage de fin (le provider retourne
+        @{ RunAtClose = @(commandes) }, ex. désinstallation du PowerShell qui exécute le setup) : statut « atclose »,
+        commandes dans RunAtClose.
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -146,6 +149,8 @@ function Invoke-OSSetupPlan {
             Detail         = $step.Detail
             RebootRequired = $false
             RequiresLogoff = $step.RequiresLogoff
+            # Commandes que le nettoyage de fin exécute après la fermeture du setup (statut « atclose »).
+            RunAtClose     = @()
         }
         $blockedBy = @($step.DependsOn | Where-Object { $failedItems.Contains($_) })
         $waitingFor = @($step.DependsOn | Where-Object { $waitingItems.Contains($_) })
@@ -187,12 +192,21 @@ function Invoke-OSSetupPlan {
                         Clear-OSSetupDismCache
                     }
                     $signaled = [bool]($outcome | Where-Object { $_ -is [System.Collections.IDictionary] -and $_['RebootRequired'] })
+                    $runAtClose = @($outcome | Where-Object { $_ -is [System.Collections.IDictionary] -and $_['RunAtClose'] } |
+                            ForEach-Object { $_['RunAtClose'] })
+                    if ($runAtClose) { $result.RunAtClose = $runAtClose }
                     if ($signaled) {
                         # L'état final (ex. fonctionnalité « Enable Pending ») ne sera visible qu'après redémarrage.
                         $result.Status = 'reboot'
                         $result.RebootRequired = $true
                         $waitingItems.Add($step.ItemId) | Out-Null
                         Write-OSSetupLog -Level Warning -Message '  terminé, redémarrage nécessaire'
+                    }
+                    elseif ($runAtClose) {
+                        # Ex. désinstallation du PowerShell qui exécute le setup : faite par le nettoyage de fin.
+                        $result.Status = 'atclose'
+                        $result.Detail = 'à la fermeture du setup'
+                        Write-OSSetupLog -Level Warning -Message '  reporté à la fermeture du setup'
                     }
                     else {
                         if (-not (& $provider.Test $step.Action $Context)) {
@@ -274,6 +288,7 @@ function Show-OSSetupSummary {
         reboot   = 'appliquées, redémarrage nécessaire pour terminer'
         ok       = 'déjà conformes'
         deferred = 'reportées après le redémarrage'
+        atclose  = 'reportées à la fermeture du setup'
         whatif   = 'simulées (-WhatIf)'
         skipped  = 'ignorées'
         failed   = 'en échec'
@@ -283,11 +298,11 @@ function Show-OSSetupSummary {
     foreach ($status in $labels.Keys) {
         $count = @($Result | Where-Object { $_.Status -eq $status }).Count
         if ($count -gt 0) {
-            $level = switch ($status) { 'done' { 'Success' } 'failed' { 'Error' } { $_ -in 'skipped', 'reboot', 'deferred' } { 'Warning' } default { 'Info' } }
+            $level = switch ($status) { 'done' { 'Success' } 'failed' { 'Error' } { $_ -in 'skipped', 'reboot', 'deferred', 'atclose' } { 'Warning' } default { 'Info' } }
             Write-OSSetupLog -Level $level -Message "$count action(s) $($labels[$status])"
         }
     }
-    foreach ($entry in $Result | Where-Object { $_.Status -in 'failed', 'skipped', 'deferred' }) {
+    foreach ($entry in $Result | Where-Object { $_.Status -in 'failed', 'skipped', 'deferred', 'atclose' }) {
         Write-OSSetupLog -Level Warning -Message "  $($entry.ItemName) : $($entry.Description) — $($entry.Detail)"
     }
     # Un redémarrage ouvre de toute façon une nouvelle session : inutile de le signaler dans ce cas.

@@ -61,7 +61,8 @@ if ($IsWindows -and -not $WhatIfPreference -and -not (Test-OSSetupElevated)) {
     $command = "Set-Location -LiteralPath '$((Get-Location).Path -replace "'", "''")'; " +
         "& '$($PSCommandPath -replace "'", "''")' $(ConvertTo-OSSetupCommandArgument -Parameter $parameters); exit `$LASTEXITCODE"
     $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
-    # PowerShell du Store : passer par l'alias d'exécution plutôt que par le dossier du paquet.
+    # PowerShell du Store par son alias d'exécution dès qu'il existe, même lancé depuis un MSI de PowerShell 7 :
+    # l'élément pwsh désinstalle ce MSI, la fenêtre élevée ne doit pas en dépendre.
     $pwsh = Get-OSSetupPwshPath
     try {
         $process = Start-Process -FilePath $pwsh -Verb RunAs -Wait -PassThru `
@@ -204,6 +205,10 @@ try {
         Register-OSSetupResumeTask -SetupPath $PSCommandPath
         Write-OSSetupLog -Message ''
         Write-OSSetupLog -Level Warning -Message 'Un redémarrage est nécessaire pour terminer. Le setup reprendra automatiquement à l''ouverture de session.'
+        if ($results | Where-Object { $_.Status -eq 'atclose' }) {
+            # Pas de nettoyage de fin avant le redémarrage : la reprise, sous le PowerShell du Store, s'en charge.
+            Write-OSSetupLog -Level Detail -Message 'Les désinstallations reportées à la fermeture du setup seront faites à la reprise.'
+        }
         # Reporté : l'état et la tâche restent en place, la reprise aura lieu après le prochain redémarrage.
         [void](Request-OSSetupRestart -Immediate:$Yes)
     }
@@ -232,8 +237,13 @@ finally {
             if ((Get-Variable -Name itemIds -ErrorAction SilentlyContinue) -and (Get-Variable -Name data -ErrorAction SilentlyContinue)) {
                 $selectedWingetIds = [string[]]@(Get-OSSetupSelectedWingetId -Data $data -ItemId $itemIds)
             }
+            # Actions confiées au nettoyage de fin (ex. désinstallation du PowerShell qui exécute le setup).
+            $runAtClose = @()
+            if (Get-Variable -Name results -ErrorAction SilentlyContinue) {
+                $runAtClose = @($results | Where-Object { $_.Status -eq 'atclose' } | ForEach-Object { $_.RunAtClose })
+            }
             try {
-                Invoke-OSSetupCleanup -Root $root -RunId $runId -SelectedWingetId $selectedWingetIds -Yes:$Yes -Logoff:$logoff
+                Invoke-OSSetupCleanup -Root $root -RunId $runId -SelectedWingetId $selectedWingetIds -RunAtClose $runAtClose -Yes:$Yes -Logoff:$logoff
             }
             catch {
                 Write-OSSetupLog -Level Warning -Message "Nettoyage de fin impossible : $($_.Exception.Message)"

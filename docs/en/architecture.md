@@ -128,10 +128,11 @@ Some steps cannot be automated: choosing the default browser, signing in to GitH
 
 The setup leaves only what was chosen. The bootstrap records what it installed in `state/bootstrap.json`. At the end of the run (never in simulation or while waiting for a reboot):
 
+- an uninstall that would stop the running setup is done here, after the setup closes: the PowerShell 7 MSI of an older machine, when the setup runs under that MSI (summary status "reportées à la fermeture du setup", "postponed until the setup closes"). If a reboot is pending, the cleanup does not run: the resume pass runs under the Store PowerShell and uninstalls the MSI directly;
 - Git and PowerShell 7 installed by the bootstrap are uninstalled if no chosen item installs them;
 - if the repository copy was created by the bootstrap, a menu offers: delete everything, keep the history (log, answers, backups in `%LOCALAPPDATA%\OS-Setup\<date>`), or keep everything. With `-Yes`: the history. A development clone is never deleted.
 
-The work is done by `src/cleanup.ps1`, copied into `%TEMP%` and launched detached under Windows PowerShell 5.1: it waits for the setup to close, uninstalls, deletes, then deletes itself. It takes a few minutes: do not restart right after the setup ends.
+The work is done by `src/cleanup.ps1`, copied into `%TEMP%` and launched detached under Windows PowerShell 5.1: it waits for the setup to close, runs the postponed uninstalls (skipped if the software is already gone), uninstalls, deletes, then deletes itself. Its results go to the setup log (or the kept history), lines `[CLEANUP]`. It takes a few minutes: do not restart right after the setup ends.
 
 ## Windows specifics
 

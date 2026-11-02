@@ -325,6 +325,64 @@ function ConvertTo-OSSetupUninstallCommand {
     throw "Commande de désinstallation illisible : $raw"
 }
 
+function Get-OSSetupUninstallEntryLocation {
+    <#
+    .SYNOPSIS
+        Dossier d'installation d'une entrée « Programmes et fonctionnalités », ou $null s'il est inconnu.
+    .DESCRIPTION
+        InstallLocation de l'entrée s'il est renseigné. Le MSI de PowerShell le laisse vide, mais enregistre son
+        dossier avec son code produit sous HKLM:\SOFTWARE\Microsoft\PowerShellCore\InstalledVersions : le code
+        produit de l'entrée (nom de sa clé, ou commande msiexec) y retrouve le dossier.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        $Entry
+    )
+    if ($Entry.PSObject.Properties['InstallLocation'] -and $Entry.InstallLocation) { return [string]$Entry.InstallLocation }
+    $productCode = $null
+    if ($Entry.PSObject.Properties['PSChildName'] -and $Entry.PSChildName -match '^\{[0-9A-Fa-f-]+\}$') {
+        $productCode = $Entry.PSChildName
+    }
+    elseif ($Entry.PSObject.Properties['UninstallString'] -and $Entry.UninstallString -match '(?i)msiexec(\.exe)?\s+/[IX]\s*(\{[0-9A-F-]+\})') {
+        $productCode = $Matches[2]
+    }
+    if (-not $productCode) { return $null }
+    foreach ($version in @(Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\PowerShellCore\InstalledVersions\*' -ErrorAction SilentlyContinue)) {
+        if ($version.PSObject.Properties['ProductCode'] -and $version.ProductCode -eq $productCode) {
+            foreach ($name in 'InstallLocation', 'InstallDir') {
+                if ($version.PSObject.Properties[$name] -and $version.$name) { return [string]$version.$name }
+            }
+        }
+    }
+    $null
+}
+
+function Test-OSSetupUninstallEntryHostsSetup {
+    <#
+    .SYNOPSIS
+        Vrai si l'entrée « Programmes et fonctionnalités » est le PowerShell qui exécute le setup : la désinstaller
+        maintenant arrêterait le setup en cours (ex. MSI de PowerShell 7 sur un ancien poste).
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory)]
+        $Entry,
+
+        # Dossier du PowerShell qui exécute le setup.
+        [string]$PowerShellHome = $PSHOME
+    )
+    # Le PowerShell du Store ne figure pas dans « Programmes et fonctionnalités ».
+    if (-not $PowerShellHome -or $PowerShellHome -like '*\WindowsApps\*') { return $false }
+    $location = Get-OSSetupUninstallEntryLocation -Entry $Entry
+    if (-not $location) { return $false }
+    $location = [IO.Path]::GetFullPath($location).TrimEnd('\')
+    $current = [IO.Path]::GetFullPath($PowerShellHome).TrimEnd('\')
+    $current -ieq $location -or $current.StartsWith("$location\", [StringComparison]::OrdinalIgnoreCase)
+}
+
 function Get-OSSetupStartupEntry {
     <#
     .SYNOPSIS
