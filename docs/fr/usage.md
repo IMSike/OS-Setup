@@ -65,6 +65,8 @@ Un fichier de réponses contient les profils, les choix de chaque groupe et les 
 
 Un groupe absent du fichier prend ses valeurs par défaut. Exemples : [`answers/dev.example.json`](../../answers/dev.example.json), [`answers/base-all.example.json`](../../answers/base-all.example.json) (tous les réglages du profil `base`).
 
+Une option que son groupe ne propose plus (par exemple un élément retiré du catalogue depuis l'enregistrement du fichier) est **ignorée avec un avertissement** (`Choix 'claude-options' : option 'claude-statusline' inconnue, ignorée.`), et le reste du fichier s'applique ; elle n'est pas réécrite dans `state/answers-last.json`. Les autres incohérences rejettent toujours le fichier entier avant toute action : un groupe qui n'appartient à aucun des profils choisis, trop ou pas assez de sélections dans un groupe (comptées sans les options ignorées), un fichier non conforme au schéma.
+
 Les réponses de chaque session sont enregistrées dans `state/answers-last.json` : pour rejouer la même installation sur une autre machine, copiez ce fichier **hors du dépôt public** (il peut contenir vos informations personnelles).
 
 ## Ce que le setup laisse sur la machine

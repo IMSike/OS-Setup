@@ -65,6 +65,8 @@ An answer file contains the profiles, the choices of each group and the variable
 
 A group missing from the file takes its default values. Examples: [`answers/dev.example.json`](../../answers/dev.example.json), [`answers/base-all.example.json`](../../answers/base-all.example.json) (all the settings of the `base` profile).
 
+An option that is no longer offered by its group (for example an item removed from the catalog since the file was saved) is **ignored with a warning** (`Choix 'claude-options' : option 'claude-statusline' inconnue, ignorée.`), and the rest of the file is applied; it is not written back to `state/answers-last.json`. The other inconsistencies still reject the whole file before any action: a group that belongs to none of the selected profiles, too many or too few selections in a group (counted without the ignored options), a file that does not follow the schema.
+
 The answers of each session are saved in `state/answers-last.json`: to replay the same installation on another machine, copy this file **outside the public repository** (it may contain your personal information).
 
 ## What the setup leaves on the machine

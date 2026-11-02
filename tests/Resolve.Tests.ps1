@@ -189,16 +189,41 @@ Describe 'ConvertTo-OSSetupVendor' {
 }
 
 Describe 'Test-OSSetupAnswer' {
-    It 'accepte des réponses valides' {
-        { Test-OSSetupAnswer -Data (New-TestData) -Answers @{ profiles = @('dev'); choices = @{ pick = @('x', 'y'); one = @('x') } } } | Should -Not -Throw
+    BeforeEach {
+        Mock -ModuleName OSSetup Write-OSSetupLog {}
     }
 
-    It 'rejette une option hors liste' {
-        { Test-OSSetupAnswer -Data (New-TestData) -Answers @{ profiles = @('base'); choices = @{ pick = @('a') } } } | Should -Throw '*ne fait pas partie*'
+    It 'accepte des réponses valides' {
+        { Test-OSSetupAnswer -Data (New-TestData) -Answers @{ profiles = @('dev'); choices = @{ pick = @('x', 'y'); one = @('x') } } } | Should -Not -Throw
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 0 -Exactly
+    }
+
+    It 'ignore une option inconnue du groupe avec un avertissement, et garde le reste des réponses' {
+        $answers = @{ profiles = @('dev'); choices = @{ pick = @('x', 'retiree'); one = @('x') } }
+        { Test-OSSetupAnswer -Data (New-TestData) -Answers $answers } | Should -Not -Throw
+        $answers['choices']['pick'] | Should -Be @('x')
+        $answers['choices']['one'] | Should -Be @('x')
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter {
+            $Level -eq 'Warning' -and $Message -eq "Choix 'pick' : option 'retiree' inconnue, ignorée."
+        }
+        Resolve-OSSetupItemList -Data (New-TestData) -Answers $answers -Facts $windows | Should -Be @('a', 'c', 'b', 'x')
+    }
+
+    It 'ignore aussi un élément connu qui n''est pas une option du groupe' {
+        $answers = @{ profiles = @('base'); choices = @{ pick = @('a') } }
+        { Test-OSSetupAnswer -Data (New-TestData) -Answers $answers } | Should -Not -Throw
+        , $answers['choices']['pick'] | Should -BeOfType [array]
+        $answers['choices']['pick'].Count | Should -Be 0
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -like "*option 'a' inconnue*" }
     }
 
     It 'rejette plusieurs sélections pour un choix unique' {
         { Test-OSSetupAnswer -Data (New-TestData) -Answers @{ profiles = @('dev'); choices = @{ one = @('x', 'y') } } } | Should -Throw '*entre 0 et 1*'
+    }
+
+    It 'compte les sélections sans les options ignorées' {
+        { Test-OSSetupAnswer -Data (New-TestData) -Answers @{ profiles = @('dev'); choices = @{ one = @('x', 'retiree') } } } | Should -Not -Throw
+        { Test-OSSetupAnswer -Data (New-TestData) -Answers @{ profiles = @('dev'); choices = @{ one = @('x', 'y', 'retiree') } } } | Should -Throw '*entre 0 et 1*'
     }
 
     It 'rejette un groupe de choix hors des profils sélectionnés' {

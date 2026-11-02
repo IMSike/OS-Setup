@@ -71,6 +71,8 @@ function Test-OSSetupAnswer {
     <#
     .SYNOPSIS
         Vérifie la cohérence d'un fichier de réponses avec les données. Lève une erreur si incohérent.
+        Une option inconnue d'un groupe de choix (ex. élément retiré du catalogue depuis l'enregistrement du fichier)
+        est retirée des réponses avec un avertissement : le reste du fichier s'applique.
     #>
     [CmdletBinding()]
     param(
@@ -93,13 +95,20 @@ function Test-OSSetupAnswer {
         }
     }
     foreach ($choice in $choices) {
-        $selected = @(Get-OSSetupSelectedOption -Choice $choice -Answers $Answers)
-        $bound = Get-OSSetupChoiceBound -Choice $choice
-        foreach ($option in $selected) {
-            if ($option -notin $choice['options']) {
-                $problems.Add("Choix '$($choice['id'])' : '$option' ne fait pas partie des options.")
+        $choiceId = $choice['id']
+        if ($null -ne $Answers['choices'] -and $Answers['choices'].Contains($choiceId)) {
+            $answered = @($Answers['choices'][$choiceId])
+            $known = @($answered | Where-Object { $_ -in $choice['options'] })
+            if ($known.Count -lt $answered.Count) {
+                foreach ($option in $answered | Where-Object { $_ -notin $choice['options'] }) {
+                    Write-OSSetupLog -Level Warning -Message "Choix '$choiceId' : option '$option' inconnue, ignorée."
+                }
+                # Retirée des réponses : ni appliquée, ni réenregistrée dans answers-last.json, ni signalée à nouveau.
+                $Answers['choices'][$choiceId] = $known
             }
         }
+        $selected = @(Get-OSSetupSelectedOption -Choice $choice -Answers $Answers)
+        $bound = Get-OSSetupChoiceBound -Choice $choice
         if ($selected.Count -lt $bound.Min -or $selected.Count -gt $bound.Max) {
             $problems.Add("Choix '$($choice['id'])' : $($selected.Count) sélection(s), attendu entre $($bound.Min) et $($bound.Max).")
         }
