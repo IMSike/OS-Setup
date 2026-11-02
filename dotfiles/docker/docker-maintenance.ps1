@@ -64,7 +64,9 @@ function Get-RunningWslDistribution {
 function Invoke-VhdCompaction {
     param([string]$Path)
     $before = (Get-Item -Path $Path).Length
-    $script = Join-Path -Path $env:TEMP -ChildPath 'os-setup-compact.txt'
+    # Commandes diskpart (exécutées en administrateur) à côté de ce script, dans un dossier que seuls les
+    # administrateurs modifient : dans %TEMP%, un programme de la session pourrait les remplacer avant leur exécution.
+    $script = Join-Path -Path $PSScriptRoot -ChildPath 'os-setup-compact.txt'
     Set-Content -Path $script -Encoding ASCII -Value @(
         "select vdisk file=`"$Path`""
         'attach vdisk readonly'
