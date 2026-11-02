@@ -72,7 +72,8 @@ function Test-OSSetupAnswer {
     .SYNOPSIS
         Vérifie la cohérence d'un fichier de réponses avec les données. Lève une erreur si incohérent.
         Une option inconnue d'un groupe de choix (ex. élément retiré du catalogue depuis l'enregistrement du fichier)
-        est retirée des réponses avec un avertissement : le reste du fichier s'applique.
+        est retirée des réponses avec un avertissement : le reste du fichier s'applique. De même pour un groupe de choix
+        qu'aucun profil ne déclare plus (groupe retiré du catalogue).
     #>
     [CmdletBinding()]
     param(
@@ -88,8 +89,15 @@ function Test-OSSetupAnswer {
     $knownChoiceIds = @($choices | ForEach-Object { $_['id'] })
 
     if ($null -ne $Answers['choices']) {
-        foreach ($answeredId in $Answers['choices'].Keys) {
-            if ($answeredId -notin $knownChoiceIds) {
+        # Groupes de tous les profils : un groupe qu'aucun profil ne déclare a été retiré du catalogue.
+        $catalogChoiceIds = @($Data.Profiles.Values | ForEach-Object { $_['choices'] } | ForEach-Object { $_['id'] })
+        foreach ($answeredId in @($Answers['choices'].Keys)) {
+            if ($answeredId -notin $catalogChoiceIds) {
+                Write-OSSetupLog -Level Warning -Message "Groupe de choix '$answeredId' inconnu, ignoré."
+                # Retiré des réponses, comme une option inconnue : ni appliqué, ni réenregistré dans answers-last.json.
+                $Answers['choices'].Remove($answeredId)
+            }
+            elseif ($answeredId -notin $knownChoiceIds) {
                 $problems.Add("Le groupe de choix '$answeredId' n'appartient à aucun profil sélectionné.")
             }
         }
