@@ -235,11 +235,13 @@ function Test-ResumePending { `$$Resume }
 `$global:calls.output = @($Call | ForEach-Object { "`$_" })
 `$global:calls.log = if (Test-Path -Path `$log) { [IO.File]::ReadAllText(`$log) } else { '' }
 `$global:calls.state = if (Test-Path -Path `$stateFile) { [IO.File]::ReadAllText(`$stateFile) }
-ConvertTo-Json -InputObject `$global:calls -Compress
+[IO.File]::WriteAllText('$Root\calls.json', (ConvertTo-Json -InputObject `$global:calls -Compress), [Text.UTF8Encoding]::new(`$false))
 "@
+            # Résultat par un fichier UTF-8 : la sortie standard de l'enfant serait décodée avec la page de code de la
+            # console, qui varie (poste, Git Bash, runner GitHub) et abîme les accents.
             $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
-            $output = & $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded
-            ($output -join "`n") | ConvertFrom-Json
+            & $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded | Out-Null
+            [IO.File]::ReadAllText((Join-Path -Path $Root -ChildPath 'calls.json')) | ConvertFrom-Json
         }
 
         function Set-CheckFile {
