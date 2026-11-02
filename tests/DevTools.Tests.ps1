@@ -184,6 +184,15 @@ Describe 'Plafonds selon le disque' {
 Describe 'Provider claude-plugin' {
     BeforeAll {
         $script:action = @{ plugin = 'dx'; marketplace = 'cc-plugins'; source = 'IMSike/CC-Plugins' }
+        # Pester ne simule qu'une commande existante : une fonction vide remplace claude là où il manque (ex. runner CI).
+        $script:claudeStub = -not (Get-Command -Name claude -ErrorAction SilentlyContinue)
+        if ($script:claudeStub) {
+            function global:claude { }
+        }
+    }
+
+    AfterAll {
+        if ($script:claudeStub) { Remove-Item -Path Function:\claude -ErrorAction SilentlyContinue }
     }
 
     It 'est conforme seulement quand le plugin est installé et activé' {

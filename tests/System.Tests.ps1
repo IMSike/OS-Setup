@@ -523,6 +523,18 @@ Describe 'Get-OSSetupDeviceProblem' {
 }
 
 Describe 'Test-OSSetupWingetInstalled' {
+    BeforeAll {
+        # Pester ne simule qu'une commande existante : une fonction vide remplace winget là où il manque (ex. runner CI).
+        $script:wingetStub = -not (Get-Command -Name winget -ErrorAction SilentlyContinue)
+        if ($script:wingetStub) {
+            function global:winget { }
+        }
+    }
+
+    AfterAll {
+        if ($script:wingetStub) { Remove-Item -Path Function:\winget -ErrorAction SilentlyContinue }
+    }
+
     It 'reconnaît un paquet que winget list --id ne trouve pas mais que winget export rattache' {
         Mock -ModuleName OSSetup winget { $global:LASTEXITCODE = -1978335212 }
         Mock -ModuleName OSSetup Get-OSSetupWingetExportId { @('Microsoft.PowerShell') }
@@ -547,6 +559,18 @@ Describe 'Test-OSSetupWingetInstalled' {
 }
 
 Describe 'Provider winget : présence' {
+    BeforeAll {
+        # Pester ne simule qu'une commande existante : une fonction vide remplace winget là où il manque (ex. runner CI).
+        $script:wingetStub = -not (Get-Command -Name winget -ErrorAction SilentlyContinue)
+        if ($script:wingetStub) {
+            function global:winget { }
+        }
+    }
+
+    AfterAll {
+        if ($script:wingetStub) { Remove-Item -Path Function:\winget -ErrorAction SilentlyContinue }
+    }
+
     BeforeEach {
         # winget list rattache le MSI de PowerShell au produit du Store : il répond « présent ».
         Mock -ModuleName OSSetup winget { $global:LASTEXITCODE = 0 }

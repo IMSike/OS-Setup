@@ -17,6 +17,14 @@ Install-PSResource PSScriptAnalyzer -Scope CurrentUser
 Invoke-Pester -Path tests/CodeQuality.Tests.ps1 -Output Detailed
 ```
 
+## Intégration continue
+
+Le workflow [Tests](../../.github/workflows/tests.yml) lance `Invoke-Pester -Path tests` sur un runner Windows de GitHub pour chaque pull request vers `main` ou `dev` et chaque envoi sur ces branches. Il installe des versions épinglées de Pester (5.9.1) et de PSScriptAnalyzer (1.25.0) : le test de qualité du code tourne donc toujours ; Windows PowerShell 5.1 est présent sur le runner : le test d'analyse tourne aussi. Le job échoue si un test échoue **ou est ignoré**. Les commandes absentes du runner (`winget`, `claude`) sont remplacées par des fonctions vides dans les tests qui les simulent.
+
+Le contrôle « Tests » ne bloque une fusion qu'une fois rendu obligatoire : dans les réglages du dépôt sur GitHub, **Branches** (ou **Rules**), protection de la branche `main`, « Require status checks to pass », cocher `pester` (réglage manuel, fait par le mainteneur).
+
+Le workflow ne remplace pas la VM : il ne lance que les tests unitaires, qui ne modifient rien sur le système.
+
 ## VM de test Hyper-V
 
 Tests d'intégration dans une VM Windows jetable, recréable à l'identique à partir d'une image Windows (install.esd, install.wim ou ISO), sans clic. Les scripts sont dans [`tests/vm/`](../../tests/vm/).

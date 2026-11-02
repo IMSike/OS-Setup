@@ -82,7 +82,7 @@ The first version is `v0.0.0`. There is no changelog for now.
 ## Pull requests
 
 1. Branch from `main`.
-2. Tests pass (`Invoke-Pester -Path tests`), the dry run shows the expected plan, and the change was tested in the VM when it touches the system.
+2. Tests pass (`Invoke-Pester -Path tests`), the dry run shows the expected plan, and the change was tested in the VM when it touches the system. The [Tests](.github/workflows/tests.yml) workflow reruns the tests on Windows for every pull request and every push to `main` and `dev`; the maintainer makes its `pester` check required in the branch protection of `main` (see [Testing](docs/en/testing.md#continuous-integration)).
 3. Documentation updated in both languages.
 4. Title following the commit convention (it becomes the commit message on squash merge).
 
