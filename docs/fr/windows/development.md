@@ -108,11 +108,13 @@ auto (avec `pwsh`) · fichier gabarit
 
 ## Windows Terminal — `windows-terminal`
 
-✔ · pour le compte · admin · winget `Microsoft.WindowsTerminal` · mises à jour encadrées (`store-update-guard`)
+✔ · pour le compte · admin · winget `9N0DX20HK701` (Microsoft Store, source `msstore`) · mises à jour encadrées (`store-update-guard`)
 
-- **Effet** : installe Windows Terminal (onglets, volets, rendu moderne). Ses mises à jour du Store sont encadrées comme celles de PowerShell 7 (voir `pwsh`) : silencieuses quand Terminal est fermé, proposées dans la même fenêtre quand il est ouvert.
+- **Effet** : installe Windows Terminal (onglets, volets, rendu moderne) depuis le Microsoft Store, comme PowerShell 7. Ses mises à jour du Store sont encadrées comme celles de PowerShell 7 (voir `pwsh`) : silencieuses quand Terminal est fermé, proposées dans la même fenêtre quand il est ouvert.
 - **Implications** :
   - application du Store (MSIX), installée pour le compte : l'installation pour toute la machine n'est pas prise en charge sous Windows 10 ;
+  - la version du Store peut avoir quelques semaines de retard sur la publication GitHub (par exemple 1.24 sur le Store quand GitHub propose déjà 1.25) ;
+  - une copie installée depuis la source `winget` (`Microsoft.WindowsTerminal`, publication GitHub) est le même paquet, avec la même identité et la signature du Store : elle compte comme installée et elle est gardée, pas remplacée. Sous Windows 11, le Terminal livré avec Windows est aussi ce paquet ;
   - sous Windows 10, Terminal ne peut pas devenir le terminal par défaut de Windows (Windows 11 seulement) : un script lancé par double-clic s'ouvre encore dans la console classique ;
   - **Mettre à jour maintenant** ferme toutes les fenêtres de Terminal et ce qui y tourne. herdr survit et se rattache à la relance.
 - **Revenir en arrière** : comme pour `pwsh` (tâches, dossier, puis `DoNotUpdate` à 0 pour `Microsoft.WindowsTerminal_8wekyb3d8bbwe`). Les tâches et le dossier sont communs aux deux applications : ne les supprimer que si aucune ne doit plus être encadrée. Désinstaller : Paramètres > Applications > Windows Terminal > Désinstaller.

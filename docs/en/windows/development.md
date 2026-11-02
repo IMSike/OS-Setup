@@ -108,11 +108,13 @@ auto (with `pwsh`) · template file
 
 ## Windows Terminal — `windows-terminal`
 
-✔ · per account · admin · winget `Microsoft.WindowsTerminal` · guarded updates (`store-update-guard`)
+✔ · per account · admin · winget `9N0DX20HK701` (Microsoft Store, `msstore` source) · guarded updates (`store-update-guard`)
 
-- **Effect**: installs Windows Terminal (tabs, panes, modern rendering). Its Store updates are guarded like PowerShell 7's (see `pwsh`): silent when Terminal is closed, offered in the same window when it is running.
+- **Effect**: installs Windows Terminal (tabs, panes, modern rendering) from the Microsoft Store, like PowerShell 7. Its Store updates are guarded like PowerShell 7's (see `pwsh`): silent when Terminal is closed, offered in the same window when it is running.
 - **Implications**:
   - Store application (MSIX), installed for the account: machine-wide installation is not supported on Windows 10;
+  - the Store version can lag a few weeks behind the GitHub release (for example 1.24 on the Store when GitHub already offers 1.25);
+  - a copy installed from the `winget` source (`Microsoft.WindowsTerminal`, GitHub release) is the same package, with the same identity and Store signature: it counts as installed and is kept, not replaced. On Windows 11, the Terminal shipped with Windows is also that package;
   - on Windows 10, Terminal cannot become the default terminal of Windows (Windows 11 only): a script launched by double-click still opens in the classic console;
   - **Update now** closes all Terminal windows and what runs in them. herdr survives and reattaches when relaunched.
 - **Rollback**: as for `pwsh` (tasks, folder, then `DoNotUpdate` back to 0 for `Microsoft.WindowsTerminal_8wekyb3d8bbwe`). The tasks and the folder are shared by both apps: only delete them if neither should stay guarded. Uninstall: Settings > Apps > Windows Terminal > Uninstall.

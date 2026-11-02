@@ -5,9 +5,9 @@
   "category": "dev",
   "platforms": ["windows"],
   "requiresAdmin": true,
-  "notes": "Application du Store (MSIX), installée pour le compte : l'installation pour toute la machine n'est pas prise en charge sous Windows 10. Mises à jour sans fermeture forcée (ADR 0004).",
+  "notes": "Version du Store (source msstore), comme PowerShell 7 : MSIX installé pour le compte (l'installation pour toute la machine n'est pas prise en charge sous Windows 10), mises à jour sans fermeture forcée (ADR 0004). Une copie installée depuis la source winget (GitHub) est le même paquet : elle est reconnue et gardée.",
   "actions": [
-    { "provider": "winget", "id": "Microsoft.WindowsTerminal" },
+    { "provider": "winget", "id": "9N0DX20HK701", "source": "msstore", "packageName": "Microsoft.WindowsTerminal" },
     {
       "provider": "store-update-guard",
       "family": "Microsoft.WindowsTerminal_8wekyb3d8bbwe",

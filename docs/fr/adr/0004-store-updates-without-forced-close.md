@@ -27,7 +27,7 @@ Observé dans la VM de test (Windows 10 22H2 et Windows 11) :
 
 ## Décision
 
-PowerShell 7 est installé depuis le Store (`winget --source msstore`, produit `9MZ1SNWT0N5D`), sous Windows 10 et Windows 11, par le bootstrap et par l'élément `pwsh`. Windows Terminal reste une application du Store. Tous deux déclarent une action `store-update-guard` :
+PowerShell 7 est installé depuis le Store (`winget --source msstore`, produit `9MZ1SNWT0N5D`), sous Windows 10 et Windows 11, par le bootstrap et par l'élément `pwsh`. Windows Terminal est aussi installé depuis le Store (produit `9N0DX20HK701`) par l'élément `windows-terminal` ; une copie de la source `winget` (publication GitHub) est le même paquet (même identité, signature du Store) et elle est gardée. Tous deux déclarent une action `store-update-guard` :
 
 - `DoNotUpdate = 1` pour leur famille de paquets ;
 - trois tâches planifiées, communes à toutes les applications encadrées (liste dans `apps.json`). Les scripts sont dans `%ProgramFiles%\OS-Setup\store-update`, modifiables par les seuls administrateurs :
