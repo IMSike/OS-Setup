@@ -2,19 +2,21 @@
     Import-Module -Name (Join-Path -Path $PSScriptRoot -ChildPath '..\src\OSSetup\OSSetup.psd1') -Force
     $repoRoot = Resolve-Path -Path (Join-Path -Path $PSScriptRoot -ChildPath '..')
 
-    function Get-UserWritableLogonTaskScript {
-        # Actions logon-task (toujours lancées avec les droits les plus élevés) dont le script est sous le profil de
-        # l'utilisateur, donc modifiable sans élévation : « élément : script ». Deux contrôles : le texte du catalogue
-        # (variables et notations du profil, quelle que soit la machine) et le chemin développé sur cette machine.
+    function Get-UnsafeLogonTaskScript {
+        # Actions logon-task (toujours lancées avec les droits les plus élevés) dont le script n'est pas sous
+        # {{ProgramFiles}}\OS-Setup, seul dossier dont on sait que seuls les administrateurs le modifient : « élément :
+        # script ». Liste blanche, pas liste noire : un dossier à la racine (C:\Outils), ProgramData, un autre disque ou le
+        # dépôt sont aussi modifiables sans élévation. Deux contrôles : le texte du catalogue (quelle que soit la machine) et
+        # le chemin développé et normalisé sur cette machine (pas de « ..\ » pour en sortir).
         param($Data, [System.Collections.IDictionary]$Variables)
-        $tokens = '(?i)\{\{(UserProfile|Documents|AppData|LocalAppData|Temp|Desktop|StartMenu)\}\}|%(USERPROFILE|HOMEPATH|LOCALAPPDATA|APPDATA|TEMP|TMP)%|\$env:(USERPROFILE|HOMEPATH|LOCALAPPDATA|APPDATA|TEMP|TMP)\b|^~'
-        $profileRoot = [Environment]::GetFolderPath('UserProfile').TrimEnd('\') + '\'
+        $allowed = [IO.Path]::Combine([Environment]::GetFolderPath('ProgramFiles'), 'OS-Setup').TrimEnd('\') + '\'
         foreach ($item in $Data.Items.Values) {
             foreach ($action in @($item['actions'] | Where-Object { $_ -and $_['provider'] -eq 'logon-task' })) {
                 $script = $action['script']
                 $expanded = try { Expand-OSSetupString -Text $script -Variables $Variables } catch { $script }
-                $expanded = [Environment]::ExpandEnvironmentVariables($expanded)
-                if ($script -match $tokens -or $expanded.StartsWith($profileRoot, [StringComparison]::OrdinalIgnoreCase)) {
+                $expanded = try { [IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables($expanded)) } catch { '' }
+                if (-not $script.StartsWith('{{ProgramFiles}}\OS-Setup\', [StringComparison]::OrdinalIgnoreCase) -or
+                    -not $expanded.StartsWith($allowed, [StringComparison]::OrdinalIgnoreCase)) {
                     "$($item['id']) : $script"
                 }
             }
@@ -37,14 +39,14 @@ Describe 'Données du dépôt' {
         @($missing).Count | Should -Be 0 -Because "winget list rattache aussi un MSI au produit du Store (sans packageName : $($missing -join ', '))"
     }
 
-    It 'aucune tâche logon-task, lancée avec les droits les plus élevés, n''exécute un script sous le profil de l''utilisateur' {
+    It 'chaque tâche logon-task, lancée avec les droits les plus élevés, exécute un script sous {{ProgramFiles}}\OS-Setup' {
         $data = Import-OSSetupData -Root $repoRoot
         $variables = Resolve-OSSetupVariable -Data $data -Answers @{ profiles = @($data.Profiles.Keys) }
-        $found = @(Get-UserWritableLogonTaskScript -Data $data -Variables $variables)
-        $found.Count | Should -Be 0 -Because "un script modifiable sans élévation et lancé avec les droits les plus élevés donne les droits administrateur sans invite UAC : le déployer sous {{ProgramFiles}} ($($found -join ', '))"
+        $found = @(Get-UnsafeLogonTaskScript -Data $data -Variables $variables)
+        $found.Count | Should -Be 0 -Because "un script modifiable sans élévation et lancé avec les droits les plus élevés donne les droits administrateur sans invite UAC : le déployer sous {{ProgramFiles}}\OS-Setup ($($found -join ', '))"
     }
 
-    It 'le contrôle des scripts de logon-task repère un script sous le profil de l''utilisateur' {
+    It 'le contrôle des scripts de logon-task refuse tout script hors de {{ProgramFiles}}\OS-Setup' {
         $variables = Get-OSSetupBuiltinVariable -Root $repoRoot
         $data = [pscustomobject]@{
             Items = [ordered]@{
@@ -52,11 +54,15 @@ Describe 'Données du dépôt' {
                 env     = @{ id = 'env'; actions = @(@{ provider = 'logon-task'; script = '%APPDATA%\a.ps1' }) }
                 profile = @{ id = 'profile'; actions = @(@{ provider = 'logon-task'; script = (Join-Path -Path ([Environment]::GetFolderPath('UserProfile')) -ChildPath 'a.ps1') }) }
                 safe    = @{ id = 'safe'; actions = @(@{ provider = 'logon-task'; script = '{{ProgramFiles}}\OS-Setup\a.ps1' }) }
+                root    = @{ id = 'root'; actions = @(@{ provider = 'logon-task'; script = 'C:\Outils\a.ps1' }) }
+                data    = @{ id = 'data'; actions = @(@{ provider = 'logon-task'; script = '%ProgramData%\OS-Setup\a.ps1' }) }
+                other3p = @{ id = 'other3p'; actions = @(@{ provider = 'logon-task'; script = '{{ProgramFiles}}\Autre\a.ps1' }) }
+                escape  = @{ id = 'escape'; actions = @(@{ provider = 'logon-task'; script = '{{ProgramFiles}}\OS-Setup\..\Autre\a.ps1' }) }
                 other   = @{ id = 'other'; actions = @(@{ provider = 'file'; target = '{{LocalAppData}}\a.ps1' }) }
             }
         }
-        $found = @(Get-UserWritableLogonTaskScript -Data $data -Variables $variables)
-        @($found | ForEach-Object { ($_ -split ' : ')[0] } | Sort-Object) | Should -Be @('env', 'local', 'profile')
+        $found = @(Get-UnsafeLogonTaskScript -Data $data -Variables $variables)
+        @($found | ForEach-Object { ($_ -split ' : ')[0] } | Sort-Object) | Should -Be @('data', 'env', 'escape', 'local', 'other3p', 'profile', 'root')
     }
 
     It 'les fichiers de réponses d''exemple sont valides et cohérents' {

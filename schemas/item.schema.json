@@ -365,7 +365,7 @@
         "provider": { "const": "logon-task" },
         "description": { "type": "string", "description": "Description de la tâche, affichée dans le Planificateur de tâches." },
         "name": { "description": "Nom de la tâche planifiée.", "type": "string", "minLength": 1 },
-        "script": { "description": "Script PowerShell lancé à l'ouverture de session (chemin, variables autorisées), hors du dossier du dépôt (qui peut être supprimé en fin de setup) et sous {{ProgramFiles}}, jamais sous le profil de l'utilisateur : lancé avec les droits les plus élevés, il ne doit être modifiable que par les administrateurs (contrôlé par tests/Data.Tests.ps1).", "type": "string", "pattern": "\\.ps1$" }
+        "script": { "description": "Script PowerShell lancé à l'ouverture de session (chemin, variables autorisées), hors du dossier du dépôt (qui peut être supprimé en fin de setup) et sous {{ProgramFiles}}\\OS-Setup, seul emplacement accepté : lancé avec les droits les plus élevés, il ne doit être modifiable que par les administrateurs (contrôlé par tests/Data.Tests.ps1).", "type": "string", "pattern": "\\.ps1$" }
       }
     },
     "rtkInitAction": {
