@@ -82,7 +82,7 @@ La première version est `v0.0.0`. Pas de journal des modifications pour l'insta
 ## Pull requests
 
 1. Partir de `main`.
-2. Les tests passent (`Invoke-Pester -Path tests`), la simulation affiche le plan attendu, et le changement a été testé en VM s'il touche au système.
+2. Les tests passent (`Invoke-Pester -Path tests`), la simulation affiche le plan attendu, et le changement a été testé en VM s'il touche au système. Le workflow [Tests](.github/workflows/tests.yml) relance les tests sous Windows pour chaque pull request et chaque envoi sur `main` et `dev` ; le mainteneur rend son contrôle `pester` obligatoire dans la protection de la branche `main` (voir [Tests](docs/fr/testing.md#intégration-continue)).
 3. Documentation à jour dans les deux langues.
 4. Titre conforme à la convention de commit (il devient le message du commit lors d'une fusion « squash »).
 

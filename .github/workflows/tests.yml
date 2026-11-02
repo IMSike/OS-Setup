@@ -1,0 +1,49 @@
+name: Tests
+
+# Runs the Pester tests (tests/) on Windows, with pinned versions of Pester and PSScriptAnalyzer, so that the
+# code quality test and the Windows PowerShell 5.1 parsing test really run. Fails if a test fails or is skipped.
+# See CONTRIBUTING.md and docs/en/testing.md.
+
+on:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [main, dev]
+
+permissions:
+  contents: read
+
+jobs:
+  pester:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Pester and PSScriptAnalyzer
+        run: |
+          Install-PSResource -Name Pester -Version 5.9.1 -Repository PSGallery -TrustRepository -Scope CurrentUser
+          Install-PSResource -Name PSScriptAnalyzer -Version 1.25.0 -Repository PSGallery -TrustRepository -Scope CurrentUser
+
+      - name: Run tests
+        run: |
+          $PSVersionTable.PSVersion.ToString()
+          & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
+          # The runner image ships other versions: load the pinned ones explicitly.
+          Import-Module -Name Pester -RequiredVersion 5.9.1
+          Import-Module -Name PSScriptAnalyzer -RequiredVersion 1.25.0
+          $configuration = New-PesterConfiguration
+          $configuration.Run.Path = 'tests'
+          $configuration.Run.PassThru = $true
+          $configuration.Output.Verbosity = 'Detailed'
+          $configuration.Output.CIFormat = 'GithubActions'
+          $result = Invoke-Pester -Configuration $configuration
+          if ($result.Result -ne 'Passed') { exit 1 }
+          # A skipped test (missing module or Windows PowerShell 5.1) would hide a check: fail instead.
+          if ($result.SkippedCount -gt 0) {
+              Write-Output "::error::$($result.SkippedCount) skipped test(s)"
+              exit 1
+          }
