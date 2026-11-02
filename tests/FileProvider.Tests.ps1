@@ -42,6 +42,43 @@ Describe 'Provider file' {
     }
 }
 
+Describe 'Provider file : suppression (present = false)' {
+    BeforeEach {
+        $root = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid())
+        $target = Join-Path -Path $root -ChildPath 'OS-Setup\old.ps1'
+        $context = @{ DotfilesRoot = $root; BackupRoot = Join-Path -Path $root -ChildPath 'backups'; Variables = @{} }
+        $action = [ordered]@{ provider = 'file'; target = $target; present = $false }
+        $provider = InModuleScope OSSetup { Get-OSSetupProvider -Name 'file' }
+        Mock -ModuleName OSSetup Write-OSSetupLog
+    }
+
+    It 'est conforme quand le fichier est absent' {
+        & $provider.Test $action $context | Should -BeTrue
+        & $provider.Describe $action $context | Should -Be "supprimer $target"
+    }
+
+    It 'sauvegarde puis supprime le fichier présent' {
+        New-Item -Path (Split-Path -Path $target -Parent) -ItemType Directory -Force | Out-Null
+        Set-Content -Path $target -Value 'ancienne copie' -NoNewline
+        & $provider.Test $action $context | Should -BeFalse
+        & $provider.Invoke $action $context
+        $target | Should -Not -Exist
+        & $provider.Test $action $context | Should -BeTrue
+        $backups = @(Get-ChildItem -Path $context.BackupRoot -Recurse -File)
+        $backups.Count | Should -Be 1
+        Get-Content -Path $backups[0].FullName -Raw | Should -Be 'ancienne copie'
+    }
+
+    It 'le schéma accepte une suppression sans source ni mode, et refuse un mélange des deux formes' {
+        $schema = Join-Path -Path $PSScriptRoot -ChildPath '..\schemas\item.schema.json'
+        $item = { param($Action) ConvertTo-Json -Depth 5 -InputObject ([ordered]@{ id = 'x'; name = 'X'; category = 'test'; platforms = @('windows'); actions = @($Action) }) }
+        Test-Json -Json (& $item @{ provider = 'file'; target = 'C:\x.ps1'; present = $false }) -SchemaFile $schema | Should -BeTrue
+        Test-Json -Json (& $item @{ provider = 'file'; target = 'C:\x.ps1'; source = 'a'; mode = 'copy' }) -SchemaFile $schema | Should -BeTrue
+        Test-Json -Json (& $item @{ provider = 'file'; target = 'C:\x.ps1'; source = 'a'; mode = 'copy'; present = $false }) -SchemaFile $schema -ErrorAction SilentlyContinue | Should -BeFalse
+        Test-Json -Json (& $item @{ provider = 'file'; target = 'C:\x.ps1' }) -SchemaFile $schema -ErrorAction SilentlyContinue | Should -BeFalse
+    }
+}
+
 Describe 'Provider file : fusion JSON (merge-json)' {
     BeforeEach {
         $dotfiles = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid())
