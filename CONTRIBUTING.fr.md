@@ -63,7 +63,7 @@ Les messages de commit et les titres de pull request suivent la [convention Angu
 | `ci` | Workflows GitHub Actions |
 | `revert` | Annule un commit précédent |
 
-Portées courantes : `catalog`, `engine`, `bootstrap`, `providers`, `profiles`, `dotfiles`, `vm`. Le sujet est à l'impératif (ou nominal), en minuscules, sans point final. Un commit = un changement cohérent ; éviter de mélanger catalogue et moteur.
+Portées courantes : `catalog`, `engine`, `bootstrap`, `providers`, `profiles`, `dotfiles`, `vm`. Le sujet est à l'impératif, en minuscules, sans point final. Un commit = un changement cohérent ; éviter de mélanger catalogue et moteur.
 
 Les messages sont vérifiés par le hook `.githooks/commit-msg` et par le workflow [Commit messages](.github/workflows/commit-lint.yml).
 
