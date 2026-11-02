@@ -85,6 +85,7 @@ Clé par clé : les autres réglages de l'utilisateur sont conservés, et une cl
   - PowerShell fermé : mise à jour silencieuse, chaque jour et à chaque ouverture de session ;
   - PowerShell ouvert : le Store est interrogé au plus toutes les 4 heures. Si une mise à jour est proposée, une fenêtre offre **Mettre à jour maintenant** ou un report (10 min, 1 h, 5 h, demain) ;
   - **Maintenant** revérifie auprès du Store, puis ferme herdr et toutes les sessions PowerShell 7 avant d'installer. Fermer la fenêtre reporte d'une heure.
+  - Pendant cette revérification, une petite fenêtre « Vérification auprès du Store… » offre un bouton **Annuler** : rien n'est fermé et la question revient dans 10 minutes.
 - **Implications** :
   - application du Store (MSIX), installée pour le compte qui lance le setup, comme Windows Terminal. Le MSI qu'elle remplace était installé pour tout le poste : sa désinstallation retire PowerShell 7 aux autres comptes du poste, qui devront l'installer eux-mêmes depuis le Store ;
   - les mises à jour suivent le Store, y compris le passage à la 7.7 (version non LTS) ;

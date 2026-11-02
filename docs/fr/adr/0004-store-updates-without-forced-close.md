@@ -41,7 +41,8 @@ PowerShell 7 est installé depuis le Store (`winget --source msstore`, produit `
     - fait vérifier le Store au plus toutes les 4 heures ;
     - mise à jour en attente pour une application fermée : la fait installer sans rien demander ;
     - mise à jour en attente pour une application ouverte : propose **Mettre à jour maintenant** ou un report (10 min, 1 h, 5 h, demain) ;
-    - **Maintenant** revérifie d'abord auprès du Store et ne ferme rien si la mise à jour n'est plus proposée. Sinon, ferme l'application (et d'abord herdr, qui relancerait le shell), puis la met à jour.
+    - **Maintenant** revérifie d'abord auprès du Store et ne ferme rien si la mise à jour n'est plus proposée. Sinon, ferme l'application (et d'abord herdr, qui relancerait le shell), puis la met à jour ;
+    - pendant cette revérification (jusqu'à 30 minutes si une exécution SYSTEM est déjà en cours), une petite fenêtre « Vérification auprès du Store… » reste affichée avec un bouton **Annuler**. Annuler (ou Échap) arrête l'attente, ne ferme rien et repose la question dans 10 minutes (ligne dans le journal).
 
 Un MSI de PowerShell 7 existant est désinstallé (`win32-uninstall`), pour qu'un poste déjà utilisé finisse comme un poste neuf. Le nettoyage considère l'identifiant `Microsoft.PowerShell` noté par un ancien bootstrap et le produit du Store comme le même outil.
 

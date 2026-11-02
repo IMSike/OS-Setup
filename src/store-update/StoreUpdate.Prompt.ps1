@@ -4,13 +4,15 @@
 # - Fait vérifier par la tâche SYSTEM, au plus toutes les 4 heures, si le Store propose une mise à jour (check.json).
 # - Mise à jour proposée pour une application fermée : la tâche SYSTEM l'installe sans rien demander.
 # - Pour une application ouverte : propose « Mettre à jour maintenant » ou un report. « Maintenant » fait revérifier
-#   auprès du Store, et seulement si la mise à jour est toujours proposée, ferme l'application puis l'installe.
+#   auprès du Store (petite fenêtre « Vérification auprès du Store… » avec Annuler), et seulement si la mise à jour est
+#   toujours proposée et que l'utilisateur n'a pas annulé, ferme l'application puis l'installe.
 # Déployé par OS-Setup dans %ProgramFiles%\OS-Setup\store-update : modifier le dépôt, pas cette copie.
 [CmdletBinding()]
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'TestChoice', Justification = 'Lu par les fonctions du script.')]
 param(
-    # Essais automatisés : choisit le bouton indiqué sans attendre l'utilisateur (Now, 10m, 1h, 5h, 24h).
-    [ValidateSet('', 'Now', '10m', '1h', '5h', '24h')]
+    # Essais automatisés : choisit le bouton indiqué sans attendre l'utilisateur (Now, 10m, 1h, 5h, 24h). NowCancel :
+    # « Maintenant », puis Annuler pendant la revérification. Ni fenêtre de revérification ni message en essai.
+    [ValidateSet('', 'Now', 'NowCancel', '10m', '1h', '5h', '24h')]
     [string]$TestChoice = ''
 )
 Set-StrictMode -Version Latest
@@ -26,6 +28,9 @@ $root = $PSScriptRoot
 $log = Join-Path -Path $root -ChildPath 'store-update.log'
 $stateFile = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'OS-Setup\store-update.json'
 $title = 'Mise à jour du Store'
+# Fenêtre « Vérification auprès du Store… » de la revérification de « Maintenant » : affichée (active), formulaire (form,
+# absent en essai), bouton Annuler utilisé (cancelled). Table modifiée en place : pas de portée $script: à gérer.
+$progress = @{ active = $false; cancelled = $false; form = $null }
 
 # Copies (scripts autonomes) : Write-StoreUpdateLog aussi dans StoreUpdate.System.ps1 et StoreUpdate.User.ps1 (étiquette
 # différente) ; Get-AppProcess et Get-AppVersion aussi dans StoreUpdate.System.ps1, en ligne dans StoreUpdate.User.ps1.
@@ -88,10 +93,81 @@ function Test-CheckStale {
     $false
 }
 
+function Wait-Step {
+    # Attente entre deux points sur la tâche SYSTEM. Pendant la fenêtre « Vérification auprès du Store… », attente par
+    # tranches de 100 ms qui traitent ses messages (bouton Annuler) et s'arrête dès l'annulation.
+    param([int]$Seconds)
+    if (-not $progress.active) { Start-Sleep -Seconds $Seconds; return }
+    if ($TestChoice -eq 'NowCancel') { $progress.cancelled = $true; return }
+    $until = (Get-Date).AddSeconds($Seconds)
+    while ((Get-Date) -lt $until) {
+        if ($progress.form) {
+            [System.Windows.Forms.Application]::DoEvents()
+            if ($progress.form.Tag -eq 'Cancel') { $progress.cancelled = $true }
+        }
+        if ($progress.cancelled) { return }
+        Start-Sleep -Milliseconds 100
+    }
+}
+
+function Show-Progress {
+    # Petite fenêtre non modale pendant la revérification de « Maintenant » (jusqu'à 30 min). Annuler (ou Échap, ou sa
+    # fermeture) arrête l'attente : rien n'est fermé. En essai (-TestChoice) : pas de fenêtre, NowCancel simule Annuler.
+    $progress.active = $true
+    $progress.cancelled = $false
+    if ($TestChoice) { return }
+    Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+    [System.Windows.Forms.Application]::EnableVisualStyles()
+    $form = New-Object -TypeName System.Windows.Forms.Form
+    $form.Text = $title
+    $form.StartPosition = 'CenterScreen'
+    $form.TopMost = $true
+    $form.FormBorderStyle = 'FixedDialog'
+    $form.ControlBox = $false
+    $form.AutoSize = $true
+    $form.AutoSizeMode = 'GrowAndShrink'
+    $form.Padding = New-Object -TypeName System.Windows.Forms.Padding -ArgumentList 12
+    $panel = New-Object -TypeName System.Windows.Forms.FlowLayoutPanel
+    $panel.FlowDirection = 'TopDown'
+    $panel.AutoSize = $true
+    $panel.WrapContents = $false
+    $label = New-Object -TypeName System.Windows.Forms.Label
+    $label.AutoSize = $true
+    $label.Text = 'Vérification auprès du Store…'
+    $panel.Controls.Add($label)
+    $button = New-Object -TypeName System.Windows.Forms.Button
+    $button.Text = 'Annuler'
+    $button.Name = 'buttonCancel'
+    $button.AutoSize = $true
+    $button.Margin = New-Object -TypeName System.Windows.Forms.Padding -ArgumentList 0, 12, 0, 0
+    $button.Add_Click({ param($Source) $Source.FindForm().Tag = 'Cancel' })
+    $panel.Controls.Add($button)
+    $form.Controls.Add($panel)
+    $form.CancelButton = $button
+    # Fermée autrement que par Close-Progress (Alt+F4) : comme Annuler.
+    $form.Add_FormClosing({ param($Source) if ($Source.Tag -ne 'Done') { $Source.Tag = 'Cancel' } })
+    $form.Show()
+    $form.Refresh()
+    $progress.form = $form
+}
+
+function Close-Progress {
+    $progress.active = $false
+    if (-not $progress.form) { return }
+    # Un clic sur Annuler encore en file compte aussi.
+    [System.Windows.Forms.Application]::DoEvents()
+    if ($progress.form.Tag -eq 'Cancel') { $progress.cancelled = $true }
+    $progress.form.Tag = 'Done'
+    $progress.form.Close()
+    $progress.form.Dispose()
+    $progress.form = $null
+}
+
 function Invoke-SystemRun {
     param([Parameter(Mandatory)][object]$State)
     # Lance la tâche SYSTEM (les utilisateurs ont le droit de l'exécuter, pas de la modifier) et attend sa fin.
-    # Renvoie $true si une exécution lancée après la demande s'est terminée, $false sinon (délai dépassé, tâche absente).
+    # Renvoie $true si une exécution lancée après la demande s'est terminée, $false sinon (délai dépassé, tâche absente,
+    # Annuler dans la fenêtre « Vérification auprès du Store… » : $progress.cancelled).
     $State.lastRun = (Get-Date).ToString('o')
     Save-State -State $State
     # Attente bornée par la durée maximale d'une exécution de la tâche SYSTEM (ExecutionTimeLimit PT30M).
@@ -102,7 +178,8 @@ function Invoke-SystemRun {
     # Tâche absente : pas d'attente (sous StrictMode, lire State sur $null lèverait une erreur).
     $running = Get-ScheduledTask -TaskName $systemTask -ErrorAction SilentlyContinue
     while ($running -and $running.State -eq 'Running' -and (Get-Date) -lt $wait) {
-        Start-Sleep -Seconds 3
+        Wait-Step -Seconds 3
+        if ($progress.cancelled) { return $false }
         $running = Get-ScheduledTask -TaskName $systemTask -ErrorAction SilentlyContinue
     }
     # Exécution lancée par cette demande : vue en cours, LastRunTime changé, ou journal écrit depuis (la tâche SYSTEM y
@@ -114,7 +191,8 @@ function Invoke-SystemRun {
     & $schtasks /run /tn $systemTask | Out-Null
     $ran = $false
     do {
-        Start-Sleep -Seconds 2
+        Wait-Step -Seconds 2
+        if ($progress.cancelled) { return $false }
         $task = Get-ScheduledTask -TaskName $systemTask -ErrorAction SilentlyContinue
         $info = if ($task) { $task | Get-ScheduledTaskInfo -ErrorAction SilentlyContinue }
         $ran = [bool]($ran -or ($task -and $task.State -eq 'Running') -or ($info -and $info.LastRunTime -ne $previous) -or
@@ -183,7 +261,7 @@ function Show-UpdatePrompt {
     if ($TestChoice) {
         $timer = New-Object -TypeName System.Windows.Forms.Timer
         $timer.Interval = 4000
-        $timer.Add_Tick({ $timer.Stop(); $form.Tag = $TestChoice; $form.Close() })
+        $timer.Add_Tick({ $timer.Stop(); $form.Tag = $(if ($TestChoice -eq 'NowCancel') { 'Now' } else { $TestChoice }); $form.Close() })
         $timer.Start()
     }
     [void]$form.ShowDialog()
@@ -239,7 +317,16 @@ function Invoke-StoreUpdatePrompt {
 
         $state.snoozeUntil = $null
         # Vérification auprès du Store juste avant de fermer quoi que ce soit : la mise à jour est-elle toujours proposée ?
-        if (-not (Invoke-SystemRun -State $state)) {
+        # Petite fenêtre pendant l'attente : Annuler ne ferme rien et repose la question dans 10 min.
+        Show-Progress
+        try { $checked = Invoke-SystemRun -State $state } finally { Close-Progress }
+        if ($progress.cancelled) {
+            Write-StoreUpdateLog 'vérification annulée par l''utilisateur : rien n''est fermé, nouvelle question dans 10 min'
+            $state.snoozeUntil = (Get-Date).AddMinutes(10).ToString('o')
+            Save-State -State $state
+            return
+        }
+        if (-not $checked) {
             # Vérification non terminée : rien n'est fermé, la question revient au passage suivant.
             $state.snoozeUntil = (Get-Date).AddMinutes(10).ToString('o')
             Save-State -State $state

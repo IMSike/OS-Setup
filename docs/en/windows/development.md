@@ -85,6 +85,7 @@ Key by key: the user's other settings are kept, and a key changed on the machine
   - PowerShell closed: silent update, daily and at each logon;
   - PowerShell running: the Store is queried at most every 4 hours. If an update is offered, a window offers **Update now** or a delay (10 min, 1 h, 5 h, tomorrow);
   - **Update now** checks with the Store again, then closes herdr and all PowerShell 7 sessions before installing. Closing the window delays by one hour.
+  - During that check, a small window "Vérification auprès du Store…" ("Checking with the Store…") shows a **Cancel** button (Annuler): it closes nothing and asks again in 10 minutes.
 - **Implications**:
   - Store application (MSIX), installed for the account that runs the setup, like Windows Terminal. The MSI it replaces was installed for the whole machine: uninstalling it removes PowerShell 7 from the other accounts of the machine, which must install it from the Store themselves;
   - updates follow the Store, including the move to 7.7 (not an LTS version);

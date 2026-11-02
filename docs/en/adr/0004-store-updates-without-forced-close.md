@@ -38,7 +38,8 @@ PowerShell 7 is installed from the Store (`winget --source msstore`, product `9M
     - has the Store checked at most every 4 hours;
     - an update pending for a closed app: installs it silently;
     - an update pending for a running app: offers **Update now** or a delay (10 min, 1 h, 5 h, tomorrow);
-    - **Update now** first checks with the Store again, and closes nothing if the update is no longer offered. Otherwise it closes the app (and herdr first, which would restart the shell), then updates it.
+    - **Update now** first checks with the Store again, and closes nothing if the update is no longer offered. Otherwise it closes the app (and herdr first, which would restart the shell), then updates it;
+    - during that check (up to 30 minutes if a SYSTEM run is already in progress), a small window "Vérification auprès du Store…" ("Checking with the Store…") stays on screen with a **Cancel** button. Cancel (or Esc) stops waiting, closes nothing, and asks again in 10 minutes (line in the log).
 
 An existing MSI of PowerShell 7 is uninstalled (`win32-uninstall`) so that a machine already in use ends like a fresh one. The cleanup treats the `Microsoft.PowerShell` identifier recorded by an older bootstrap and the Store product as the same tool.
 

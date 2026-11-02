@@ -92,9 +92,11 @@ Describe 'Fenêtre : attente de la tâche SYSTEM' {
         # Le script exécute son corps au chargement : seule la fonction est extraite. Planificateur, horloge et attente
         # sont simulés ($sim) : aucun effet sur le système.
         $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.Prompt.ps1'), [ref]$null, [ref]$null)
-        $function = $ast.Find({ param($Node) $Node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $Node.Name -eq 'Invoke-SystemRun' }, $true).Extent.Text
+        $function = @($ast.FindAll({ param($Node) $Node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $Node.Name -in 'Invoke-SystemRun', 'Wait-Step' }, $true) |
+                ForEach-Object { $_.Extent.Text }) -join "`n"
         $stubs = @'
 $systemTask = 'OS-Setup - Store (système)'
+$progress = @{ active = $false; cancelled = $false; form = $null }
 $log = 'store-update.log'
 function Get-Item { [CmdletBinding()] param([string]$Path) }
 function Save-State($State) {}
@@ -155,6 +157,25 @@ function Invoke-FakeSchtasks {
         $sim.log | Should -BeNullOrEmpty
     }
 
+    It 'arrête d''attendre, sans conclure à un échec, quand l''utilisateur annule la revérification' {
+        . ([scriptblock]::Create($load))
+        $progress.active = $true
+        $TestChoice = 'NowCancel'
+        Invoke-SystemRun ([pscustomobject]@{ lastRun = $null }) | Should -BeFalse
+        $progress.cancelled | Should -BeTrue
+        $sim.log | Should -BeNullOrEmpty
+        $sim.clock | Should -BeLessThan $now.AddMinutes(1)
+    }
+
+    It 'arrête aussi d''attendre la fin d''une exécution en cours quand l''utilisateur annule' {
+        $sim.busyUntil = $now.AddMinutes(20)
+        . ([scriptblock]::Create($load))
+        $progress.active = $true
+        $TestChoice = 'NowCancel'
+        Invoke-SystemRun ([pscustomobject]@{ lastRun = $null }) | Should -BeFalse
+        $sim.runs.Count | Should -Be 0
+    }
+
     It 'reconnaît l''exécution lancée vue en cours quand LastRunTime ne change pas' {
         # Observé en VM : deux exécutions à 5 s d'intervalle gardent le même LastRunTime.
         $sim.stampRuns = $false
@@ -175,22 +196,29 @@ Describe 'Fenêtre : décisions sous Windows PowerShell 5.1' {
         function Invoke-PromptScenario {
             # Lance la fenêtre (ou $Call) avec la version installée, l'état ouvert et le choix indiqués ; renvoie les appels
             # remplacés et le fichier d'état écrit.
-            param([string]$Root, [string]$Version = '1.0', [bool]$Open = $true, [string]$Choice = '1h', [string]$Call = 'Invoke-StoreUpdatePrompt', [bool]$Resume = $false)
+            param([string]$Root, [string]$Version = '1.0', [bool]$Open = $true, [string]$Choice = '1h', [string]$Call = 'Invoke-StoreUpdatePrompt', [bool]$Resume = $false,
+                [string]$TestChoice = '')
             $command = @"
 `$ErrorActionPreference = 'Stop'
 `$ProgressPreference = 'SilentlyContinue'
 . '$promptScript'
+`$TestChoice = '$TestChoice'
 `$root = '$Root'
 `$log = Join-Path -Path `$root -ChildPath 'store-update.log'
 `$stateFile = Join-Path -Path `$root -ChildPath 'state.json'
-`$global:calls = [ordered]@{ systemRuns = 0; prompts = 0; output = `$null }
+`$global:calls = [ordered]@{ systemRuns = 0; prompts = 0; stopped = 0; progress = 0; messages = @(); output = `$null }
 function Get-AppVersion { param(`$App) '$Version' }
-function Get-AppProcess { param(`$App) if (`$$Open) { @(1) } else { @() } }
-function Invoke-SystemRun { param(`$State) `$global:calls.systemRuns++; `$State.lastRun = (Get-Date).ToString('o'); Save-State -State `$State; `$true }
+# Processus ouverts jusqu'à leur fermeture par la fenêtre (Stop-Process remplacé).
+function Get-AppProcess { param(`$App) if (`$$Open -and `$global:calls.stopped -eq 0) { @([pscustomobject]@{ Id = 4242; Name = 'pwsh' }) } else { @() } }
+function Stop-Process { [CmdletBinding()] param([Parameter(ValueFromPipeline)]`$InputObject, [switch]`$Force) process { `$global:calls.stopped++ } }
+# Tâche SYSTEM remplacée ; l'attente passe par la vraie Wait-Step (Annuler simulé par -TestChoice NowCancel).
+function Invoke-SystemRun { param(`$State) `$global:calls.systemRuns++; if (`$progress.active) { `$global:calls.progress++ }
+    `$State.lastRun = (Get-Date).ToString('o'); Save-State -State `$State; Wait-Step -Seconds 0; -not `$progress.cancelled }
 function Show-UpdatePrompt { param(`$App) `$global:calls.prompts++; '$Choice' }
-function Show-Message { param(`$Text) }
+function Show-Message { param(`$Text) `$global:calls.messages += `$Text }
 function Test-ResumePending { `$$Resume }
 `$global:calls.output = @($Call | ForEach-Object { "`$_" })
+`$global:calls.log = if (Test-Path -Path `$log) { [IO.File]::ReadAllText(`$log) } else { '' }
 `$global:calls.state = if (Test-Path -Path `$stateFile) { [IO.File]::ReadAllText(`$stateFile) }
 ConvertTo-Json -InputObject `$global:calls -Compress
 "@
@@ -271,6 +299,29 @@ ConvertTo-Json -InputObject `$global:calls -Compress
         $result = Invoke-PromptScenario -Root $root -Open $false
         $result.systemRuns | Should -Be 1
         $result.prompts | Should -Be 0
+    }
+
+    It '« Maintenant » revérifie avec la fenêtre de progression, puis ferme l''application' {
+        Set-CheckFile -Root $root -Entry @{ available = $true; version = '1.0'; checked = $fresh; state = 'proposée' }
+        # -TestChoice : vraie Show-Progress, sans fenêtre réelle.
+        $result = Invoke-PromptScenario -Root $root -Choice 'Now' -TestChoice 'Now'
+        $result.prompts | Should -Be 1
+        $result.progress | Should -Be 1
+        $result.stopped | Should -BeGreaterThan 0
+        # Seule la première exécution (la revérification) se fait avec la fenêtre de progression.
+        $result.systemRuns | Should -Be 2
+    }
+
+    It 'Annuler pendant la revérification ne ferme rien et repose la question dans 10 min' {
+        Set-CheckFile -Root $root -Entry @{ available = $true; version = '1.0'; checked = $fresh; state = 'proposée' }
+        $before = Get-Date
+        $result = Invoke-PromptScenario -Root $root -Choice 'Now' -TestChoice 'NowCancel'
+        $result.stopped | Should -Be 0
+        $result.systemRuns | Should -Be 1
+        $result.log | Should -Match 'vérification annulée'
+        $snooze = [datetime]($result.state | ConvertFrom-Json).snoozeUntil
+        $snooze | Should -BeGreaterOrEqual $before.AddMinutes(10)
+        $snooze | Should -BeLessOrEqual (Get-Date).AddMinutes(10)
     }
 
     It 'ne propose rien et ne lance rien pendant une reprise du setup' {
