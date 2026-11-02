@@ -92,7 +92,7 @@ Key by key: the user's other settings are kept, and a key changed on the machine
   - updates follow the Store, including the move to 7.7 (not an LTS version);
   - a session left open all day delays the update until you agree or until the next logon;
   - one account per machine: the user tasks belong to the account that last ran the setup (checked by SID, registered again for the current account otherwise). The block applies to the whole machine, so the other accounts of the machine no longer get Store updates for PowerShell 7 and Windows Terminal;
-  - log: `%ProgramFiles%\OS-Setup\store-update\store-update.log`.
+  - log: `%ProgramFiles%\OS-Setup\store-update\store-update.log`. If no check has succeeded for more than 14 days, the window says so at most once a day ("Les mises à jour de PowerShell 7 n'ont pas pu être vérifiées depuis N jours : voir le journal …"): automatic updates stay blocked, so PowerShell 7 is no longer updated until the cause in the log is fixed.
 - **Rollback**:
   1. Delete the tasks `OS-Setup - Store (système)`, `OS-Setup - Store (recherche)` and `OS-Setup - Store (fenêtre)` (Task Scheduler), then the `%ProgramFiles%\OS-Setup\store-update` folder.
   2. Give the Store back its automatic updates: in an administrator PowerShell, `Get-CimInstance -Namespace root\cimv2\mdm\dmmap -ClassName MDM_EnterpriseModernAppManagement_AppManagement01_02 | Where-Object InstanceID -eq 'Microsoft.PowerShell_8wekyb3d8bbwe' | ForEach-Object { $_.DoNotUpdate = 0; Set-CimInstance -CimInstance $_ }`.

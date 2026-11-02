@@ -27,6 +27,15 @@ Describe 'Scripts des tâches des mises à jour du Store' {
         $loop.Body.Statements | Where-Object { $_.Extent.Text -like '*WriteAllText($checkFile*' } | Should -Not -BeNullOrEmpty
     }
 
+    It 'la recherche ne compte comme aboutie ni une erreur, ni une installation non terminée' {
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.User.ps1'), [ref]$null, [ref]$null)
+        $loop = $ast.Find({ param($Node) $Node -is [System.Management.Automation.Language.ForEachStatementAst] -and $Node.Variable.VariablePath.UserPath -eq 'app' }, $true)
+        $try = $loop.Body.Statements | Where-Object { $_ -is [System.Management.Automation.Language.TryStatementAst] }
+        $try.CatchClauses.Body.Extent.Text | Should -Not -Match '\$success = \$true'
+        $try.Body.Extent.Text | Should -Match ([regex]::Escape('$success = $state -eq ''Completed'''))
+        $loop.Body.Extent.Text | Should -Match ([regex]::Escape('ConvertTo-CheckEntry -Previous $results[$id]'))
+    }
+
     It 'la tâche SYSTEM attend une recherche démarrée après sa demande' {
         $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.System.ps1'), [ref]$null, [ref]$null)
         $search = $ast.Find({ param($Node) $Node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $Node.Name -eq 'Invoke-UserSearch' }, $true).Extent.Text
@@ -417,6 +426,69 @@ function Get-Process { [CmdletBinding()] param([int[]]`$Id) [pscustomobject]@{ I
 "@
         $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
         & $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded | Should -Be @('A=9999', 'B=', 'ancien=')
+    }
+
+    It 'avertit au-delà de 14 jours sans vérification aboutie, même pendant un report' {
+        Set-CheckFile -Root $root -Entry @{ available = $false; version = '1.0'; checked = $fresh; state = 'Erreur'; lastSuccess = (Get-Date).AddDays(-20).AddHours(-1).ToString('o') }
+        Set-Content -Path (Join-Path -Path $root -ChildPath 'state.json') -Value (ConvertTo-Json -InputObject @{ snoozeUntil = (Get-Date).AddHours(1).ToString('o'); lastRun = $null })
+        $result = Invoke-PromptScenario -Root $root
+        $result.messages | Should -Be @("Les mises à jour de PowerShell 7 n'ont pas pu être vérifiées depuis 20 jours : voir le journal $(Join-Path -Path $root -ChildPath 'store-update.log')")
+        $result.prompts | Should -Be 0
+        $state = $result.state | ConvertFrom-Json
+        [datetime]$state.lastWarning | Should -BeGreaterThan (Get-Date).AddMinutes(-5)
+        $state.snoozeUntil | Should -Not -BeNullOrEmpty
+        # Au plus une fois par jour : le passage suivant n'avertit pas.
+        (Invoke-PromptScenario -Root $root).messages | Should -BeNullOrEmpty
+    }
+
+    It 'n''avertit pas après une vérification aboutie récente' {
+        Set-CheckFile -Root $root -Entry @{ available = $false; version = '1.0'; checked = $fresh; state = 'Erreur'; lastSuccess = (Get-Date).AddDays(-3).ToString('o') }
+        (Get-Item -Path (Join-Path -Path $root -ChildPath 'check.json')).CreationTime = (Get-Date).AddDays(-30)
+        (Invoke-PromptScenario -Root $root).messages | Should -BeNullOrEmpty
+    }
+
+    It 'sans aucune vérification aboutie, compte depuis la pose de check.json (<Case>)' -ForEach @(
+        @{ Case = 'jamais aboutie'; Entry = @{ available = $false; version = '1.0'; checked = (Get-Date).ToString('o'); state = 'Erreur'; lastSuccess = $null } }
+        @{ Case = 'recherche jamais lancée'; Entry = $null }
+    ) {
+        Set-CheckFile -Root $root -Entry $Entry
+        (Get-Item -Path (Join-Path -Path $root -ChildPath 'check.json')).CreationTime = (Get-Date).AddDays(-30)
+        $result = Invoke-PromptScenario -Root $root
+        @($result.messages) | Should -HaveCount 1
+        $result.messages[0] | Should -BeLike "Les mises à jour de PowerShell 7 n'ont pas pu être vérifiées depuis 30 jours : *"
+        (Invoke-PromptScenario -Root $root).messages | Should -BeNullOrEmpty
+        # Pose récente de la garde : pas encore d'avertissement.
+        Remove-Item -Path (Join-Path -Path $root -ChildPath 'state.json')
+        (Get-Item -Path (Join-Path -Path $root -ChildPath 'check.json')).CreationTime = (Get-Date).AddDays(-2)
+        (Invoke-PromptScenario -Root $root).messages | Should -BeNullOrEmpty
+    }
+
+    It 'n''avertit pas pour une entrée d''une version précédente, sans lastSuccess' {
+        Set-CheckFile -Root $root -Entry @{ available = $false; version = '1.0'; checked = $fresh; state = '' }
+        (Get-Item -Path (Join-Path -Path $root -ChildPath 'check.json')).CreationTime = (Get-Date).AddDays(-30)
+        (Invoke-PromptScenario -Root $root).messages | Should -BeNullOrEmpty
+    }
+
+    It 'la recherche garde la dernière vérification aboutie quand le passage échoue' {
+        # Vraie fonction ConvertTo-CheckEntry (extraite du script), sous Windows PowerShell 5.1 et StrictMode, avec une entrée
+        # précédente relue de check.json.
+        $userScript = (Resolve-Path -Path (Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.User.ps1')).Path
+        $command = @"
+Set-StrictMode -Version Latest
+`$ErrorActionPreference = 'Stop'
+`$ast = [System.Management.Automation.Language.Parser]::ParseFile('$userScript', [ref]`$null, [ref]`$null)
+. ([scriptblock]::Create(`$ast.Find({ param(`$Node) `$Node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and `$Node.Name -eq 'ConvertTo-CheckEntry' }, `$true).Extent.Text))
+`$old = '{ "name": "PowerShell 7", "lastSuccess": "2026-10-01T10:00:00.0000000+02:00" }' | ConvertFrom-Json
+`$legacy = '{ "name": "PowerShell 7", "checked": "2026-10-01T10:00:00" }' | ConvertFrom-Json
+'kept=' + (ConvertTo-CheckEntry -Previous `$old -Name 'PowerShell 7' -Version '1.0' -Available `$false -State 'Erreur' -Success `$false).lastSuccess
+'none=' + [string]::IsNullOrEmpty((ConvertTo-CheckEntry -Previous `$legacy -Name 'PowerShell 7' -Version '1.0' -Available `$false -State 'Error' -Success `$false).lastSuccess)
+'first=' + [string]::IsNullOrEmpty((ConvertTo-CheckEntry -Previous `$null -Name 'PowerShell 7' -Version '1.0' -Available `$false -State 'Erreur' -Success `$false).lastSuccess)
+`$new = ConvertTo-CheckEntry -Previous `$old -Name 'PowerShell 7' -Version '1.0' -Available `$true -State 'proposée' -Success `$true
+'new=' + (([datetime]`$new.lastSuccess) -gt (Get-Date).AddMinutes(-1)) + ' ' + (`$new.checked -eq `$new.lastSuccess)
+"@
+        $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
+        & $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded |
+            Should -Be @('kept=2026-10-01T10:00:00.0000000+02:00', 'none=True', 'first=True', 'new=True True')
     }
 
     It 'ignore une mise à jour déjà installée depuis la vérification' {

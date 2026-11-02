@@ -6,6 +6,8 @@
 # - Pour une application ouverte : propose « Mettre à jour maintenant » ou un report. « Maintenant » fait revérifier
 #   auprès du Store (petite fenêtre « Vérification auprès du Store… » avec Annuler), et seulement si la mise à jour est
 #   toujours proposée et que l'utilisateur n'a pas annulé, ferme l'application puis l'installe.
+# - Avertit, au plus une fois par jour, quand les mises à jour d'une application n'ont pas pu être vérifiées depuis plus
+#   de 14 jours (lastSuccess de check.json).
 # Déployé par OS-Setup dans %ProgramFiles%\OS-Setup\store-update : modifier le dépôt, pas cette copie.
 [CmdletBinding()]
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'TestChoice', Justification = 'Lu par les fonctions du script.')]
@@ -24,6 +26,8 @@ $resumeTask = 'OS-Setup - reprise'
 $schtasks = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'schtasks.exe'
 # Vérification auprès du Store au plus toutes les 4 heures.
 $checkHours = 4
+# Avertissement, au plus une fois par jour, au-delà de 14 jours sans vérification aboutie.
+$warnDays = 14
 $root = $PSScriptRoot
 $log = Join-Path -Path $root -ChildPath 'store-update.log'
 $stateFile = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'OS-Setup\store-update.json'
@@ -101,6 +105,29 @@ function Get-PendingApp {
         # Entrée incomplète (check.json tronqué ou modifié) : traitée comme sans mise à jour, sans erreur (StrictMode).
         if (-not $entry -or -not $entry.Value -or -not $entry.Value.PSObject.Properties['available'] -or -not $entry.Value.PSObject.Properties['version']) { continue }
         if ($entry.Value.available -and $entry.Value.version -eq (Get-AppVersion -App $item)) { $item }
+    }
+}
+
+function Get-UncheckedApp {
+    param([object[]]$App)
+    # Applications sans vérification aboutie depuis plus de $warnDays jours (le blocage reste en place : elles ne sont plus
+    # mises à jour). Point de départ : lastSuccess de check.json ; sans aucune réussite (lastSuccess null, ou pas d'entrée :
+    # la recherche n'a jamais tourné), la création de check.json, posé avec la garde. Entrée d'une version précédente,
+    # sans le champ lastSuccess : ignorée, la prochaine recherche l'écrit. Renvoie l'application et le nombre de jours.
+    $path = Join-Path -Path $root -ChildPath 'check.json'
+    $file = Get-Item -Path $path -ErrorAction SilentlyContinue
+    $check = Read-JsonFile -Path $path
+    foreach ($item in $App) {
+        $entry = if ($check) { $check.PSObject.Properties[$item.productId] }
+        $since = $null
+        if ($entry -and $entry.Value) {
+            if (-not $entry.Value.PSObject.Properties['lastSuccess']) { continue }
+            if ($entry.Value.lastSuccess) { try { $since = [datetime]$entry.Value.lastSuccess } catch { $since = $null } }
+        }
+        if (-not $since -and $file) { $since = $file.CreationTime }
+        if (-not $since -or $since -gt (Get-Date)) { continue }
+        $elapsed = ((Get-Date) - $since).TotalDays
+        if ($elapsed -gt $warnDays) { [pscustomobject]@{ App = $item; Days = [int][math]::Floor($elapsed) } }
     }
 }
 
@@ -305,16 +332,29 @@ function Invoke-StoreUpdatePrompt {
     try {
         $saved = Read-JsonFile -Path $stateFile
         # Valeurs absentes : $null explicite (sous Windows PowerShell 5.1, un $(…) vide s'écrirait {} en JSON).
-        $state = [pscustomobject]@{ snoozeUntil = $null; lastRun = $null }
-        foreach ($name in 'snoozeUntil', 'lastRun') {
+        $state = [pscustomobject]@{ snoozeUntil = $null; lastRun = $null; lastWarning = $null }
+        foreach ($name in 'snoozeUntil', 'lastRun', 'lastWarning') {
             if ($saved -and $saved.PSObject.Properties[$name] -and ($saved.$name -is [string] -or $saved.$name -is [datetime])) { $state.$name = "$($saved.$name)" }
         }
-        if ($state.snoozeUntil -and (Get-Date) -lt [datetime]$state.snoozeUntil) { return }
         # Reprise du setup en attente : la tâche SYSTEM ne ferait que vérifier, « Maintenant » fermerait les applications
         # pour rien (et peut-être le PowerShell 7 de la reprise). Rien n'est proposé avant la fin du setup.
         if (Test-ResumePending) { return }
         $apps = @(Read-JsonFile -Path (Join-Path -Path $root -ChildPath 'apps.json') | Where-Object { Get-AppVersion -App $_ })
         if (-not $apps) { return }
+
+        # Vérifications en échec depuis plus de 14 jours : avertissement au plus une fois par jour, même pendant un report
+        # (le blocage reste en place, l'application n'est plus mise à jour).
+        $lastWarning = $null
+        if ($state.lastWarning) { try { $lastWarning = [datetime]$state.lastWarning } catch { $lastWarning = $null } }
+        if (-not $lastWarning -or $lastWarning -lt (Get-Date).AddDays(-1) -or $lastWarning -gt (Get-Date)) {
+            $unchecked = @(Get-UncheckedApp -App $apps)
+            if ($unchecked) {
+                $state.lastWarning = (Get-Date).ToString('o')
+                Save-State -State $state
+                Show-Message -Text (@($unchecked | ForEach-Object { "Les mises à jour de $($_.App.name) n'ont pas pu être vérifiées depuis $($_.Days) jours : voir le journal $log" }) -join "`n")
+            }
+        }
+        if ($state.snoozeUntil -and (Get-Date) -lt [datetime]$state.snoozeUntil) { return }
 
         if ((Test-CheckStale -App $apps) -and -not (Test-RecentRun -State $state)) {
             [void](Invoke-SystemRun -State $state)

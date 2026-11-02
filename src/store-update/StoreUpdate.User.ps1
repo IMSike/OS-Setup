@@ -2,7 +2,8 @@
 # sans déclencheur, lancée par la tâche SYSTEM qui a levé le blocage des applications concernées (run.json).
 # - mode check : demande au Store si une mise à jour existe, sans rien télécharger, puis retire la demande de sa file.
 # - mode update : demande la mise à jour sans fermeture forcée (AllowForcedAppRestart = false) et attend sa fin.
-# Résultat de chaque application dans check.json, lu par la fenêtre de l'utilisateur. Windows PowerShell 5.1 : l'API du
+# Résultat de chaque application dans check.json (avec la date de la dernière vérification aboutie), lu par la fenêtre
+# de l'utilisateur. Windows PowerShell 5.1 : l'API du
 # Store (WinRT) n'est pas accessible depuis PowerShell 7.
 # Déployé par OS-Setup dans %ProgramFiles%\OS-Setup\store-update : modifier le dépôt, pas cette copie.
 [CmdletBinding()]
@@ -28,6 +29,18 @@ function Get-PackageVersion {
     param([Parameter(Mandatory)][string]$Name)
     $package = Get-AppxPackage -Name $Name | Sort-Object -Property Version -Descending | Select-Object -First 1
     if ($package) { "$($package.Version)" } else { '' }
+}
+
+function ConvertTo-CheckEntry {
+    # Résultat d'une application dans check.json. lastSuccess : date de la dernière vérification aboutie (« à jour »,
+    # « proposée », installation terminée), gardée d'un passage à l'autre tant que les suivants échouent (erreur, état
+    # Error ou Canceled, délai dépassé) ; null si aucune n'a jamais abouti. La fenêtre avertit au-delà de 14 jours.
+    param([object]$Previous, [string]$Name, [string]$Version, [bool]$Available, [string]$State, [bool]$Success)
+    $now = (Get-Date).ToString('o')
+    $lastSuccess = $null
+    if ($Success) { $lastSuccess = $now }
+    elseif ($Previous -and $Previous.PSObject.Properties['lastSuccess'] -and $Previous.lastSuccess) { $lastSuccess = "$($Previous.lastSuccess)" }
+    [ordered]@{ name = $Name; version = $Version; available = $Available; state = $State; checked = $now; lastSuccess = $lastSuccess }
 }
 
 function Wait-StoreOperation {
@@ -62,6 +75,7 @@ try {
     foreach ($app in @($apps | Where-Object { $_.productId -in $request.productIds })) {
         $id = $app.productId
         $version = ''
+        $success = $false
         try {
             # Version et processus : mêmes calculs que Get-AppVersion et Get-AppProcess de StoreUpdate.Prompt.ps1.
             $packageName = $app.family.Split('_')[0]
@@ -100,6 +114,7 @@ try {
                     }
                 }
                 Write-StoreUpdateLog "$($app.name) $version : $(if ($available) { "mise à jour proposée ($state)" } else { 'à jour' })"
+                $success = $true
             }
             else {
                 if (-not $item) {
@@ -119,8 +134,12 @@ try {
                     $code = if ($status.ErrorCode) { ', code 0x{0:X8}' -f $status.ErrorCode.HResult }
                     Write-StoreUpdateLog "$($app.name) $version -> $after : $state$code"
                     $version = $after
+                    $success = $state -eq 'Completed'
                 }
-                else { Write-StoreUpdateLog "$($app.name) $version : à jour" }
+                else {
+                    Write-StoreUpdateLog "$($app.name) $version : à jour"
+                    $success = $true
+                }
             }
         }
         catch {
@@ -129,7 +148,7 @@ try {
             $available = $false
             $state = 'Erreur'
         }
-        $results[$id] = [ordered]@{ name = $app.name; version = $version; available = $available; state = $state; checked = (Get-Date).ToString('o') }
+        $results[$id] = ConvertTo-CheckEntry -Previous $results[$id] -Name $app.name -Version $version -Available $available -State $state -Success $success
         # Écrit après chaque application : un résultat obtenu n'est pas perdu si la suite échoue ou dépasse le délai.
         [IO.File]::WriteAllText($checkFile, (ConvertTo-Json -InputObject $results), [Text.UTF8Encoding]::new($false))
     }

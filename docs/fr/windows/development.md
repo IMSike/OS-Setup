@@ -92,7 +92,7 @@ Clé par clé : les autres réglages de l'utilisateur sont conservés, et une cl
   - les mises à jour suivent le Store, y compris le passage à la 7.7 (version non LTS) ;
   - une session ouverte toute la journée retarde la mise à jour jusqu'à votre accord ou à la prochaine ouverture de session ;
   - un seul compte par poste : les tâches de l'utilisateur appartiennent au dernier compte qui a lancé le setup (vérifié par SID, réenregistrées pour le compte courant sinon). Le blocage vaut pour tout le poste : les autres comptes du poste n'ont plus de mises à jour du Store pour PowerShell 7 et Windows Terminal ;
-  - journal : `%ProgramFiles%\OS-Setup\store-update\store-update.log`.
+  - journal : `%ProgramFiles%\OS-Setup\store-update\store-update.log`. Si aucune vérification n'a abouti depuis plus de 14 jours, la fenêtre le signale au plus une fois par jour (« Les mises à jour de PowerShell 7 n'ont pas pu être vérifiées depuis N jours : voir le journal … ») : les mises à jour automatiques restent bloquées, PowerShell 7 n'est donc plus mis à jour tant que la cause notée au journal n'est pas réglée.
 - **Revenir en arrière** :
   1. Supprimer les tâches `OS-Setup - Store (système)`, `OS-Setup - Store (recherche)` et `OS-Setup - Store (fenêtre)` (Planificateur de tâches), puis le dossier `%ProgramFiles%\OS-Setup\store-update`.
   2. Rendre au Store ses mises à jour automatiques : dans un PowerShell administrateur, `Get-CimInstance -Namespace root\cimv2\mdm\dmmap -ClassName MDM_EnterpriseModernAppManagement_AppManagement01_02 | Where-Object InstanceID -eq 'Microsoft.PowerShell_8wekyb3d8bbwe' | ForEach-Object { $_.DoNotUpdate = 0; Set-CimInstance -CimInstance $_ }`.
