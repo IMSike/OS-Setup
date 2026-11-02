@@ -509,10 +509,15 @@
     "fileAction": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["provider", "source", "target", "mode"],
+      "required": ["provider", "target"],
+      "oneOf": [
+        { "required": ["source", "mode"], "properties": { "present": { "const": true } } },
+        { "required": ["present"], "properties": { "present": { "const": false } }, "not": { "anyOf": [{ "required": ["source"] }, { "required": ["mode"] }] } }
+      ],
       "properties": {
         "provider": { "const": "file" },
         "description": { "type": "string" },
+        "present": { "description": "false : supprimer le fichier cible, sauvegardé avant (ex. ancienne copie d'un script déplacé), sans source ni mode. Par défaut : le déployer.", "type": "boolean", "default": true },
         "source": { "description": "Chemin relatif dans dotfiles/.", "type": "string", "minLength": 1 },
         "target": { "description": "Chemin de destination (variables autorisées).", "type": "string", "minLength": 1 },
         "mode": {

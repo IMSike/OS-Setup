@@ -1,4 +1,5 @@
-﻿# Provider file : déploiement d'un fichier de dotfiles/ (copie, gabarit ou fusion JSON), avec sauvegarde de l'existant.
+﻿# Provider file : déploiement d'un fichier de dotfiles/ (copie, gabarit ou fusion JSON), avec sauvegarde de l'existant ;
+# present = false : suppression du fichier (sauvegardé avant).
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification = 'Interface commune des providers : chaque bloc reçoit $Action et $Context, utilisés ou non.')]
 param()
@@ -8,11 +9,13 @@ param()
 
     Describe = {
         param($Action, $Context)
+        if ($Action['present'] -eq $false) { return "supprimer $($Action['target'])" }
         "déployer $($Action['source']) → $($Action['target'])"
     }
 
     Test     = {
         param($Action, $Context)
+        if ($Action['present'] -eq $false) { return -not (Test-Path -Path $Action['target'] -PathType Leaf) }
         if (-not (Test-Path -Path $Action['target'] -PathType Leaf)) { return $false }
         if ($Action['mode'] -eq 'merge-json') {
             # Conforme si les clés gérées ont déjà leur valeur, même si l'application a reformaté le fichier.
@@ -28,6 +31,13 @@ param()
 
     Invoke   = {
         param($Action, $Context)
+        if ($Action['present'] -eq $false) {
+            # Fichier retiré (ex. ancienne copie d'un script déplacé) : sauvegardé avant, comme un fichier remplacé.
+            $backup = Backup-OSSetupFile -Path $Action['target'] -BackupRoot $Context.BackupRoot
+            Write-OSSetupLog -Level Detail -Message "  sauvegarde : $backup"
+            Remove-Item -LiteralPath $Action['target'] -Force
+            return
+        }
         $expected = Get-OSSetupFileContent -Action $Action -Context $Context
         if (Test-Path -Path $Action['target'] -PathType Leaf) {
             $backup = Backup-OSSetupFile -Path $Action['target'] -BackupRoot $Context.BackupRoot
