@@ -119,7 +119,7 @@ In addition to installation, an item can deploy configuration files from `dotfil
 
 ### Reboots
 
-The setup is **resumable**. A reboot is signaled by the provider (code 3010, Windows feature, winget code `0x8A150109`) or declared by the item (`requiresReboot`): the item finishes its actions, its dependents are postponed. At the end of a pass, the state is saved in `state/run.json`, a scheduled task "OS-Setup - reprise" ("OS-Setup - resume") is created (at logon, highest privileges: no new UAC prompt), then the machine restarts (immediately with `-Yes`, otherwise after a 10 s countdown that a key press postpones). On resume: same answers, same log, at most 5 passes.
+The setup is **resumable**. A reboot is signaled by the provider (code 3010, Windows feature, winget code `0x8A150109`) or declared by the item (`requiresReboot`): the item finishes its actions, its dependents are postponed. At the end of a pass, the state is saved in `state/run.json`, a scheduled task "OS-Setup - reprise" ("OS-Setup - resume") is created (at logon, highest privileges: no new UAC prompt), then the machine restarts (immediately with `-Yes`, otherwise after a 10 s countdown that a key press postpones). On resume: same answers, same log, at most 5 passes. This task runs the repository's `setup.ps1`, which the user can modify without elevation: like any elevated task that runs a user-modifiable script, it is a bridge to administrator rights without a UAC prompt, but only while the setup is in progress, since it is deleted when the setup finishes.
 
 A setting that only takes effect at the next logon declares `requiresLogoff`: the session is closed at the end of the setup (see [Deferred effect](how-it-works.md#deferred-effect)).
 
