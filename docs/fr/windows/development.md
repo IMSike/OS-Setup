@@ -78,7 +78,7 @@ Clé par clé : les autres réglages de l'utilisateur sont conservés, et une cl
 
 ## PowerShell 7 — `pwsh`
 
-✔ · admin · winget `9MZ1SNWT0N5D` (Microsoft Store, source `msstore`) · mises à jour encadrées (`store-update-guard`)
+✔ · pour le compte · admin · winget `9MZ1SNWT0N5D` (Microsoft Store, source `msstore`) · mises à jour encadrées (`store-update-guard`)
 
 - **Effet** : installe PowerShell 7 depuis le Microsoft Store, à côté de Windows PowerShell 5.1 (qui reste : composant de Windows). Pas épinglé à la barre des tâches : on l'utilise depuis Windows Terminal. Un PowerShell 7 installé par MSI (ancien setup, installation manuelle) est désinstallé, pour qu'un poste existant finisse comme un poste neuf. Quand le setup lui-même tourne sous ce MSI (`./setup.ps1` lancé depuis lui, et élévation qui le réutilise avant que la version du Store existe), le désinstaller arrêterait le setup : la désinstallation est reportée à la fermeture du setup (ligne du plan « à la fermeture du setup », récapitulatif « reportées à la fermeture du setup ») et faite par le [nettoyage de fin](../architecture.md#nettoyage-de-fin). Si un redémarrage est nécessaire avant, la passe de reprise tourne sous le PowerShell du Store et désinstalle le MSI directement. La fenêtre élevée et la tâche de reprise passent toujours par le PowerShell du Store une fois installé.
 - **Mises à jour** : le Store ferme de force un PowerShell ouvert pour le mettre à jour (sessions herdr et agents perdus). Ses mises à jour automatiques sont donc bloquées et confiées à trois tâches planifiées (voir l'[ADR 0004](../adr/0004-store-updates-without-forced-close.md)) :
@@ -86,6 +86,7 @@ Clé par clé : les autres réglages de l'utilisateur sont conservés, et une cl
   - PowerShell ouvert : le Store est interrogé au plus toutes les 4 heures. Si une mise à jour est proposée, une fenêtre offre **Mettre à jour maintenant** ou un report (10 min, 1 h, 5 h, demain) ;
   - **Maintenant** revérifie auprès du Store, puis ferme herdr et toutes les sessions PowerShell 7 avant d'installer. Fermer la fenêtre reporte d'une heure.
 - **Implications** :
+  - application du Store (MSIX), installée pour le compte qui lance le setup, comme Windows Terminal. Le MSI qu'elle remplace était installé pour tout le poste : sa désinstallation retire PowerShell 7 aux autres comptes du poste, qui devront l'installer eux-mêmes depuis le Store ;
   - les mises à jour suivent le Store, y compris le passage à la 7.7 (version non LTS) ;
   - une session ouverte toute la journée retarde la mise à jour jusqu'à votre accord ou à la prochaine ouverture de session ;
   - un seul compte par poste : les tâches de l'utilisateur appartiennent au dernier compte qui a lancé le setup (vérifié par SID, réenregistrées pour le compte courant sinon). Le blocage vaut pour tout le poste : les autres comptes du poste n'ont plus de mises à jour du Store pour PowerShell 7 et Windows Terminal ;

@@ -78,7 +78,7 @@ Key by key: the user's other settings are kept, and a key changed on the machine
 
 ## PowerShell 7 — `pwsh`
 
-✔ · admin · winget `9MZ1SNWT0N5D` (Microsoft Store, `msstore` source) · guarded updates (`store-update-guard`)
+✔ · per account · admin · winget `9MZ1SNWT0N5D` (Microsoft Store, `msstore` source) · guarded updates (`store-update-guard`)
 
 - **Effect**: installs PowerShell 7 from the Microsoft Store, alongside Windows PowerShell 5.1 (which stays: it is a Windows component). Not pinned to the taskbar: it is used from Windows Terminal. A PowerShell 7 installed by MSI (older setup, manual installation) is uninstalled, so that an existing machine ends like a fresh one. When the setup itself runs under that MSI (`./setup.ps1` started from it, and elevation reusing it before the Store version existed), uninstalling it would stop the setup: the uninstall is postponed until the setup closes (plan line "à la fermeture du setup", summary "reportées à la fermeture du setup") and done by the [end-of-setup cleanup](../architecture.md#end-of-setup-cleanup). If a reboot is needed first, the resume pass runs under the Store PowerShell and uninstalls the MSI directly. The elevated window and the resume task always use the Store PowerShell once it is installed.
 - **Updates**: the Store force-closes a running PowerShell to update it (herdr sessions and agents lost). Its automatic updates are therefore blocked and handed to three scheduled tasks (see [ADR 0004](../adr/0004-store-updates-without-forced-close.md)):
@@ -86,6 +86,7 @@ Key by key: the user's other settings are kept, and a key changed on the machine
   - PowerShell running: the Store is queried at most every 4 hours. If an update is offered, a window offers **Update now** or a delay (10 min, 1 h, 5 h, tomorrow);
   - **Update now** checks with the Store again, then closes herdr and all PowerShell 7 sessions before installing. Closing the window delays by one hour.
 - **Implications**:
+  - Store application (MSIX), installed for the account that runs the setup, like Windows Terminal. The MSI it replaces was installed for the whole machine: uninstalling it removes PowerShell 7 from the other accounts of the machine, which must install it from the Store themselves;
   - updates follow the Store, including the move to 7.7 (not an LTS version);
   - a session left open all day delays the update until you agree or until the next logon;
   - one account per machine: the user tasks belong to the account that last ran the setup (checked by SID, registered again for the current account otherwise). The block applies to the whole machine, so the other accounts of the machine no longer get Store updates for PowerShell 7 and Windows Terminal;
