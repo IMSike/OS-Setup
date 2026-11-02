@@ -181,6 +181,8 @@ function Show-Progress {
     $panel = New-Object -TypeName System.Windows.Forms.FlowLayoutPanel
     $panel.FlowDirection = 'TopDown'
     $panel.AutoSize = $true
+    # GrowOnly (par défaut) garderait la taille initiale du volet (200 x 100) : fenêtre plus grande que son contenu.
+    $panel.AutoSizeMode = 'GrowAndShrink'
     $panel.WrapContents = $false
     $label = New-Object -TypeName System.Windows.Forms.Label
     $label.AutoSize = $true
@@ -280,6 +282,8 @@ function Show-UpdatePrompt {
     $panel = New-Object -TypeName System.Windows.Forms.FlowLayoutPanel
     $panel.FlowDirection = 'TopDown'
     $panel.AutoSize = $true
+    # GrowOnly (par défaut) garderait la taille initiale du volet (200 x 100) : fenêtre plus grande que son contenu.
+    $panel.AutoSizeMode = 'GrowAndShrink'
     $panel.WrapContents = $false
     $label = New-Object -TypeName System.Windows.Forms.Label
     $label.MaximumSize = New-Object -TypeName System.Drawing.Size -ArgumentList 480, 0
@@ -294,6 +298,7 @@ function Show-UpdatePrompt {
     $panel.Controls.Add($label)
     $buttons = New-Object -TypeName System.Windows.Forms.FlowLayoutPanel
     $buttons.AutoSize = $true
+    $buttons.AutoSizeMode = 'GrowAndShrink'
     $buttons.Margin = New-Object -TypeName System.Windows.Forms.Padding -ArgumentList 0, 12, 0, 0
     $form.Tag = '1h'
     foreach ($choice in @(@('Now', 'Mettre à jour maintenant'), @('10m', 'Dans 10 min'), @('1h', 'Dans 1 h'), @('5h', 'Dans 5 h'), @('24h', 'Demain'))) {
