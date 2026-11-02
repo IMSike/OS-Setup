@@ -1,5 +1,7 @@
 ﻿# Entretien de Docker Desktop, lancé à l'ouverture de session par la tâche planifiée « OS-Setup - Docker (entretien) »
-# (déployé par OS-Setup ; modifier le dépôt, pas cette copie). Windows PowerShell 5.1, droits administrateur.
+# (déployé par OS-Setup dans %ProgramFiles%\OS-Setup\docker, modifiable par les seuls administrateurs puisque la tâche
+# l'exécute avec les droits les plus élevés ; modifier le dépôt, pas cette copie). Windows PowerShell 5.1, droits
+# administrateur, compte de l'utilisateur : journal et état dans son %LOCALAPPDATA%\OS-Setup.
 #
 # Le disque virtuel de Docker (docker_data.vhdx) grossit mais ne rétrécit jamais seul. Une fois par semaine au plus :
 #   1. compactage du disque virtuel, tant que Docker et WSL sont arrêtés (diskpart, outil de Windows) ;
