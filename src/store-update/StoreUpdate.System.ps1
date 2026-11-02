@@ -22,9 +22,31 @@ $log = Join-Path -Path $root -ChildPath 'store-update.log'
 # Pont WMI du fournisseur MDM : même requête que Get-OSSetupDoNotUpdateInstance (src/OSSetup/Functions/StoreUpdate.ps1).
 $namespace = 'root\cimv2\mdm\dmmap'
 $class = 'MDM_EnterpriseModernAppManagement_AppManagement01_02'
+# Tâche de reprise du setup ($script:ResumeTaskName de src/OSSetup/Functions/Resume.ps1, nom copié : script autonome),
+# ignorée sans nouvelle passe depuis $resumeHours heures (Get-ResumeOrphanReason).
+$resumeTask = 'OS-Setup - reprise'
+$resumeHours = 48
 
 # Copies (scripts autonomes) : Write-StoreUpdateLog aussi dans StoreUpdate.User.ps1 et StoreUpdate.Prompt.ps1 (étiquette
-# différente) ; Get-AppProcess et Get-AppVersion aussi dans StoreUpdate.Prompt.ps1, en ligne dans StoreUpdate.User.ps1.
+# différente) ; Get-AppProcess et Get-AppVersion aussi dans StoreUpdate.Prompt.ps1, en ligne dans StoreUpdate.User.ps1 ;
+# Get-ResumeOrphanReason aussi dans StoreUpdate.Prompt.ps1.
+function Get-ResumeOrphanReason {
+    # Tâche de reprise présente mais qui ne reprendra plus rien : raison, sinon rien. Orpheline quand son setup.ps1, son
+    # exécutable ou state\run.json (écrit à chaque passe, supprimé à la fin) n'existe plus (dépôt déplacé ou supprimé,
+    # PowerShell retiré), ou quand aucune passe n'a eu lieu depuis $resumeHours heures. Sinon les applications encadrées
+    # resteraient en vérification seule indéfiniment.
+    param([Parameter(Mandatory)][object]$Task)
+    $action = @($Task.Actions)[0]
+    $setup = $null
+    if ($action -and "$($action.Arguments)" -match '-File\s+"([^"]+)"') { $setup = $Matches[1] }
+    if (-not $setup -or -not (Test-Path -LiteralPath $setup)) { return 'setup.ps1 introuvable' }
+    $runState = Join-Path -Path (Split-Path -Path $setup -Parent) -ChildPath 'state\run.json'
+    if (-not (Test-Path -LiteralPath $runState)) { return 'aucune exécution en attente (state\run.json absent)' }
+    $execute = "$($action.Execute)".Trim('"')
+    if (-not $execute -or -not (Test-Path -LiteralPath $execute)) { return "exécutable introuvable ($execute)" }
+    if ((Get-Item -LiteralPath $runState).LastWriteTime -lt (Get-Date).AddHours(-$resumeHours)) { return "aucune passe depuis plus de $resumeHours h" }
+}
+
 function Write-StoreUpdateLog {
     param([string]$Message)
     # Journal partagé avec les tâches de l'utilisateur : quelques essais si un autre écrit au même moment.
@@ -149,12 +171,19 @@ try {
 
     $open = @($installed | Where-Object { @(Get-AppProcess -App $_).Count -gt 0 })
     $closed = @($installed | Where-Object { $_ -notin $open })
-    # Reprise du setup en attente (tâche de src/OSSetup/Functions/Resume.ps1, nom copié : ce script est autonome) : elle
-    # lance PowerShell 7 à l'ouverture de session, peut-être pendant sa mise à jour. Vérification seule jusqu'à la fin du setup.
-    if ($closed -and (Get-ScheduledTask -TaskName 'OS-Setup - reprise' -ErrorAction SilentlyContinue)) {
-        Write-StoreUpdateLog 'reprise du setup en attente : vérification seule'
-        $open = $installed
-        $closed = @()
+    # Reprise du setup en attente : elle lance PowerShell 7 à l'ouverture de session, peut-être pendant sa mise à jour.
+    # Vérification seule jusqu'à la fin du setup. Tâche orpheline : ignorée (ligne dans le journal).
+    $resume = if ($closed) { Get-ScheduledTask -TaskName $resumeTask -ErrorAction SilentlyContinue }
+    if ($resume) {
+        $orphan = Get-ResumeOrphanReason -Task $resume
+        if ($orphan) {
+            Write-StoreUpdateLog "tâche de reprise du setup ignorée : $orphan"
+        }
+        else {
+            Write-StoreUpdateLog 'reprise du setup en attente : vérification seule'
+            $open = $installed
+            $closed = @()
+        }
     }
     if ($open) {
         Write-StoreUpdateLog "ouvertes, vérification seule : $(($open | ForEach-Object { $_.name }) -join ', ')"

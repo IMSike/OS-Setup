@@ -32,12 +32,12 @@ PowerShell 7 is installed from the Store (`winget --source msstore`, product `9M
     - restores the block if it was lifted;
     - for a closed app: lifts the block, has the update installed without forced close, puts the block back;
     - for a running app: lifts the block only for the time of the Store query, which only checks that an update exists;
-    - while a setup resume is pending (task `OS-Setup - reprise`, which starts PowerShell 7 at logon): only checks, even for a closed app;
+    - while a setup resume is pending (task `OS-Setup - reprise`, which starts PowerShell 7 at logon): only checks, even for a closed app. A resume task that will never resume anything is ignored (line in the log): its `setup.ps1`, its executable or `state\run.json` no longer exists (repository moved or deleted, PowerShell removed), or no pass has run for 48 hours (`run.json` is rewritten at each pass). Otherwise an abandoned setup would leave the guarded apps without updates;
     - at each run, records in `open.json` the processes of each app it sees open, in every session (administrator consoles and other accounts included, which the user window cannot see);
   - **`OS-Setup - Store (recherche)`** (user, no trigger): queries the Store on behalf of the user, because the Store API only acts for the calling account;
   - **`OS-Setup - Store (fenêtre)`** (user, at logon then every 15 minutes):
     - has the Store checked at most every 4 hours;
-    - when no check of an app has succeeded for more than 14 days, shows at most once a day (even during a delay): "Les mises à jour de <app> n'ont pas pu être vérifiées depuis N jours : voir le journal C:\Program Files\OS-Setup\store-update\store-update.log" ("The updates of <app> could not be checked for N days: see the log …"). The block stays in place;
+    - when no check of an app has succeeded for more than 14 days, shows at most once a day (even during a delay or a setup resume): "Les mises à jour de <app> n'ont pas pu être vérifiées depuis N jours : voir le journal C:\Program Files\OS-Setup\store-update\store-update.log" ("The updates of <app> could not be checked for N days: see the log …"). The block stays in place;
     - an update pending for a closed app: installs it silently. An app the window sees closed but the SYSTEM task sees open (still running process in `open.json`) is left to the normal 4-hour check, without an hourly SYSTEM run;
     - an update pending for a running app: offers **Update now** or a delay (10 min, 1 h, 5 h, tomorrow);
     - **Update now** first checks with the Store again, and closes nothing if the update is no longer offered. Otherwise it closes the app (and herdr first, which would restart the shell), then updates it;

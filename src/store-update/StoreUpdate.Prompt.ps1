@@ -22,6 +22,8 @@ $ErrorActionPreference = 'Stop'
 $systemTask = 'OS-Setup - Store (système)'
 # Tâche de reprise du setup ($script:ResumeTaskName du module) : tant qu'elle existe, la tâche SYSTEM ne fait que vérifier.
 $resumeTask = 'OS-Setup - reprise'
+# Tâche de reprise sans nouvelle passe depuis ce délai : ignorée (Get-ResumeOrphanReason).
+$resumeHours = 48
 # Exécutable système par son chemin complet, pas par le PATH.
 $schtasks = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'schtasks.exe'
 # Vérification auprès du Store au plus toutes les 4 heures.
@@ -256,8 +258,27 @@ function Invoke-SystemRun {
     $done
 }
 
+function Get-ResumeOrphanReason {
+    # Tâche de reprise présente mais qui ne reprendra plus rien : raison, sinon rien. Orpheline quand son setup.ps1, son
+    # exécutable ou state\run.json (écrit à chaque passe, supprimé à la fin) n'existe plus (dépôt déplacé ou supprimé,
+    # PowerShell retiré), ou quand aucune passe n'a eu lieu depuis $resumeHours heures. Sinon les applications encadrées
+    # resteraient en vérification seule indéfiniment.
+    param([Parameter(Mandatory)][object]$Task)
+    $action = @($Task.Actions)[0]
+    $setup = $null
+    if ($action -and "$($action.Arguments)" -match '-File\s+"([^"]+)"') { $setup = $Matches[1] }
+    if (-not $setup -or -not (Test-Path -LiteralPath $setup)) { return 'setup.ps1 introuvable' }
+    $runState = Join-Path -Path (Split-Path -Path $setup -Parent) -ChildPath 'state\run.json'
+    if (-not (Test-Path -LiteralPath $runState)) { return 'aucune exécution en attente (state\run.json absent)' }
+    $execute = "$($action.Execute)".Trim('"')
+    if (-not $execute -or -not (Test-Path -LiteralPath $execute)) { return "exécutable introuvable ($execute)" }
+    if ((Get-Item -LiteralPath $runState).LastWriteTime -lt (Get-Date).AddHours(-$resumeHours)) { return "aucune passe depuis plus de $resumeHours h" }
+}
+
 function Test-ResumePending {
-    [bool](Get-ScheduledTask -TaskName $resumeTask -ErrorAction SilentlyContinue)
+    # Reprise du setup en attente et encore capable de reprendre (Get-ResumeOrphanReason).
+    $task = Get-ScheduledTask -TaskName $resumeTask -ErrorAction SilentlyContinue
+    [bool]($task -and -not (Get-ResumeOrphanReason -Task $task))
 }
 
 function Test-RecentRun {
@@ -341,14 +362,11 @@ function Invoke-StoreUpdatePrompt {
         foreach ($name in 'snoozeUntil', 'lastRun', 'lastWarning') {
             if ($saved -and $saved.PSObject.Properties[$name] -and ($saved.$name -is [string] -or $saved.$name -is [datetime])) { $state.$name = "$($saved.$name)" }
         }
-        # Reprise du setup en attente : la tâche SYSTEM ne ferait que vérifier, « Maintenant » fermerait les applications
-        # pour rien (et peut-être le PowerShell 7 de la reprise). Rien n'est proposé avant la fin du setup.
-        if (Test-ResumePending) { return }
         $apps = @(Read-JsonFile -Path (Join-Path -Path $root -ChildPath 'apps.json') | Where-Object { Get-AppVersion -App $_ })
         if (-not $apps) { return }
 
         # Vérifications en échec depuis plus de 14 jours : avertissement au plus une fois par jour, même pendant un report
-        # (le blocage reste en place, l'application n'est plus mise à jour).
+        # ou une reprise du setup (le blocage reste en place, l'application n'est plus mise à jour).
         $lastWarning = $null
         if ($state.lastWarning) { try { $lastWarning = [datetime]$state.lastWarning } catch { $lastWarning = $null } }
         if (-not $lastWarning -or $lastWarning -lt (Get-Date).AddDays(-1) -or $lastWarning -gt (Get-Date)) {
@@ -359,6 +377,9 @@ function Invoke-StoreUpdatePrompt {
                 Show-Message -Text (@($unchecked | ForEach-Object { "Les mises à jour de $($_.App.name) n'ont pas pu être vérifiées depuis $($_.Days) jours : voir le journal $log" }) -join "`n")
             }
         }
+        # Reprise du setup en attente : la tâche SYSTEM ne ferait que vérifier, « Maintenant » fermerait les applications
+        # pour rien (et peut-être le PowerShell 7 de la reprise). Rien n'est proposé avant la fin du setup.
+        if (Test-ResumePending) { return }
         if ($state.snoozeUntil -and (Get-Date) -lt [datetime]$state.snoozeUntil) { return }
 
         if ((Test-CheckStale -App $apps) -and -not (Test-RecentRun -State $state)) {

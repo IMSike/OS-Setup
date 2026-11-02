@@ -87,7 +87,7 @@ Describe 'Scripts des tâches des mises à jour du Store' {
     It 'la tâche SYSTEM reconnaît la tâche de reprise du setup sous son nom actuel' {
         $resume = InModuleScope OSSetup { $script:ResumeTaskName }
         $resume | Should -Not -BeNullOrEmpty
-        Get-Content -Path (Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.System.ps1') -Raw | Should -Match ([regex]::Escape("-TaskName '$resume'"))
+        Get-Content -Path (Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.System.ps1') -Raw | Should -Match ([regex]::Escape("`$resumeTask = '$resume'"))
     }
 
     It 'la fenêtre reconnaît la tâche de reprise du setup sous son nom actuel' {
@@ -441,6 +441,50 @@ function Get-Process { [CmdletBinding()] param([int[]]`$Id) [pscustomobject]@{ I
         $state.snoozeUntil | Should -Not -BeNullOrEmpty
         # Au plus une fois par jour : le passage suivant n'avertit pas.
         (Invoke-PromptScenario -Root $root).messages | Should -BeNullOrEmpty
+    }
+
+    It 'avertit aussi pendant une reprise du setup, sans rien proposer' {
+        Set-CheckFile -Root $root -Entry @{ available = $true; version = '1.0'; checked = $fresh; state = 'proposée'; lastSuccess = (Get-Date).AddDays(-20).AddHours(-1).ToString('o') }
+        $result = Invoke-PromptScenario -Root $root -Resume $true -Choice 'Now'
+        @($result.messages).Count | Should -Be 1
+        $result.prompts | Should -Be 0
+        $result.systemRuns | Should -Be 0
+    }
+
+    It 'la tâche de reprise orpheline est reconnue de la même façon par la fenêtre et par la tâche SYSTEM' {
+        # Vraie fonction des deux scripts, sous Windows PowerShell 5.1 et StrictMode, sur une tâche simulée.
+        $systemScript = (Resolve-Path -Path (Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.System.ps1')).Path
+        $repo = Join-Path -Path $root -ChildPath 'repo'
+        New-Item -Path (Join-Path -Path $repo -ChildPath 'state') -ItemType Directory -Force | Out-Null
+        Set-Content -Path (Join-Path -Path $repo -ChildPath 'setup.ps1') -Value '# setup'
+        $exe = Join-Path -Path $root -ChildPath 'pwsh.exe'
+        Set-Content -Path $exe -Value ''
+        $command = @"
+Set-StrictMode -Version Latest
+`$ErrorActionPreference = 'Stop'
+`$resumeHours = 48
+`$repo = '$repo'
+`$runState = Join-Path -Path `$repo -ChildPath 'state\run.json'
+function New-Task([string]`$Execute, [string]`$Setup) { [pscustomobject]@{ Actions = @([pscustomobject]@{ Execute = `$Execute; Arguments = "-NoProfile -ExecutionPolicy Bypass -File ```"`$Setup```" -Resume" }) } }
+`$ok = New-Task -Execute '$exe' -Setup (Join-Path -Path `$repo -ChildPath 'setup.ps1')
+foreach (`$script in '$promptScript', '$systemScript') {
+    `$ast = [System.Management.Automation.Language.Parser]::ParseFile(`$script, [ref]`$null, [ref]`$null)
+    . ([scriptblock]::Create(`$ast.Find({ param(`$Node) `$Node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and `$Node.Name -eq 'Get-ResumeOrphanReason' }, `$true).Extent.Text))
+    Set-Content -Path `$runState -Value '{}'
+    'valide=' + (Get-ResumeOrphanReason -Task `$ok)
+    'setup=' + (Get-ResumeOrphanReason -Task (New-Task -Execute '$exe' -Setup (Join-Path -Path `$repo -ChildPath 'absent.ps1')))
+    'exe=' + [bool](Get-ResumeOrphanReason -Task (New-Task -Execute '$root\absent.exe' -Setup (Join-Path -Path `$repo -ChildPath 'setup.ps1')))
+    (Get-Item -Path `$runState).LastWriteTime = (Get-Date).AddHours(-49)
+    'ancienne=' + (Get-ResumeOrphanReason -Task `$ok)
+    Remove-Item -Path `$runState
+    'etat=' + (Get-ResumeOrphanReason -Task `$ok)
+}
+"@
+        $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
+        $expected = @('valide=', 'setup=setup.ps1 introuvable', 'exe=True', 'ancienne=aucune passe depuis plus de 48 h', 'etat=aucune exécution en attente (state\run.json absent)')
+        $output = @(& $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded)
+        # Sortie standard de l'enfant : accents comparés sans dépendre de la page de code de la console.
+        ($output -replace '[^\x20-\x7E]', '?') | Should -Be (@($expected + $expected) -replace '[^\x20-\x7E]', '?')
     }
 
     It 'n''avertit pas après une vérification aboutie récente' {
