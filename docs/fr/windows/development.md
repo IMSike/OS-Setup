@@ -88,6 +88,7 @@ Clé par clé : les autres réglages de l'utilisateur sont conservés, et une cl
 - **Implications** :
   - les mises à jour suivent le Store, y compris le passage à la 7.7 (version non LTS) ;
   - une session ouverte toute la journée retarde la mise à jour jusqu'à votre accord ou à la prochaine ouverture de session ;
+  - un seul compte par poste : les tâches de l'utilisateur appartiennent au dernier compte qui a lancé le setup (vérifié par SID, réenregistrées pour le compte courant sinon). Le blocage vaut pour tout le poste : les autres comptes du poste n'ont plus de mises à jour du Store pour PowerShell 7 et Windows Terminal ;
   - journal : `%ProgramFiles%\OS-Setup\store-update\store-update.log`.
 - **Revenir en arrière** :
   1. Supprimer les tâches `OS-Setup - Store (système)`, `OS-Setup - Store (recherche)` et `OS-Setup - Store (fenêtre)` (Planificateur de tâches), puis le dossier `%ProgramFiles%\OS-Setup\store-update`.

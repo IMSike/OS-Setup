@@ -127,6 +127,7 @@
         'Write-OSSetupRunResult'
         # StoreUpdate.ps1
         'ConvertTo-OSSetupStoreUpdateApp'
+        'Get-OSSetupAccountSid'
         'Get-OSSetupDoNotUpdate'
         'Get-OSSetupDoNotUpdateInstance'
         'Get-OSSetupStoreUpdateApp'

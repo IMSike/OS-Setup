@@ -147,11 +147,33 @@ function ConvertTo-OSSetupStoreUpdateApp {
     }
 }
 
+function Get-OSSetupAccountSid {
+    <#
+    .SYNOPSIS
+        SID d'un compte, donné par son nom ou déjà par son SID, ou rien s'il ne se résout pas (compte supprimé).
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Account
+    )
+    if (-not $Account) { return }
+    if ($Account -match '^S-1-\d+(-\d+)+$') { return $Account }
+    try { [Security.Principal.NTAccount]::new($Account).Translate([Security.Principal.SecurityIdentifier]).Value } catch { $null }
+}
+
 function Test-OSSetupStoreUpdateGuard {
     <#
     .SYNOPSIS
         Conforme si les scripts déployés sont ceux du dépôt, l'application est listée, les fichiers partagés existent,
-        les trois tâches existent dans la version de définition actuelle et sont activées, et le blocage est posé.
+        les trois tâches existent dans la version de définition actuelle et sont activées, les tâches de l'utilisateur
+        sont celles du compte courant, et le blocage est posé.
+    .DESCRIPTION
+        Un seul compte par poste : des tâches « recherche » et « fenêtre » enregistrées pour un autre compte (comparé par
+        SID, pas par nom) rendent la garde non conforme, et Install-OSSetupStoreUpdateGuard les réenregistre pour le
+        compte courant. Le dernier compte qui lance le setup gagne.
     #>
     [CmdletBinding()]
     [OutputType([bool])]
@@ -174,10 +196,16 @@ function Test-OSSetupStoreUpdateGuard {
     foreach ($name in $script:StoreUpdateSharedFile) {
         if (-not (Test-Path -Path (Join-Path -Path $root -ChildPath $name) -PathType Leaf)) { return $false }
     }
+    $currentSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
     foreach ($role in $script:StoreUpdateTask.Keys) {
         $task = Get-ScheduledTask -TaskName $script:StoreUpdateTask[$role] -ErrorAction SilentlyContinue
         if (-not $task -or $task.Actions[0].Arguments -ne (Get-OSSetupStoreUpdateTaskArgument -Role $role)) { return $false }
         if ("$($task.State)" -eq 'Disabled' -or -not "$($task.Description)".EndsWith($script:StoreUpdateTaskMarker)) { return $false }
+        if ($role -ne 'System') {
+            # Tâches de l'utilisateur d'un autre compte : réenregistrées pour le compte courant.
+            $owner = if ($task.Principal) { "$($task.Principal.UserId)" } else { '' }
+            if ((Get-OSSetupAccountSid -Account $owner) -ne $currentSid) { return $false }
+        }
     }
     (Get-OSSetupDoNotUpdate -Family $Action['family']) -eq 1
 }

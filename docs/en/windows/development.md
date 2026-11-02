@@ -88,6 +88,7 @@ Key by key: the user's other settings are kept, and a key changed on the machine
 - **Implications**:
   - updates follow the Store, including the move to 7.7 (not an LTS version);
   - a session left open all day delays the update until you agree or until the next logon;
+  - one account per machine: the user tasks belong to the account that last ran the setup (checked by SID, registered again for the current account otherwise). The block applies to the whole machine, so the other accounts of the machine no longer get Store updates for PowerShell 7 and Windows Terminal;
   - log: `%ProgramFiles%\OS-Setup\store-update\store-update.log`.
 - **Rollback**:
   1. Delete the tasks `OS-Setup - Store (système)`, `OS-Setup - Store (recherche)` and `OS-Setup - Store (fenêtre)` (Task Scheduler), then the `%ProgramFiles%\OS-Setup\store-update` folder.

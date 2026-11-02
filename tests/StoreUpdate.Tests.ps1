@@ -321,9 +321,13 @@ Describe 'Mises à jour encadrées du Store' {
             foreach ($name in 'check.json', 'store-update.log') { Set-Content -Path (Join-Path -Path $root -ChildPath $name) -Value '' }
             $taskState = 'Ready'
             $marker = InModuleScope OSSetup { $script:StoreUpdateTaskMarker }
+            # Compte des tâches de l'utilisateur : le compte courant, par son SID (le Planificateur peut aussi rendre un nom).
+            $taskUser = @{ User = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value; Prompt = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value }
             Mock -ModuleName OSSetup Get-ScheduledTask {
                 $role = @{ 'OS-Setup - Store (système)' = 'System'; 'OS-Setup - Store (recherche)' = 'User'; 'OS-Setup - Store (fenêtre)' = 'Prompt' }[[string]$TaskName]
+                $userId = if ($role -eq 'System') { 'SYSTEM' } else { $taskUser[$role] }
                 [pscustomobject]@{ TaskName = $TaskName; State = $taskState; Description = "OS-Setup : tâche. $marker"
+                    Principal = [pscustomobject]@{ UserId = $userId }
                     Actions = @([pscustomobject]@{ Arguments = (Get-OSSetupStoreUpdateTaskArgument -Role $role) }) }
             }
             Mock -ModuleName OSSetup Get-OSSetupDoNotUpdate { 1 }
@@ -372,6 +376,28 @@ Describe 'Mises à jour encadrées du Store' {
 
         It 'n''est pas conforme sans check.json' {
             Remove-Item -Path (Join-Path -Path $root -ChildPath 'check.json')
+            InModuleScope OSSetup -Parameters @{ Action = $pwshAction; Source = $sourceRoot } {
+                param($Action, $Source) Test-OSSetupStoreUpdateGuard -Action $Action -SourceRoot $Source
+            } | Should -BeFalse
+        }
+
+        It 'est conforme quand le Planificateur donne le compte courant par son nom' {
+            $name = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+            $taskUser = @{ User = $name; Prompt = $name.Split('\')[-1] }
+            InModuleScope OSSetup -Parameters @{ Action = $pwshAction; Source = $sourceRoot } {
+                param($Action, $Source) Test-OSSetupStoreUpdateGuard -Action $Action -SourceRoot $Source
+            } | Should -BeTrue
+        }
+
+        It 'n''est pas conforme quand la tâche « <_> » est celle d''un autre compte' -ForEach @('User', 'Prompt') {
+            $taskUser[$_] = 'S-1-5-21-1111111111-2222222222-3333333333-1001'
+            InModuleScope OSSetup -Parameters @{ Action = $pwshAction; Source = $sourceRoot } {
+                param($Action, $Source) Test-OSSetupStoreUpdateGuard -Action $Action -SourceRoot $Source
+            } | Should -BeFalse
+        }
+
+        It 'n''est pas conforme quand le compte d''une tâche ne se résout plus' {
+            $taskUser.User = 'CompteSupprimeOSSetup-0000'
             InModuleScope OSSetup -Parameters @{ Action = $pwshAction; Source = $sourceRoot } {
                 param($Action, $Source) Test-OSSetupStoreUpdateGuard -Action $Action -SourceRoot $Source
             } | Should -BeFalse
