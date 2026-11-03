@@ -352,6 +352,8 @@ function Get-AppVersion { param(`$App) '$Version' }
 # Processus ouverts jusqu'à leur fermeture par la fenêtre (Stop-Process remplacé).
 function Get-AppProcess { param(`$App) if (`$$Open -and `$global:calls.stopped -eq 0) { @([pscustomobject]@{ Id = 4242; Name = 'pwsh' }) } else { @() } }
 function Stop-Process { [CmdletBinding()] param([Parameter(ValueFromPipeline)]`$InputObject, [switch]`$Force) process { `$global:calls.stopped++ } }
+# Attentes sans durée réelle (boucle de fermeture, nouveaux essais du journal) : le scénario ne dépend pas de l'horloge.
+function Start-Sleep { param(`$Seconds, `$Milliseconds) }
 `$systemSees = @('$SystemSees' -split ',' | Where-Object { `$_ } | ForEach-Object { [int]`$_ })
 `$alive = @('$Alive' -split ',' | Where-Object { `$_ } | ForEach-Object { [int]`$_ })
 function Get-Process { [CmdletBinding()] param([int[]]`$Id, [string[]]`$Name) foreach (`$item in @(`$Id)) { if (`$item -in `$alive) { [pscustomobject]@{ Id = `$item } } } }
@@ -370,7 +372,7 @@ function Test-ResumePending { `$$Resume }
             # Résultat par un fichier UTF-8 : la sortie standard de l'enfant serait décodée avec la page de code de la
             # console, qui varie (poste, Git Bash, runner GitHub) et abîme les accents.
             $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
-            & $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded | Out-Null
+            & $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded 2>$null | Out-Null
             [IO.File]::ReadAllText((Join-Path -Path $Root -ChildPath 'calls.json')) | ConvertFrom-Json
         }
 
@@ -397,7 +399,7 @@ function Test-ResumePending { `$$Resume }
     }
 
     It 'écrit un report absent comme null, pas comme {}' {
-        # Régression corrigée par aa6794e : sous 5.1, un report vide s'écrivait {}, puis faisait échouer la lecture suivante.
+        # Régression déjà rencontrée : sous 5.1, un report vide s'écrivait {}, puis faisait échouer la lecture suivante.
         Set-Content -Path (Join-Path -Path $root -ChildPath 'state.json') -Value '{ "snoozeUntil": null, "lastRun": null }'
         $result = Invoke-PromptScenario -Root $root
         $result.systemRuns | Should -Be 1
@@ -531,7 +533,7 @@ Set-StrictMode -Version Latest
 '[' + (Get-AppVersion -App ([pscustomobject]@{ family = 'OSSetup.PaquetInexistant_0000000000000' })) + ']'
 "@
         $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
-        & $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded | Should -Be '[]'
+        & $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded 2>$null | Should -Be '[]'
     }
 
     It 'open.json écrit par la tâche SYSTEM se relit dans la fenêtre, même avec un seul processus' {
@@ -556,7 +558,7 @@ function Get-Process { [CmdletBinding()] param([int[]]`$Id) [pscustomobject]@{ I
 'ancien=' + (@(Get-HiddenProcess -App ([pscustomobject]@{ productId = 'A' }) -Since (Get-Date).AddMinutes(1)) -join ',')
 "@
         $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
-        & $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded | Should -Be @('A=9999', 'B=', 'ancien=')
+        & $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded 2>$null | Should -Be @('A=9999', 'B=', 'ancien=')
     }
 
     It 'avertit au-delà de 14 jours sans vérification aboutie, même pendant un report' {
@@ -607,7 +609,7 @@ Remove-Item -Path `$runState
 "@
         $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
         $expected = @('valide=', 'setup=setup.ps1 introuvable', 'exe=True', 'ancienne=aucune passe depuis plus de 48 h', 'etat=aucune exécution en attente (state\run.json absent)')
-        $output = @(& $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded)
+        $output = @(& $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded 2>$null)
         # Sortie standard de l'enfant : accents comparés sans dépendre de la page de code de la console.
         # Une lettre accentuée peut arriver en un ou deux caractères : chaque suite non ASCII compte pour un seul '?'.
         ($output -replace '[^\x20-\x7E]+', '?') | Should -Be ($expected -replace '[^\x20-\x7E]+', '?')
@@ -659,7 +661,7 @@ Set-StrictMode -Version Latest
 'new=' + (([datetime]`$new.lastSuccess) -gt (Get-Date).AddMinutes(-1)) + ' ' + (`$new.checked -eq `$new.lastSuccess)
 "@
         $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
-        & $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded |
+        & $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded 2>$null |
             Should -Be @('kept=2026-10-01T10:00:00.0000000+02:00', 'none=True', 'first=True', 'new=True True')
     }
 
