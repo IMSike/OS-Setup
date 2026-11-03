@@ -130,9 +130,9 @@ Some steps cannot be automated: choosing the default browser, signing in to GitH
 The setup leaves only what was chosen. The bootstrap records what it installed in `state/bootstrap.json`. At the end of the run (never in simulation or while waiting for a reboot):
 
 - Git and PowerShell 7 installed by the bootstrap are uninstalled if no chosen item installs them;
-- if the repository copy was created by the bootstrap, a menu offers: delete everything, keep the history (log, answers, backups in `%LOCALAPPDATA%\OS-Setup\<date>`), or keep everything. With `-Yes`: the history. A development clone is never deleted.
+- if the repository copy was created by the bootstrap, a menu offers: delete everything, keep the history (log, answers, backups in `%LOCALAPPDATA%\OS-Setup\<date>`), or keep everything. With `-Yes`: the history. A development clone is never deleted. The downloaded bootstrap script is deleted with the copy only if it is a `.ps1` file directly in the user's `%TEMP%` or Downloads folder: `state/bootstrap.json` can be modified without elevation and the cleanup runs as administrator, so any other recorded path is kept (warning in the log).
 
-The work is done by `src/cleanup.ps1`, copied with its configuration into `%ProgramFiles%\OS-Setup\cleanup` (administrators only, since it runs elevated) and launched detached under Windows PowerShell 5.1: it waits for the setup to close, uninstalls, deletes, then deletes itself. It takes a few minutes: do not restart right after the setup ends.
+The work is done by `src/cleanup.ps1`, copied with its configuration into `%ProgramFiles%\OS-Setup\cleanup` (administrators only, since it runs elevated) and launched detached under Windows PowerShell 5.1: it waits for the setup to close, uninstalls, deletes, then deletes itself. Deletions never follow junctions or symbolic links: a link placed in the repository copy is removed itself, never the content of the folder it points to (`Remove-Item -Recurse` in Windows PowerShell 5.1 can enter a junction). It takes a few minutes: do not restart right after the setup ends.
 
 ## Windows specifics
 
