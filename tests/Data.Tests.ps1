@@ -25,12 +25,18 @@
 }
 
 Describe 'Données du dépôt' {
+    BeforeAll {
+        # Catalogue lu une seule fois (plusieurs secondes : validation par le schéma) ; une erreur est gardée pour le premier test.
+        $loadError = $null
+        $data = try { Import-OSSetupData -Root $repoRoot } catch { $loadError = $_; $null }
+    }
+
     It 'le catalogue et les profils sont valides' {
-        { Import-OSSetupData -Root $repoRoot } | Should -Not -Throw
+        $loadError | Should -BeNullOrEmpty
+        $data | Should -Not -BeNullOrEmpty
     }
 
     It 'chaque action winget de source msstore donne le nom de son paquet appx (packageName)' {
-        $data = Import-OSSetupData -Root $repoRoot
         $missing = foreach ($item in $data.Items.Values) {
             foreach ($action in $item['actions']) {
                 if ($action['provider'] -eq 'winget' -and $action['source'] -eq 'msstore' -and -not $action['packageName']) { $item['id'] }
@@ -40,7 +46,6 @@ Describe 'Données du dépôt' {
     }
 
     It 'chaque tâche logon-task, lancée avec les droits les plus élevés, exécute un script sous {{ProgramFiles}}\OS-Setup' {
-        $data = Import-OSSetupData -Root $repoRoot
         $variables = Resolve-OSSetupVariable -Data $data -Answers @{ profiles = @($data.Profiles.Keys) }
         $found = @(Get-UnsafeLogonTaskScript -Data $data -Variables $variables)
         $found.Count | Should -Be 0 -Because "un script modifiable sans élévation et lancé avec les droits les plus élevés donne les droits administrateur sans invite UAC : le déployer sous {{ProgramFiles}}\OS-Setup ($($found -join ', '))"
@@ -48,7 +53,7 @@ Describe 'Données du dépôt' {
 
     It 'le contrôle des scripts de logon-task refuse tout script hors de {{ProgramFiles}}\OS-Setup' {
         $variables = Get-OSSetupBuiltinVariable -Root $repoRoot
-        $data = [pscustomobject]@{
+        $fake = [pscustomobject]@{
             Items = [ordered]@{
                 local   = @{ id = 'local'; actions = @(@{ provider = 'logon-task'; script = '{{LocalAppData}}\OS-Setup\a.ps1' }) }
                 env     = @{ id = 'env'; actions = @(@{ provider = 'logon-task'; script = '%APPDATA%\a.ps1' }) }
@@ -61,12 +66,11 @@ Describe 'Données du dépôt' {
                 other   = @{ id = 'other'; actions = @(@{ provider = 'file'; target = '{{LocalAppData}}\a.ps1' }) }
             }
         }
-        $found = @(Get-UnsafeLogonTaskScript -Data $data -Variables $variables)
+        $found = @(Get-UnsafeLogonTaskScript -Data $fake -Variables $variables)
         @($found | ForEach-Object { ($_ -split ' : ')[0] } | Sort-Object) | Should -Be @('data', 'env', 'escape', 'local', 'other3p', 'profile', 'root')
     }
 
     It 'les fichiers de réponses d''exemple sont valides et cohérents' {
-        $data = Import-OSSetupData -Root $repoRoot
         foreach ($file in Get-ChildItem -Path (Join-Path -Path $repoRoot -ChildPath 'answers') -Filter '*.example.json') {
             $answers = Read-OSSetupAnswerFile -Path $file.FullName -Root $repoRoot
             { Test-OSSetupAnswer -Data $data -Answers $answers } | Should -Not -Throw
@@ -149,6 +153,29 @@ Describe 'Documentation' {
 }
 
 Describe 'Faits' {
+    BeforeAll {
+        # Requêtes WMI simulées : la vraie détection prend plusieurs secondes et dépend de la machine.
+        if ($IsWindows) {
+            Mock -ModuleName OSSetup Get-CimInstance -ParameterFilter { $ClassName -eq 'Win32_OperatingSystem' } { [pscustomobject]@{ BuildNumber = '19045' } }
+            Mock -ModuleName OSSetup Get-CimInstance -ParameterFilter { $ClassName -eq 'SoftwareLicensingProduct' } {
+                [pscustomobject]@{ Name = 'Windows(R), Professional edition'; LicenseStatus = 1 }
+            }
+            Mock -ModuleName OSSetup Get-CimInstance -ParameterFilter { $ClassName -eq 'Win32_ComputerSystem' } {
+                [pscustomobject]@{ Manufacturer = 'Dell Inc.'; Model = 'Modèle'; HypervisorPresent = $false }
+            }
+            Mock -ModuleName OSSetup Get-CimInstance -ParameterFilter { $ClassName -eq 'Win32_Processor' } {
+                [pscustomobject]@{ Manufacturer = 'GenuineIntel'; VirtualizationFirmwareEnabled = $true }
+            }
+            Mock -ModuleName OSSetup Get-CimInstance -ParameterFilter { $ClassName -eq 'Win32_VideoController' } {
+                [pscustomobject]@{ Name = 'Intel(R) UHD Graphics' }
+                [pscustomobject]@{ Name = 'NVIDIA GeForce RTX 3070' }
+            }
+            Mock -ModuleName OSSetup Get-ItemProperty -ParameterFilter { $Path -eq 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' } {
+                [pscustomobject]@{ EditionID = 'Professional' }
+            }
+        }
+    }
+
     It 'le schéma des éléments liste exactement les faits détectés par le moteur' {
         $schema = Get-Content -Path (Join-Path -Path $repoRoot -ChildPath 'schemas\item.schema.json') -Raw | ConvertFrom-Json -AsHashtable
         $schemaNames = $schema['properties']['when']['propertyNames']['enum']
@@ -158,6 +185,30 @@ Describe 'Faits' {
     It 'Get-OSSetupFact retourne tous les faits' {
         $facts = Get-OSSetupFact
         @($facts.Keys) | Should -Be (Get-OSSetupFactName)
+    }
+
+    It 'Get-OSSetupFact traduit les réponses WMI en faits' -Skip:(-not $IsWindows) {
+        $facts = Get-OSSetupFact
+        $facts['OSName'] | Should -Be 'windows-10'
+        $facts['OSBuild'] | Should -Be 19045
+        $facts['Edition'] | Should -Be 'Professional'
+        $facts['Activated'] | Should -BeTrue
+        $facts['Manufacturer'] | Should -Be 'dell'
+        $facts['CpuVendor'] | Should -Be 'intel'
+        $facts['VirtualizationEnabled'] | Should -BeTrue
+        $facts['GpuVendor'] | Should -Be @('intel', 'nvidia')
+    }
+
+    It 'Get-OSSetupFact traduit les réponses WMI en faits' -Skip:(-not $IsWindows) {
+        $facts = Get-OSSetupFact
+        $facts['OSName'] | Should -Be 'windows-10'
+        $facts['OSBuild'] | Should -Be 19045
+        $facts['Edition'] | Should -Be 'Professional'
+        $facts['Activated'] | Should -BeTrue
+        $facts['Manufacturer'] | Should -Be 'dell'
+        $facts['CpuVendor'] | Should -Be 'intel'
+        $facts['VirtualizationEnabled'] | Should -BeTrue
+        $facts['GpuVendor'] | Should -Be @('intel', 'nvidia')
     }
 
     It 'Get-OSSetupFact détecte l''activation sans LIKE dans le filtre WMI (lent)' -Skip:(-not $IsWindows) {
