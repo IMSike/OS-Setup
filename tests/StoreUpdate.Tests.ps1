@@ -63,6 +63,28 @@ Describe 'Scripts des tâches des mises à jour du Store' {
         "$(& ([scriptblock]::Create("$stub`n$definition`n$Call")))" | Should -Be '7.5.10.0'
     }
 
+    It 'la tâche SYSTEM recrée le journal et check.json absents, modifiables par les utilisateurs' {
+        # Le corps du script s'exécute au chargement : seule la boucle des fichiers partagés est extraite.
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.System.ps1'), [ref]$null, [ref]$null)
+        $loop = $ast.Find({ param($Node) $Node -is [System.Management.Automation.Language.ForEachStatementAst] -and $Node.Variable.VariablePath.UserPath -eq 'shared' }, $true).Extent.Text
+        $root = Join-Path -Path $TestDrive -ChildPath 'shared'
+        New-Item -Path $root -ItemType Directory | Out-Null
+        $log = Join-Path -Path $root -ChildPath 'store-update.log'
+        $granted = [System.Collections.Generic.List[string]]::new()
+        $icacls = 'Invoke-FakeAclTool'
+        function Invoke-FakeAclTool { $granted.Add("$($args[0]) $($args[1]) $($args[2])") }
+        . ([scriptblock]::Create($loop))
+        Get-Content -Path $log -Raw | Should -BeNullOrEmpty
+        Get-Content -Path (Join-Path -Path $root -ChildPath 'check.json') -Raw | Should -Be '{}'
+        $granted | Should -Be @("$log /grant *S-1-5-32-545:(M)", "$(Join-Path -Path $root -ChildPath 'check.json') /grant *S-1-5-32-545:(M)")
+        # Déjà présents : ni réécrits, ni droits redonnés.
+        Set-Content -Path $log -Value 'ligne'
+        $granted.Clear()
+        . ([scriptblock]::Create($loop))
+        $granted | Should -BeNullOrEmpty
+        (Get-Content -Path $log -Raw).Trim() | Should -Be 'ligne'
+    }
+
     It 'les tâches lancent Windows PowerShell par son chemin complet' {
         $argument = InModuleScope OSSetup { Get-OSSetupStoreUpdateTaskArgument -Role System }
         $expected = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'WindowsPowerShell\v1.0\powershell.exe'

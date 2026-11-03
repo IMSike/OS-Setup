@@ -134,17 +134,14 @@ function Invoke-UserSearch {
 # Lu par le catch : une erreur avant la lecture d'apps.json ne doit pas en provoquer une autre (StrictMode).
 $apps = @()
 try {
-    if ((Test-Path -Path $log) -and (Get-Item -Path $log).Length -gt 1MB) {
-        # Nouveau journal, modifiable par les utilisateurs comme le précédent (le dossier leur est en lecture seule).
-        Move-Item -Path $log -Destination "$log.old" -Force
-        New-Item -Path $log -ItemType File | Out-Null
-        & $icacls $log /grant '*S-1-5-32-545:(M)' | Out-Null
-    }
-    $checkFile = Join-Path -Path $root -ChildPath 'check.json'
-    if (-not (Test-Path -Path $checkFile)) {
-        # Résultat des vérifications supprimé : recréé, modifiable par les utilisateurs (la tâche de recherche l'écrit).
-        [IO.File]::WriteAllText($checkFile, '{}', [Text.UTF8Encoding]::new($false))
-        & $icacls $checkFile /grant '*S-1-5-32-545:(M)' | Out-Null
+    if ((Test-Path -Path $log) -and (Get-Item -Path $log).Length -gt 1MB) { Move-Item -Path $log -Destination "$log.old" -Force }
+    # Fichiers partagés avec les tâches de l'utilisateur (journal renouvelé ou supprimé, résultat des vérifications
+    # supprimé) : recréés avant toute écriture, modifiables par les utilisateurs (le dossier leur est en lecture seule).
+    # Sinon le premier Write-StoreUpdateLog le créerait pour SYSTEM seul, et la recherche et la fenêtre n'y écriraient plus.
+    foreach ($shared in @(@($log, ''), @((Join-Path -Path $root -ChildPath 'check.json'), '{}'))) {
+        if (Test-Path -Path $shared[0]) { continue }
+        [IO.File]::WriteAllText($shared[0], $shared[1], [Text.UTF8Encoding]::new($false))
+        & $icacls $shared[0] /grant '*S-1-5-32-545:(M)' | Out-Null
     }
     # Sous Windows PowerShell 5.1, ConvertFrom-Json rend un tableau JSON d'un bloc : l'affectation puis @() le déplient.
     $apps = ConvertFrom-Json -InputObject (Get-Content -Path (Join-Path -Path $root -ChildPath 'apps.json') -Raw -Encoding UTF8)
