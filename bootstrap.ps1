@@ -8,6 +8,9 @@
     3. Installe Git et PowerShell 7 via winget s'ils sont absents.
     4. Clone (ou met à jour) le dépôt, sauf si le script est lancé depuis un clone existant.
     5. Lance setup.ps1 sous PowerShell 7 en lui transmettant les arguments restants.
+    Avec -WhatIf (simulation) : aucune de ces étapes n'est faite, ni élévation, ni installation, ni clonage, ni
+    écriture de state\bootstrap.json ; le script affiche ce qu'il ferait, puis lance « setup.ps1 -WhatIf » si
+    PowerShell 7 et une copie du dépôt sont déjà présents, sinon explique pourquoi la simulation s'arrête là.
 .EXAMPLE
     Depuis une machine vierge (le fichier est téléchargé pour préserver l'encodage UTF-8) :
     cd $env:TEMP
@@ -236,9 +239,98 @@ function Save-BootstrapInfo {
         ConvertTo-Json | Set-Content -Path $path -Encoding UTF8
 }
 
+function Test-WhatIfArgument {
+    # Vrai si -WhatIf (ou -WhatIf:$true) fait partie des arguments transmis à setup.ps1.
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [AllowNull()]
+        [AllowEmptyCollection()]
+        [string[]]$Argument
+    )
+    foreach ($value in @($Argument)) {
+        if ($value -match '^-WhatIf(:\$?true)?$') { return $true }
+    }
+    $false
+}
+
+function Show-BootstrapSimulation {
+    <#
+    Simulation (-WhatIf) : affiche ce que ferait le bootstrap, sans rien installer, cloner ni écrire, et sans élévation.
+    Retourne de quoi lancer la simulation du setup (PowerShell 7 et copie du dépôt déjà présents), sinon $null
+    après avoir expliqué pourquoi elle est impossible.
+    #>
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory)][string]$RepoUrl,
+        [Parameter(Mandatory)][string]$Branch,
+        [Parameter(Mandatory)][string]$Destination,
+        # Dossier du script : une copie du dépôt s'il contient setup.ps1.
+        [AllowEmptyString()]
+        [string]$ScriptRoot
+    )
+    Write-Step 'Simulation (-WhatIf) : rien n''est installé, cloné ni écrit.'
+    if (-not (Test-Elevated)) { Write-Host -Object '    Relance en administrateur (invite UAC) : non faite en simulation.' }
+    else { Write-Host -Object '    Vérification du compte de la session : non faite en simulation.' }
+
+    $wingetState = if (Get-Command -Name winget -ErrorAction SilentlyContinue) { 'présent' } else { 'serait installé depuis github.com/microsoft/winget-cli' }
+    Write-Host -Object "    winget : $wingetState"
+    $gitState = if (Get-Command -Name git -ErrorAction SilentlyContinue) { 'présent' } else { 'serait installé (winget)' }
+    Write-Host -Object "    Git.Git : $gitState"
+    $storePwsh = Get-AppxPackage -Name Microsoft.PowerShell -ErrorAction SilentlyContinue
+    $pwshState = if ($storePwsh) { 'présent' } else { 'serait installé (Microsoft Store)' }
+    Write-Host -Object "    PowerShell 7 (Store) : $pwshState"
+
+    $repoRoot = $null
+    if ($ScriptRoot -and (Test-Path -LiteralPath (Join-Path -Path $ScriptRoot -ChildPath 'setup.ps1'))) {
+        $repoRoot = $ScriptRoot
+        Write-Host -Object "    Dépôt : copie utilisée telle quelle ($repoRoot)"
+    }
+    elseif (Test-Path -LiteralPath (Join-Path -Path $Destination -ChildPath '.git')) {
+        $repoRoot = $Destination
+        Write-Host -Object "    Dépôt : serait mis à jour (git pull --ff-only) dans $repoRoot ; la simulation utilise la copie actuelle"
+    }
+    else {
+        Write-Host -Object "    Dépôt : $RepoUrl (branche $Branch) serait cloné dans $Destination"
+    }
+    Write-Host -Object '    state\bootstrap.json : non écrit en simulation.'
+
+    # Le pwsh du Store, comme hors simulation ; à défaut, un PowerShell 7 déjà dans le PATH (ex. MSI).
+    $pwsh = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Microsoft\WindowsApps\pwsh.exe'
+    if (-not ($storePwsh -and (Test-Path -LiteralPath $pwsh))) {
+        $command = Get-Command -Name pwsh -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        $pwsh = if ($command) { $command.Source } else { $null }
+    }
+    $setupScript = if ($repoRoot) { Join-Path -Path $repoRoot -ChildPath 'setup.ps1' } else { $null }
+    if (-not $pwsh -or -not $setupScript -or -not (Test-Path -LiteralPath $setupScript)) {
+        $missing = @()
+        if (-not $pwsh) { $missing += 'PowerShell 7 absent' }
+        if (-not $setupScript -or -not (Test-Path -LiteralPath $setupScript)) { $missing += 'pas encore de copie du dépôt' }
+        $message = ("Simulation du setup impossible ({0}) : elle ne peut tourner qu'une fois les outils et le dépôt en place. " +
+            'Lancez le bootstrap sans -WhatIf (le plan est montré et validé avant toute modification), ' +
+            'ou, depuis une copie du dépôt sous PowerShell 7 : ./setup.ps1 -WhatIf') -f ($missing -join ', ')
+        Write-Host -Object ''
+        Write-Host -Object $message -ForegroundColor Yellow
+        return $null
+    }
+    @{ Pwsh = $pwsh; SetupScript = $setupScript }
+}
+
 Write-Step 'Vérification des prérequis'
 if ([Environment]::OSVersion.Platform -ne 'Win32NT' -or [Environment]::OSVersion.Version.Major -lt 10) {
     throw 'OS_Setup nécessite Windows 10 ou plus récent.'
+}
+
+# Simulation : avant l'élévation, et sans aucune des étapes qui modifient la machine.
+if (Test-WhatIfArgument -Argument $SetupArguments) {
+    $simulation = Show-BootstrapSimulation -RepoUrl $RepoUrl -Branch $Branch -Destination $Destination -ScriptRoot $PSScriptRoot
+    if (-not $simulation) { exit 0 }
+    Write-Host -Object ''
+    Write-Step 'Simulation de setup.ps1 (PowerShell 7)'
+    # Sortie non capturée, comme hors simulation (accents préservés).
+    & $simulation.Pwsh -NoProfile -ExecutionPolicy Bypass -File $simulation.SetupScript @SetupArguments
+    exit $LASTEXITCODE
 }
 
 # Une seule élévation pour tout le setup : les processus lancés ensuite héritent des droits administrateur.
