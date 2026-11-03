@@ -112,13 +112,14 @@ Describe 'Invoke-OSSetupCleanup' {
         Set-Content -Path "$code\src\cleanup.ps1" -Value '# copie de la reprise'
         Copy-Item -Path "$root\state\bootstrap.json" -Destination "$code\state\bootstrap.json"
         # Trace du dépôt modifiée après la copie : elle ne doit pas être suivie.
-        @{ ownsClone = $true; bootstrapScript = 'C:\Windows\System32\drivers'; installedTools = @('Autre.Outil') } |
+        $frozenScript = (Get-Content -Path "$code\state\bootstrap.json" -Raw | ConvertFrom-Json).bootstrapScript
+        @{ ownsClone = $true; bootstrapScript = (Join-Path -Path ([IO.Path]::GetTempPath()) -ChildPath 'autre.ps1'); installedTools = @('Autre.Outil') } |
             ConvertTo-Json | Set-Content -Path "$root\state\bootstrap.json"
         Invoke-OSSetupCleanup -Root $root -CodeRoot $code -RunId $runId -SelectedWingetId @() -Yes
         Get-Content -Path $global:OSSetupTestCleanupArgs[-3].Trim('"') -Raw | Should -Match 'copie de la reprise'
         $config = Get-LaunchedConfig
         $config.uninstall | Should -Be @('Git.Git')
-        $config.remove | Should -Be @($root, 'C:\Temp\bootstrap.ps1')
+        $config.remove | Should -Be @($root, $frozenScript)
     }
 
     It 'ne fait rien sans trace du bootstrap (clone de développement)' {
