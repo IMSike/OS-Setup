@@ -148,9 +148,65 @@ function Write-OSSetupRunResult {
     )
     $path = Join-Path -Path $StateRoot -ChildPath 'last-result.json'
     if ($PSCmdlet.ShouldProcess($path, 'Enregistrer le résultat')) {
+        Assert-OSSetupDataPath -Path $path
         New-Item -Path $StateRoot -ItemType Directory -Force | Out-Null
         [ordered]@{ runId = $RunId; exitCode = $ExitCode; finishedAt = (Get-Date).ToString('o') } |
             ConvertTo-Json | Set-Content -Path $path -Encoding utf8NoBOM
+    }
+}
+
+# Dossier des données (dépôt de l'utilisateur) protégé pendant la reprise élevée ; $null hors reprise.
+$script:DataGuardRoot = $null
+
+function Enable-OSSetupDataGuard {
+    <#
+    .SYNOPSIS
+        Active, pour la reprise élevée, la vérification des chemins écrits dans le dossier des données (ADR 0005).
+    #>
+    [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'État du module seulement.')]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Root
+    )
+    $script:DataGuardRoot = [IO.Path]::GetFullPath($Root)
+}
+
+function Assert-OSSetupDataPath {
+    <#
+    .SYNOPSIS
+        Pendant la reprise élevée, refuse d'écrire dans un chemin dont un dossier est une jonction ou un lien
+        symbolique, ou dont le fichier est un lien.
+    .DESCRIPTION
+        La reprise s'exécute en administrateur depuis une copie protégée (ADR 0005), mais écrit ses données (journal,
+        sauvegardes, réponses, résultat) dans le dépôt de l'utilisateur. Un programme lancé sous son compte, sans
+        droits administrateur, pourrait y remplacer un dossier par une jonction et faire écrire le setup dans un
+        dossier protégé. Tout le chemin est contrôlé, jusqu'à la racine du disque, juste avant chaque écriture ; reste
+        l'intervalle entre le contrôle et l'écriture. Les autres points d'analyse (fichiers OneDrive à la demande)
+        sont acceptés. Sans effet hors reprise : le code du premier passage vient de toute façon du dépôt.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+    if (-not $script:DataGuardRoot) { return }
+    $current = [IO.Path]::GetFullPath($Path)
+    $leaf = $true
+    while ($current) {
+        $attributes = try { [IO.File]::GetAttributes($current) } catch { $null }
+        if ($null -ne $attributes) {
+            $isDirectory = [bool]($attributes -band [IO.FileAttributes]::Directory)
+            # Lien physique : seulement pour le fichier écrit (un dossier n'en a pas).
+            if (($attributes -band [IO.FileAttributes]::ReparsePoint) -or ($leaf -and -not $isDirectory)) {
+                $linkType = (Get-Item -LiteralPath $current -Force).LinkType
+                if ($linkType -in 'Junction', 'SymbolicLink', 'HardLink') {
+                    throw "Écriture refusée par sécurité : $current est un lien ($linkType) ; la reprise élevée n'écrit pas au travers d'un lien (ADR 0005)."
+                }
+            }
+        }
+        $leaf = $false
+        $current = [IO.Path]::GetDirectoryName($current)
     }
 }
 

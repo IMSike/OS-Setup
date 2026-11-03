@@ -129,6 +129,8 @@
         'Wait-OSSetupCountdown'
         'Wait-OSSetupUserSession'
         'Write-OSSetupRunResult'
+        'Enable-OSSetupDataGuard'
+        'Assert-OSSetupDataPath'
         # System.ps1
         'Clear-OSSetupStateCache'
         'Get-OSSetupScheduledTask'
