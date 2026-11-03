@@ -94,9 +94,10 @@ Key by key: the user's other settings are kept, and a key changed on the machine
   - one account per machine: the user tasks belong to the account that last ran the setup (checked by SID, registered again for the current account otherwise). The block applies to the whole machine, so the other accounts of the machine no longer get Store updates for PowerShell 7 and Windows Terminal;
   - log: `%ProgramFiles%\OS-Setup\store-update\store-update.log`. If no check has succeeded for more than 14 days, the window says so at most once a day ("Les mises à jour de PowerShell 7 n'ont pas pu être vérifiées depuis N jours : voir le journal …"): automatic updates stay blocked, so PowerShell 7 is no longer updated until the cause in the log is fixed.
 - **Rollback**:
-  1. Delete the tasks `OS-Setup - Store (système)`, `OS-Setup - Store (recherche)` and `OS-Setup - Store (fenêtre)` (Task Scheduler), then the `%ProgramFiles%\OS-Setup\store-update` folder.
-  2. Give the Store back its automatic updates: in an administrator PowerShell, `Get-CimInstance -Namespace root\cimv2\mdm\dmmap -ClassName MDM_EnterpriseModernAppManagement_AppManagement01_02 | Where-Object InstanceID -eq 'Microsoft.PowerShell_8wekyb3d8bbwe' | ForEach-Object { $_.DoNotUpdate = 0; Set-CimInstance -CimInstance $_ }`.
-  3. To uninstall PowerShell 7: Settings > Apps > PowerShell > Uninstall.
+  1. Stop, then delete the three tasks: in an administrator PowerShell, `'OS-Setup - Store (système)', 'OS-Setup - Store (recherche)', 'OS-Setup - Store (fenêtre)' | ForEach-Object { Stop-ScheduledTask -TaskName $_ -ErrorAction SilentlyContinue; Unregister-ScheduledTask -TaskName $_ -Confirm:$false -ErrorAction SilentlyContinue }`. Stop them first: a SYSTEM run still in progress would put the block back after the next step.
+  2. Give the Store back its automatic updates: in the same PowerShell, `Get-CimInstance -Namespace root\cimv2\mdm\dmmap -ClassName MDM_EnterpriseModernAppManagement_AppManagement01_02 | Where-Object InstanceID -eq 'Microsoft.PowerShell_8wekyb3d8bbwe' | ForEach-Object { $_.DoNotUpdate = 0; Set-CimInstance -CimInstance $_ }`.
+  3. Delete the `%ProgramFiles%\OS-Setup\store-update` folder, and only that one: `%ProgramFiles%\OS-Setup` also holds the files of other items (`docker\`). In each account that ran the setup, also delete `%LOCALAPPDATA%\OS-Setup\store-update.json` (delay chosen in the window).
+  4. To uninstall PowerShell 7: Settings > Apps > PowerShell > Uninstall.
 
 ### PowerShell 7 profile — `pwsh-profile`
 
@@ -117,7 +118,7 @@ auto (with `pwsh`) · template file
   - a copy installed from the `winget` source (`Microsoft.WindowsTerminal`, GitHub release) is the same package, with the same identity and Store signature: it counts as installed and is kept, not replaced. On Windows 11, the Terminal shipped with Windows is also that package;
   - on Windows 10, Terminal cannot become the default terminal of Windows (Windows 11 only): a script launched by double-click still opens in the classic console;
   - **Update now** closes all Terminal windows and what runs in them. herdr survives and reattaches when relaunched.
-- **Rollback**: as for `pwsh` (tasks, folder, then `DoNotUpdate` back to 0 for `Microsoft.WindowsTerminal_8wekyb3d8bbwe`). The tasks and the folder are shared by both apps: only delete them if neither should stay guarded. Uninstall: Settings > Apps > Windows Terminal > Uninstall.
+- **Rollback**: as for `pwsh` (stop and delete the tasks, `DoNotUpdate` back to 0 for `Microsoft.WindowsTerminal_8wekyb3d8bbwe`, then the folder and `store-update.json`). The tasks, the folder and `store-update.json` are shared by both apps: only delete them if neither should stay guarded. To stop guarding Terminal alone, remove its entry from `%ProgramFiles%\OS-Setup\store-update\apps.json` (administrator) before setting `DoNotUpdate` back to 0, otherwise the SYSTEM task puts the block back; the setup adds it again if the `windows-terminal` item stays selected. Uninstall: Settings > Apps > Windows Terminal > Uninstall.
 
 ### Windows Terminal settings
 

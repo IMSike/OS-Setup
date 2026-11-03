@@ -64,4 +64,40 @@ Un MSI de PowerShell 7 existant est désinstallé (`win32-uninstall`), pour qu'u
 - Sur un ancien poste, le setup peut tourner sous le MSI de PowerShell 7 qu'il doit désinstaller : `msiexec` l'arrêterait net. Cette désinstallation est reportée à la fermeture du setup et faite par le nettoyage de fin ; si un redémarrage intervient avant, la passe de reprise, sous le PowerShell du Store, désinstalle le MSI directement.
 - La tenue de `DoNotUpdate` sur des mois, sur un poste non géré par un MDM, n'est pas vérifiée. La tâche SYSTEM le rétablit à chaque passage.
 - Si les vérifications échouent durablement (erreur de l'API du Store, tâche de recherche qui ne démarre jamais, tâches d'un autre compte), le blocage laisse les applications sans mises à jour. Plutôt que de lever le blocage, la fenêtre avertit l'utilisateur : `check.json` note pour chaque application la date de la dernière vérification aboutie (`lastSuccess` : « à jour », « proposée », ou installation terminée ; ni une erreur, ni un état `Error` ou `Canceled`, ni un délai dépassé), gardée tant que les passages suivants échouent. Au-delà de 14 jours depuis cette date, ou, sans aucune réussite, depuis la création de `check.json` (posé avec la garde), l'avertissement paraît au plus une fois par jour. Une entrée écrite par une version précédente, sans `lastSuccess`, est ignorée jusqu'à ce que la recherche suivante écrive le champ.
-- Retour arrière : supprimer les trois tâches et `%ProgramFiles%\OS-Setup\store-update`, puis remettre `DoNotUpdate` à 0 (voir [`windows/development.md`](../windows/development.md#powershell-7--pwsh)).
+- Retour arrière sur un poste : arrêter et supprimer les trois tâches, remettre `DoNotUpdate` à 0, puis supprimer `%ProgramFiles%\OS-Setup\store-update` et le `%LOCALAPPDATA%\OS-Setup\store-update.json` de chaque compte (voir [`windows/development.md`](../windows/development.md#powershell-7--pwsh)).
+
+## Retrait
+
+La garde est un contournement : elle a vocation à être retirée d'OS-Setup quand Windows ne fermera plus ces applications de force.
+
+**Condition**, toutes à la fois :
+
+- Windows 10 n'est plus pris en charge par OS-Setup (le correctif amont n'y a pas d'effet) ;
+- le PowerShell du Store déclare le report dans un manifeste que Windows respecte : `UpdateWhileInUse=defer` dans `(Get-AppxPackageManifest Microsoft.PowerShell).Package.Properties`, et `MaxVersionTested` au moins égal à `10.0.26100.0` dans `(Get-AppxPackageManifest Microsoft.PowerShell).Package.Dependencies.TargetDeviceFamily` ;
+- l'essai en VM du contexte, refait sans la garde sous Windows 11 : blocage levé (`DoNotUpdate = 0`), application ouverte, mise à jour reportée sur au moins 3 dates UTC distinctes, session verrouillée ; rien n'est fermé, et l'événement 638 indique « Force update deferred by package: true » ;
+- le même essai pour Windows Terminal, qui déclare déjà le report.
+
+**Périmètre à retirer** :
+
+- `src/store-update/` (les quatre scripts), `src/OSSetup/Functions/StoreUpdate.ps1`, `src/providers/store-update-guard.ps1` ;
+- les exports de `StoreUpdate.ps1` dans `src/OSSetup/OSSetup.psd1` (de `ConvertTo-OSSetupStoreUpdateApp` à `Test-OSSetupStoreUpdateGuard`, `Get-OSSetupAccountSid` compris : rien d'autre ne s'en sert) ;
+- la définition `storeUpdateGuardAction` de `schemas/item.schema.json` et sa référence dans la liste des actions ;
+- les actions `store-update-guard` de `catalog/dev/pwsh.json` et `catalog/dev/windows-terminal.json` ;
+- `tests/StoreUpdate.Tests.ps1` et les entrées `src\store-update\…` de `tests/CodeQuality.Tests.ps1` ;
+- dans les deux langues : la ligne `store-update-guard` de `how-it-works.md`, les paragraphes « Mises à jour », les implications et retours arrière de la garde de `pwsh` et `windows-terminal` dans `windows/development.md`, les tâches du Store dans `testing.md` ; cet ADR passe à « remplacé », avec la date et la raison ;
+- le commentaire de `Get-OSSetupStoreCancelScript` (`src/OSSetup/Functions/System.ps1`) qui renvoie à `StoreUpdate.User.ps1`.
+
+**À garder** : PowerShell 7 et Windows Terminal installés depuis le Store (bootstrap, éléments `pwsh` et `windows-terminal`, `source: msstore`) ; `packageName` et `Test-OSSetupAppxInstalled` ; l'alias d'exécution (`Get-OSSetupPwshPath`) pour la tâche de reprise et l'élévation ; `Import-OSSetupDismModule` ; la désinstallation du MSI de PowerShell et son report à la fermeture du setup ; `Stop-OSSetupStoreUpdate` et le provider `appx` ; `Invoke-OSSetupUnelevatedCommand` ; les entrées de `pitfalls.md`.
+
+**Commits** sur `dev`, comme point de départ. Des commits plus récents ont pu toucher les mêmes fichiers : retirer le périmètre ci-dessus en un seul commit est en général plus simple que de les annuler un à un, en s'aidant de cette liste. Les commits plus récents de la garde se retrouvent avec `git log --oneline -- src/store-update src/OSSetup/Functions/StoreUpdate.ps1 src/providers/store-update-guard.ps1 tests/StoreUpdate.Tests.ps1`.
+
+- Garde seule, à annuler : `4a6806b`, `e07f7cd`, `61bcb2e`, `374ca07`, `922507c`, `843562c`, `9313766`, `f199320`, `2f4f388`, `3a232e0`, `8932fd7`, `7c57694`, `feff7da`, `a742345`, `ba52c18`, `0089583`, `5d23a37`, `55006a6`, `f30e20b`, `d01f38c`, `20eb245`, `729ed34`, `0b9fa03`, `41e3afe`, `ae1028a`, `b531e5a`.
+- Mixtes, à défaire à la main pour la seule partie garde : `b0a27a8` (introduit la garde, mais aussi l'installation par le Store dans le bootstrap, l'alias d'exécution, `Import-OSSetupDismModule`, la `source` de winget et le nettoyage qui considère le MSI et le produit du Store comme un seul outil), `85b5236` (PowerShell 7 depuis le Store et les actions de garde des deux éléments), `afb524e` (Windows Terminal depuis le Store).
+- À ne pas annuler, ils restent : `33b40f5`, `f63ddd8`, `598fafc`, `fde17a1`, `6043126`, `00cf8e7`, `c37c514`, `a75e8a2`, `107fda0`, `e1ffc5b`, `d9fd440`.
+
+**Restes sur les postes installés** : les trois tâches, le dossier `%ProgramFiles%\OS-Setup\store-update`, `DoNotUpdate = 1` sur les deux familles de paquets, et `%LOCALAPPDATA%\OS-Setup\store-update.json` dans chaque compte qui a lancé le setup. Sans nettoyage, le Store ne mettrait plus jamais ces applications à jour. Une étape de nettoyage est livrée avant le retrait ou avec lui, et reste jusqu'à ce que tous les postes l'aient passée :
+
+1. arrêter puis supprimer les trois tâches : la tâche SYSTEM ne doit plus tourner, sinon elle remettrait le blocage ;
+2. remettre `DoNotUpdate` à 0 pour `Microsoft.PowerShell_8wekyb3d8bbwe` et `Microsoft.WindowsTerminal_8wekyb3d8bbwe` ;
+3. supprimer `%ProgramFiles%\OS-Setup\store-update` seulement, jamais `%ProgramFiles%\OS-Setup`, qui contient aussi les fichiers d'autres éléments (`docker\`) ;
+4. supprimer le `%LOCALAPPDATA%\OS-Setup\store-update.json` du compte qui lance le setup (les copies des autres comptes sont sans effet : plus rien ne les lit).

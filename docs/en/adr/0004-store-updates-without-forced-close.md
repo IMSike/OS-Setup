@@ -44,7 +44,7 @@ PowerShell 7 is installed from the Store (`winget --source msstore`, product `9M
     - during that check (up to 30 minutes if a SYSTEM run is already in progress), a small window "Vérification auprès du Store…" ("Checking with the Store…") stays on screen with a **Cancel** button. Cancel (or Esc) stops waiting, closes nothing, and asks again in 10 minutes (line in the log);
     - the SYSTEM task is the reference: if, in the `open.json` written during that check, it sees a still running process of the app that the window does not see, nothing is closed (herdr included) and the window shows "Une fenêtre administrateur ou la session d'un autre utilisateur utilise <app> : fermez-la, la mise à jour se fera ensuite." ("An administrator window or another user's session is using <app>: close it, the update will follow."), then asks again in 10 minutes. An `open.json` missing or older than the check is ignored (line in the log).
 
-Files next to the scripts, read-only for users: `apps.json` (guarded apps, written by the setup), `run.json` (request of the SYSTEM task to the search task) and `open.json` (processes seen by the SYSTEM task), written by SYSTEM. Writable by users: `check.json` (check results) and `store-update.log` (shared log), writable by users. Deleting the folder removes them all.
+Files next to the scripts, read-only for users: `apps.json` (guarded apps, written by the setup), `run.json` (request of the SYSTEM task to the search task) and `open.json` (processes seen by the SYSTEM task), written by SYSTEM. Writable by users: `check.json` (check results) and `store-update.log` (shared log). Deleting the folder removes them all.
 
 An existing MSI of PowerShell 7 is uninstalled (`win32-uninstall`) so that a machine already in use ends like a fresh one. The cleanup treats the `Microsoft.PowerShell` identifier recorded by an older bootstrap and the Store product as the same tool.
 
@@ -61,4 +61,40 @@ An existing MSI of PowerShell 7 is uninstalled (`win32-uninstall`) so that a mac
 - On an older machine, the setup may run under the PowerShell 7 MSI it must uninstall: `msiexec` would stop it on the spot. That uninstall is postponed until the setup closes and done by the end-of-setup cleanup; if a reboot comes first, the resume pass, under the Store PowerShell, uninstalls the MSI directly.
 - How long `DoNotUpdate` holds on a machine not managed by an MDM is not verified over months. The SYSTEM task restores it at each run.
 - If the checks keep failing (Store API error, search task that never starts, tasks of another account), the block keeps the apps without updates. Rather than lifting the block, the window warns the user: `check.json` records for each app the date of the last check that succeeded (`lastSuccess`: "up to date", "offered", or installation completed; not an error, nor an `Error` or `Canceled` state, nor a timeout), kept while the following runs fail. Beyond 14 days since that date, or, with no success at all, since `check.json` was created (it is laid with the guard), the warning appears at most once a day. An entry written by an earlier version, without `lastSuccess`, is ignored until the next search writes the field.
-- Rollback: delete the three tasks and `%ProgramFiles%\OS-Setup\store-update`, then set `DoNotUpdate` back to 0 (see [`windows/development.md`](../windows/development.md#powershell-7--pwsh)).
+- Rollback on a machine: stop and delete the three tasks, set `DoNotUpdate` back to 0, then delete `%ProgramFiles%\OS-Setup\store-update` and each account's `%LOCALAPPDATA%\OS-Setup\store-update.json` (see [`windows/development.md`](../windows/development.md#powershell-7--pwsh)).
+
+## Removal
+
+The guard is a workaround: it is meant to be removed from OS-Setup once Windows no longer force-closes these apps.
+
+**Condition**, all of:
+
+- Windows 10 is no longer supported by OS-Setup (the upstream fix has no effect there);
+- the Store PowerShell declares the deferral in a manifest Windows honours: `UpdateWhileInUse=defer` in `(Get-AppxPackageManifest Microsoft.PowerShell).Package.Properties`, and `MaxVersionTested` at least `10.0.26100.0` in `(Get-AppxPackageManifest Microsoft.PowerShell).Package.Dependencies.TargetDeviceFamily`;
+- the VM test of the context, redone without the guard on Windows 11: block lifted (`DoNotUpdate = 0`), app running, update deferred on at least 3 distinct UTC dates, session locked; nothing is closed, and event 638 reads "Force update deferred by package: true";
+- the same test for Windows Terminal, which already declares the deferral.
+
+**Perimeter to remove**:
+
+- `src/store-update/` (all four scripts), `src/OSSetup/Functions/StoreUpdate.ps1`, `src/providers/store-update-guard.ps1`;
+- the `StoreUpdate.ps1` exports in `src/OSSetup/OSSetup.psd1` (`ConvertTo-OSSetupStoreUpdateApp` to `Test-OSSetupStoreUpdateGuard`, `Get-OSSetupAccountSid` included: nothing else uses it);
+- the `storeUpdateGuardAction` definition of `schemas/item.schema.json` and its reference in the action list;
+- the `store-update-guard` actions of `catalog/dev/pwsh.json` and `catalog/dev/windows-terminal.json`;
+- `tests/StoreUpdate.Tests.ps1` and the `src\store-update\…` entries of `tests/CodeQuality.Tests.ps1`;
+- in both languages: the `store-update-guard` row of `how-it-works.md`, the "Updates" paragraphs, the guard implications and rollbacks of `pwsh` and `windows-terminal` in `windows/development.md`, the Store tasks in `testing.md`; this ADR becomes "superseded", with the date and the reason;
+- the comment of `Get-OSSetupStoreCancelScript` (`src/OSSetup/Functions/System.ps1`) that refers to `StoreUpdate.User.ps1`.
+
+**To keep**: PowerShell 7 and Windows Terminal installed from the Store (bootstrap, `pwsh` and `windows-terminal` items, `source: msstore`); `packageName` and `Test-OSSetupAppxInstalled`; the execution alias (`Get-OSSetupPwshPath`) for the resume task and elevation; `Import-OSSetupDismModule`; the uninstall of the PowerShell MSI and its deferral to the setup close; `Stop-OSSetupStoreUpdate` and the `appx` provider; `Invoke-OSSetupUnelevatedCommand`; the entries of `pitfalls.md`.
+
+**Commits** on `dev`, as a starting point. Later commits may have touched the same files: removing the perimeter above in one commit is usually simpler than reverting them one by one, with this list as a guide. Later guard commits come from `git log --oneline -- src/store-update src/OSSetup/Functions/StoreUpdate.ps1 src/providers/store-update-guard.ps1 tests/StoreUpdate.Tests.ps1`.
+
+- Guard only, to revert: `4a6806b`, `e07f7cd`, `61bcb2e`, `374ca07`, `922507c`, `843562c`, `9313766`, `f199320`, `2f4f388`, `3a232e0`, `8932fd7`, `7c57694`, `feff7da`, `a742345`, `ba52c18`, `0089583`, `5d23a37`, `55006a6`, `f30e20b`, `d01f38c`, `20eb245`, `729ed34`, `0b9fa03`, `41e3afe`, `ae1028a`, `b531e5a`.
+- Mixed, to undo by hand for the guard part only: `b0a27a8` (introduces the guard, but also the Store install by the bootstrap, the execution alias, `Import-OSSetupDismModule`, the winget `source` and the cleanup that treats the MSI and the Store product as one tool), `85b5236` (PowerShell 7 from the Store and the guard actions of both items), `afb524e` (Windows Terminal from the Store).
+- Not to revert, they stay: `33b40f5`, `f63ddd8`, `598fafc`, `fde17a1`, `6043126`, `00cf8e7`, `c37c514`, `a75e8a2`, `107fda0`, `e1ffc5b`, `d9fd440`.
+
+**Leftovers on installed machines**: the three tasks, the `%ProgramFiles%\OS-Setup\store-update` folder, `DoNotUpdate = 1` on both package families, and `%LOCALAPPDATA%\OS-Setup\store-update.json` in each account that ran the setup. Without a cleanup, the Store would never update these apps again. A cleanup step ships before the removal or with it, and stays until every machine has run it:
+
+1. stop then delete the three tasks: the SYSTEM task must not be running any more, or it would put the block back;
+2. set `DoNotUpdate` back to 0 for `Microsoft.PowerShell_8wekyb3d8bbwe` and `Microsoft.WindowsTerminal_8wekyb3d8bbwe`;
+3. delete `%ProgramFiles%\OS-Setup\store-update` only, never `%ProgramFiles%\OS-Setup`, which also holds other items' files (`docker\`);
+4. delete `%LOCALAPPDATA%\OS-Setup\store-update.json` of the account that runs the setup (the copies of other accounts are harmless: nothing reads them any more).

@@ -94,9 +94,10 @@ Clé par clé : les autres réglages de l'utilisateur sont conservés, et une cl
   - un seul compte par poste : les tâches de l'utilisateur appartiennent au dernier compte qui a lancé le setup (vérifié par SID, réenregistrées pour le compte courant sinon). Le blocage vaut pour tout le poste : les autres comptes du poste n'ont plus de mises à jour du Store pour PowerShell 7 et Windows Terminal ;
   - journal : `%ProgramFiles%\OS-Setup\store-update\store-update.log`. Si aucune vérification n'a abouti depuis plus de 14 jours, la fenêtre le signale au plus une fois par jour (« Les mises à jour de PowerShell 7 n'ont pas pu être vérifiées depuis N jours : voir le journal … ») : les mises à jour automatiques restent bloquées, PowerShell 7 n'est donc plus mis à jour tant que la cause notée au journal n'est pas réglée.
 - **Revenir en arrière** :
-  1. Supprimer les tâches `OS-Setup - Store (système)`, `OS-Setup - Store (recherche)` et `OS-Setup - Store (fenêtre)` (Planificateur de tâches), puis le dossier `%ProgramFiles%\OS-Setup\store-update`.
-  2. Rendre au Store ses mises à jour automatiques : dans un PowerShell administrateur, `Get-CimInstance -Namespace root\cimv2\mdm\dmmap -ClassName MDM_EnterpriseModernAppManagement_AppManagement01_02 | Where-Object InstanceID -eq 'Microsoft.PowerShell_8wekyb3d8bbwe' | ForEach-Object { $_.DoNotUpdate = 0; Set-CimInstance -CimInstance $_ }`.
-  3. Pour désinstaller PowerShell 7 : Paramètres > Applications > PowerShell > Désinstaller.
+  1. Arrêter, puis supprimer les trois tâches : dans un PowerShell administrateur, `'OS-Setup - Store (système)', 'OS-Setup - Store (recherche)', 'OS-Setup - Store (fenêtre)' | ForEach-Object { Stop-ScheduledTask -TaskName $_ -ErrorAction SilentlyContinue; Unregister-ScheduledTask -TaskName $_ -Confirm:$false -ErrorAction SilentlyContinue }`. Les arrêter d'abord : une exécution SYSTEM encore en cours remettrait le blocage après l'étape suivante.
+  2. Rendre au Store ses mises à jour automatiques : dans le même PowerShell, `Get-CimInstance -Namespace root\cimv2\mdm\dmmap -ClassName MDM_EnterpriseModernAppManagement_AppManagement01_02 | Where-Object InstanceID -eq 'Microsoft.PowerShell_8wekyb3d8bbwe' | ForEach-Object { $_.DoNotUpdate = 0; Set-CimInstance -CimInstance $_ }`.
+  3. Supprimer le dossier `%ProgramFiles%\OS-Setup\store-update`, et lui seul : `%ProgramFiles%\OS-Setup` contient aussi les fichiers d'autres éléments (`docker\`). Dans chaque compte qui a lancé le setup, supprimer aussi `%LOCALAPPDATA%\OS-Setup\store-update.json` (report choisi dans la fenêtre).
+  4. Pour désinstaller PowerShell 7 : Paramètres > Applications > PowerShell > Désinstaller.
 
 ### Profil PowerShell 7 — `pwsh-profile`
 
@@ -117,7 +118,7 @@ auto (avec `pwsh`) · fichier gabarit
   - une copie installée depuis la source `winget` (`Microsoft.WindowsTerminal`, publication GitHub) est le même paquet, avec la même identité et la signature du Store : elle compte comme installée et elle est gardée, pas remplacée. Sous Windows 11, le Terminal livré avec Windows est aussi ce paquet ;
   - sous Windows 10, Terminal ne peut pas devenir le terminal par défaut de Windows (Windows 11 seulement) : un script lancé par double-clic s'ouvre encore dans la console classique ;
   - **Mettre à jour maintenant** ferme toutes les fenêtres de Terminal et ce qui y tourne. herdr survit et se rattache à la relance.
-- **Revenir en arrière** : comme pour `pwsh` (tâches, dossier, puis `DoNotUpdate` à 0 pour `Microsoft.WindowsTerminal_8wekyb3d8bbwe`). Les tâches et le dossier sont communs aux deux applications : ne les supprimer que si aucune ne doit plus être encadrée. Désinstaller : Paramètres > Applications > Windows Terminal > Désinstaller.
+- **Revenir en arrière** : comme pour `pwsh` (arrêter et supprimer les tâches, `DoNotUpdate` à 0 pour `Microsoft.WindowsTerminal_8wekyb3d8bbwe`, puis le dossier et `store-update.json`). Les tâches, le dossier et `store-update.json` sont communs aux deux applications : ne les supprimer que si aucune ne doit plus être encadrée. Pour cesser d'encadrer Terminal seul, retirer son entrée de `%ProgramFiles%\OS-Setup\store-update\apps.json` (administrateur) avant de remettre `DoNotUpdate` à 0, sinon la tâche SYSTEM remet le blocage ; le setup la remet si l'élément `windows-terminal` reste coché. Désinstaller : Paramètres > Applications > Windows Terminal > Désinstaller.
 
 ### Réglages de Windows Terminal
 
