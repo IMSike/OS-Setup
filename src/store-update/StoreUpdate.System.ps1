@@ -91,6 +91,18 @@ function Save-OpenProcess {
 
 function Invoke-UserSearch {
     param([object[]]$App, [string]$Mode, [int]$TimeoutMinutes)
+    # Une seule instance de la recherche à la fois : demandée pendant une recherche précédente encore en cours (lancée
+    # par une exécution arrêtée avant sa fin), elle serait ignorée, et la fin de la précédente, qui a lu l'ancien run.json,
+    # passerait pour la sienne. On attend d'abord sa fin, blocage en place. Elle s'arrête d'elle-même à l'échéance de son
+    # run.json : 3 min suffisent, et gardent l'exécution sous sa limite de 30 min. Toujours en cours : rien n'est demandé.
+    $busyUntil = (Get-Date).AddMinutes(3)
+    while ((Get-ScheduledTask -TaskName $userTask).State -eq 'Running') {
+        if ((Get-Date) -ge $busyUntil) {
+            Write-StoreUpdateLog 'recherche précédente toujours en cours après 3 min : rien n''est demandé'
+            return
+        }
+        Start-Sleep -Seconds 2
+    }
     # Le blocage est levé le temps de la demande au Store (il ne propose rien tant qu'il est en place), puis remis.
     # deadline : échéance de la recherche, une minute avant que l'attente ci-dessous s'arrête et remette le blocage.
     $request = [ordered]@{ mode = $Mode; productIds = @($App | ForEach-Object { $_.productId }); requested = (Get-Date).ToString('o')
@@ -119,7 +131,7 @@ function Invoke-UserSearch {
                 (Get-Item -Path $checkPath -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $started })
             $done = $ran -and $task.State -ne 'Running'
             if (-not $ran -and (Get-Date) -ge $started.AddMinutes(1)) {
-                # Demande ignorée (une recherche précédente tourne encore) ou session absente : pas de blocage levé pour rien.
+                # Demande ignorée (session absente, recherche lancée entre-temps) : pas de blocage levé pour rien.
                 Write-StoreUpdateLog 'recherche non démarrée après 1 min'
                 return
             }

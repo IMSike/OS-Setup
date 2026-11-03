@@ -228,6 +228,67 @@ function Invoke-FakeSchtasks {
     }
 }
 
+Describe 'Tâche SYSTEM : demande de recherche' {
+    BeforeAll {
+        # Seule la fonction est extraite. Planificateur, horloge, attente et blocage simulés ($sim) : aucun effet sur le système.
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.System.ps1'), [ref]$null, [ref]$null)
+        $function = $ast.Find({ param($Node) $Node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $Node.Name -eq 'Invoke-UserSearch' }, $true).Extent.Text
+        $stubs = @'
+$userTask = 'OS-Setup - Store (recherche)'
+function Write-StoreUpdateLog([string]$Message) { $sim.log.Add($Message) }
+function Write-DoNotUpdate([string]$Family, [int]$Value) { $sim.block.Add("$Value $($sim.clock.ToString('HH:mm:ss'))") }
+function Get-Item { [CmdletBinding()] param([string]$Path) }
+function Get-Date { $sim.clock }
+function Start-Sleep([int]$Seconds) { $sim.clock = $sim.clock.AddSeconds($Seconds) }
+function Get-ScheduledTask { [CmdletBinding()] param([string]$TaskName)
+    [pscustomobject]@{ TaskName = $TaskName; State = $(if ($sim.busyUntil -and $sim.clock -lt $sim.busyUntil) { 'Running' } else { 'Ready' }) } }
+function Get-ScheduledTaskInfo { [CmdletBinding()] param([Parameter(ValueFromPipeline)]$InputObject) process { [pscustomobject]@{ LastRunTime = $sim.lastRunTime } } }
+$schtasks = 'Invoke-FakeScheduler'
+function Invoke-FakeScheduler {
+    $sim.runs.Add($sim.clock)
+    # Une seule instance (IgnoreNew) : demande ignorée pendant une exécution.
+    if (-not ($sim.busyUntil -and $sim.clock -lt $sim.busyUntil)) {
+        $sim.lastRunTime = $sim.clock
+        $sim.busyUntil = $sim.clock.AddSeconds(60)
+    }
+    $global:LASTEXITCODE = 0
+}
+'@
+        $load = $stubs + "`n" + $function
+    }
+
+    BeforeEach {
+        $now = [datetime]'2026-11-01T10:00:00'
+        $root = $TestDrive
+        $sim = @{ clock = $now; busyUntil = $null; lastRunTime = $now.AddDays(-1)
+            runs = [System.Collections.Generic.List[datetime]]::new(); log = [System.Collections.Generic.List[string]]::new()
+            block = [System.Collections.Generic.List[string]]::new() }
+        $apps = @([pscustomobject]@{ family = 'Microsoft.PowerShell_8wekyb3d8bbwe'; productId = '9MZ1SNWT0N5D' })
+    }
+
+    It 'attend la fin d''une recherche précédente avant de lever le blocage et de lancer la sienne' {
+        $sim.busyUntil = $now.AddMinutes(2)
+        $sim.lastRunTime = $now.AddMinutes(-10)
+        . ([scriptblock]::Create($load))
+        Invoke-UserSearch -App $apps -Mode 'check' -TimeoutMinutes 3
+        $sim.runs.Count | Should -Be 1
+        $sim.runs[0] | Should -BeGreaterOrEqual $now.AddMinutes(2)
+        # Levé après la fin de la précédente, remis après la fin de la sienne (60 s).
+        $sim.block[0] | Should -BeLike '0 10:02:*'
+        $sim.block[1] | Should -BeLike '1 10:03:*'
+        $sim.log | Should -BeNullOrEmpty
+    }
+
+    It 'ne demande rien quand la recherche précédente tourne encore après 3 min' {
+        $sim.busyUntil = $now.AddMinutes(20)
+        . ([scriptblock]::Create($load))
+        Invoke-UserSearch -App $apps -Mode 'update' -TimeoutMinutes 15
+        $sim.runs.Count | Should -Be 0
+        $sim.block | Should -BeNullOrEmpty
+        $sim.log | Should -Be @('recherche précédente toujours en cours après 3 min : rien n''est demandé')
+    }
+}
+
 Describe 'Fenêtre : décisions sous Windows PowerShell 5.1' {
     BeforeAll {
         # Le script est chargé avec un point dans un Windows PowerShell 5.1 enfant, qui l'exécute en vrai. Fichiers dans
