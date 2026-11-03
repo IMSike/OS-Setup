@@ -7,9 +7,10 @@ $script:PowerSettings = @{
     display   = @('SUB_VIDEO', 'VIDEOIDLE')
 }
 
-# Listes DISM complètes (paquets provisionnés, capacités Windows), longues à lire (session Windows PowerShell 5.1 sous
-# le PowerShell 7 du Store) : lues une fois par passe, effacées avant et après chaque action exécutée.
-$script:DismCache = @{}
+# Listes d'état longues à lire, lues une fois par passe, effacées avant et après chaque action exécutée : listes DISM
+# complètes (paquets provisionnés, capacités Windows ; session Windows PowerShell 5.1 sous le PowerShell 7 du Store)
+# et tâches planifiées (une lecture de toutes les tâches coûte autant qu'une lecture par nom).
+$script:StateCache = @{}
 
 function Import-OSSetupCompatibilityModule {
     <#
@@ -92,33 +93,33 @@ function Get-OSSetupAppxPresence {
 function Get-OSSetupProvisionedPackage {
     <#
     .SYNOPSIS
-        Paquets provisionnés (DisplayName, PackageName), lus une fois par passe (cache vidé par Clear-OSSetupDismCache).
+        Paquets provisionnés (DisplayName, PackageName), lus une fois par passe (cache vidé par Clear-OSSetupStateCache).
         Lecture admin uniquement.
     #>
     [CmdletBinding()]
     param()
-    if (-not $script:DismCache.ContainsKey('ProvisionedPackages')) {
+    if (-not $script:StateCache.ContainsKey('ProvisionedPackages')) {
         Import-OSSetupDismModule
-        $script:DismCache['ProvisionedPackages'] = @(Get-AppxProvisionedPackage -Online |
+        $script:StateCache['ProvisionedPackages'] = @(Get-AppxProvisionedPackage -Online |
                 ForEach-Object { [pscustomobject]@{ DisplayName = [string]$_.DisplayName; PackageName = [string]$_.PackageName } })
     }
-    $script:DismCache['ProvisionedPackages']
+    $script:StateCache['ProvisionedPackages']
 }
 
 function Get-OSSetupWindowsCapabilityList {
     <#
     .SYNOPSIS
-        Capacités Windows (Name, State), lues une fois par passe (cache vidé par Clear-OSSetupDismCache). Lecture
+        Capacités Windows (Name, State), lues une fois par passe (cache vidé par Clear-OSSetupStateCache). Lecture
         admin uniquement.
     #>
     [CmdletBinding()]
     param()
-    if (-not $script:DismCache.ContainsKey('WindowsCapabilities')) {
+    if (-not $script:StateCache.ContainsKey('WindowsCapabilities')) {
         Import-OSSetupDismModule
-        $script:DismCache['WindowsCapabilities'] = @(Get-WindowsCapability -Online |
+        $script:StateCache['WindowsCapabilities'] = @(Get-WindowsCapability -Online |
                 ForEach-Object { [pscustomobject]@{ Name = [string]$_.Name; State = [string]$_.State } })
     }
-    $script:DismCache['WindowsCapabilities']
+    $script:StateCache['WindowsCapabilities']
 }
 
 function Get-OSSetupWindowsCapabilityMatch {
@@ -134,15 +135,38 @@ function Get-OSSetupWindowsCapabilityMatch {
     Get-OSSetupWindowsCapabilityList | Where-Object { $_.Name -like "$Name~*" }
 }
 
-function Clear-OSSetupDismCache {
+function Clear-OSSetupStateCache {
     <#
     .SYNOPSIS
-        Oublie les listes DISM lues (paquets provisionnés, capacités Windows) : appelé au début de chaque passe et
-        autour de chaque action exécutée, pour que les vérifications relisent l'état réel.
+        Oublie les listes d'état lues (paquets provisionnés, capacités Windows, tâches planifiées) : appelé au début
+        de chaque passe et autour de chaque action exécutée, pour que les vérifications relisent l'état réel.
     #>
     [CmdletBinding()]
     param()
-    $script:DismCache.Clear()
+    $script:StateCache.Clear()
+}
+
+function Get-OSSetupScheduledTask {
+    <#
+    .SYNOPSIS
+        Tâche planifiée par son nom (et son dossier), d'après la liste de toutes les tâches lue une fois par passe
+        (cache vidé par Clear-OSSetupStateCache). Rien si elle n'existe pas.
+    .DESCRIPTION
+        Pour les tests de présence des providers : Get-ScheduledTask coûte environ 0,4 s par appel, qu'il lise une
+        tâche ou toutes. Une attente qui suit l'état d'une tâche en cours appelle Get-ScheduledTask directement.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$TaskName,
+
+        # Dossier de la tâche (ex. « \Microsoft\Windows\Autochk\ ») ; sans lui, tous les dossiers.
+        [string]$TaskPath
+    )
+    if (-not $script:StateCache.ContainsKey('ScheduledTasks')) {
+        $script:StateCache['ScheduledTasks'] = @(Get-ScheduledTask -ErrorAction SilentlyContinue)
+    }
+    $script:StateCache['ScheduledTasks'] | Where-Object { $_.TaskName -eq $TaskName -and (-not $TaskPath -or $_.TaskPath -eq $TaskPath) }
 }
 
 function Get-OSSetupStoreCancelScript {

@@ -142,7 +142,8 @@
         'Set-OSSetupDoNotUpdate'
         'Test-OSSetupStoreUpdateGuard'
         # System.ps1
-        'Clear-OSSetupDismCache'
+        'Clear-OSSetupStateCache'
+        'Get-OSSetupScheduledTask'
         'ConvertFrom-OSSetupPowerQuery'
         'ConvertTo-OSSetupUninstallCommand'
         'Disable-OSSetupStartupEntry'

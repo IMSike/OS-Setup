@@ -555,6 +555,9 @@ Describe 'Mises à jour encadrées du Store' {
         Mock -ModuleName OSSetup Get-ScheduledTask {
             [pscustomobject]@{ TaskName = $TaskName; Actions = @([pscustomobject]@{ Arguments = 'faux' }) }
         }
+        Mock -ModuleName OSSetup Get-OSSetupScheduledTask {
+            [pscustomobject]@{ TaskName = $TaskName; Actions = @([pscustomobject]@{ Arguments = 'faux' }) }
+        }
         Mock -ModuleName OSSetup icacls.exe {}
     }
 
@@ -568,7 +571,7 @@ Describe 'Mises à jour encadrées du Store' {
             $marker = InModuleScope OSSetup { $script:StoreUpdateTaskMarker }
             # Compte des tâches de l'utilisateur : le compte courant, par son SID (le Planificateur peut aussi rendre un nom).
             $taskUser = @{ User = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value; Prompt = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value }
-            Mock -ModuleName OSSetup Get-ScheduledTask {
+            Mock -ModuleName OSSetup Get-OSSetupScheduledTask {
                 $role = @{ 'OS-Setup - Store (système)' = 'System'; 'OS-Setup - Store (recherche)' = 'User'; 'OS-Setup - Store (fenêtre)' = 'Prompt' }[[string]$TaskName]
                 $userId = if ($role -eq 'System') { 'SYSTEM' } else { $taskUser[$role] }
                 [pscustomobject]@{ TaskName = $TaskName; State = $taskState; Description = "OS-Setup : tâche. $marker"
@@ -649,7 +652,7 @@ Describe 'Mises à jour encadrées du Store' {
         }
 
         It 'n''est pas conforme quand une tâche lance autre chose' {
-            Mock -ModuleName OSSetup Get-ScheduledTask { [pscustomobject]@{ TaskName = $TaskName; Actions = @([pscustomobject]@{ Arguments = 'autre' }) } }
+            Mock -ModuleName OSSetup Get-OSSetupScheduledTask { [pscustomobject]@{ TaskName = $TaskName; Actions = @([pscustomobject]@{ Arguments = 'autre' }) } }
             InModuleScope OSSetup -Parameters @{ Action = $pwshAction; Source = $sourceRoot } {
                 param($Action, $Source) Test-OSSetupStoreUpdateGuard -Action $Action -SourceRoot $Source
             } | Should -BeFalse

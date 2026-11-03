@@ -73,6 +73,10 @@ Describe 'Provider service' {
 }
 
 Describe 'Provider scheduled-task' {
+    BeforeEach {
+        InModuleScope OSSetup { Clear-OSSetupStateCache }
+    }
+
     It 'est conforme si une tâche à désactiver est absente' {
         Mock -ModuleName OSSetup Get-ScheduledTask {}
         Invoke-TestProviderTest -Name scheduled-task -Action @{ task = '\X\Y'; enabled = $false } | Should -BeTrue
@@ -84,9 +88,41 @@ Describe 'Provider scheduled-task' {
     }
 
     It 'compare l''état de la tâche' {
-        Mock -ModuleName OSSetup Get-ScheduledTask { [pscustomobject]@{ State = 'Ready' } } -ParameterFilter { $TaskPath -eq '\X\' -and $TaskName -eq 'Y' }
+        Mock -ModuleName OSSetup Get-ScheduledTask {
+            [pscustomobject]@{ TaskPath = '\X\'; TaskName = 'Y'; State = 'Ready' }
+            [pscustomobject]@{ TaskPath = '\Autre\'; TaskName = 'Y'; State = 'Disabled' }
+        }
         Invoke-TestProviderTest -Name scheduled-task -Action @{ task = '\X\Y'; enabled = $false } | Should -BeFalse
         Invoke-TestProviderTest -Name scheduled-task -Action @{ task = '\X\Y'; enabled = $true } | Should -BeTrue
+    }
+}
+
+Describe 'Get-OSSetupScheduledTask' {
+    BeforeEach {
+        InModuleScope OSSetup { Clear-OSSetupStateCache }
+        Mock -ModuleName OSSetup Get-ScheduledTask {
+            [pscustomobject]@{ TaskPath = '\'; TaskName = 'A'; State = 'Ready' }
+            [pscustomobject]@{ TaskPath = '\Sous\'; TaskName = 'B'; State = 'Disabled' }
+        }
+    }
+
+    It 'lit toutes les tâches une seule fois pour la passe et filtre par nom et dossier' {
+        InModuleScope OSSetup {
+            (Get-OSSetupScheduledTask -TaskName 'A').State | Should -Be 'Ready'
+            (Get-OSSetupScheduledTask -TaskName 'B' -TaskPath '\Sous\').State | Should -Be 'Disabled'
+            Get-OSSetupScheduledTask -TaskName 'B' -TaskPath '\' | Should -BeNullOrEmpty
+            Get-OSSetupScheduledTask -TaskName 'C' | Should -BeNullOrEmpty
+        }
+        Should -Invoke -ModuleName OSSetup Get-ScheduledTask -Times 1 -Exactly -ParameterFilter { -not $TaskName }
+    }
+
+    It 'relit la liste après Clear-OSSetupStateCache' {
+        InModuleScope OSSetup {
+            Get-OSSetupScheduledTask -TaskName 'A' | Out-Null
+            Clear-OSSetupStateCache
+            Get-OSSetupScheduledTask -TaskName 'A' | Out-Null
+        }
+        Should -Invoke -ModuleName OSSetup Get-ScheduledTask -Times 2 -Exactly
     }
 }
 
@@ -255,7 +291,7 @@ Describe 'Provider windows-capability' {
         # Le vrai chargement du module Dism (session Windows PowerShell 5.1 sous le PowerShell 7 du Store) sortirait
         # du cadre d'un test unitaire.
         Mock -ModuleName OSSetup Import-OSSetupDismModule {}
-        Clear-OSSetupDismCache
+        Clear-OSSetupStateCache
     }
 
     It 'compare l''état des capacités dont le nom commence par le nom donné' {
@@ -301,12 +337,12 @@ Describe 'Cache des listes DISM' {
         Mock -ModuleName OSSetup Import-OSSetupDismModule {}
         Mock -ModuleName OSSetup Write-OSSetupLog {}
         Mock -ModuleName OSSetup Test-OSSetupElevated { $true }
-        Clear-OSSetupDismCache
+        Clear-OSSetupStateCache
     }
 
     AfterEach {
         Remove-Variable -Name OSSetupTestRemoved -Scope Global -ErrorAction SilentlyContinue
-        Clear-OSSetupDismCache
+        Clear-OSSetupStateCache
     }
 
     It 'lit les paquets provisionnés une seule fois jusqu''au vidage du cache' {
@@ -316,7 +352,7 @@ Describe 'Cache des listes DISM' {
         @(Get-OSSetupProvisionedPackage).PackageName | Should -Be 'Microsoft.BingWeather_1_neutral_~_8wekyb3d8bbwe'
         @(Get-OSSetupProvisionedPackage).Count | Should -Be 1
         Should -Invoke -ModuleName OSSetup Get-AppxProvisionedPackage -Times 1 -Exactly
-        Clear-OSSetupDismCache
+        Clear-OSSetupStateCache
         $null = Get-OSSetupProvisionedPackage
         Should -Invoke -ModuleName OSSetup Get-AppxProvisionedPackage -Times 2 -Exactly
     }

@@ -16,7 +16,7 @@ param()
     Test     = {
         param($Action, $Context)
         $path, $name = Split-OSSetupTaskPath -Task $Action['task']
-        $task = Get-ScheduledTask -TaskPath $path -TaskName $name -ErrorAction SilentlyContinue
+        $task = Get-OSSetupScheduledTask -TaskPath $path -TaskName $name
         if (-not $task) {
             if ($Action['enabled']) { throw "Tâche planifiée introuvable : $($Action['task'])." }
             return $true
@@ -27,7 +27,7 @@ param()
     Read     = {
         param($Action, $Context)
         $path, $name = Split-OSSetupTaskPath -Task $Action['task']
-        $task = Get-ScheduledTask -TaskPath $path -TaskName $name -ErrorAction SilentlyContinue
+        $task = Get-OSSetupScheduledTask -TaskPath $path -TaskName $name
         if (-not $task) { return [ordered]@{ exists = $false } }
         [ordered]@{ exists = $true; state = "$($task.State)" }
     }

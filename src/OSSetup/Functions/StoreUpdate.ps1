@@ -198,7 +198,7 @@ function Test-OSSetupStoreUpdateGuard {
     }
     $currentSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
     foreach ($role in $script:StoreUpdateTask.Keys) {
-        $task = Get-ScheduledTask -TaskName $script:StoreUpdateTask[$role] -ErrorAction SilentlyContinue
+        $task = Get-OSSetupScheduledTask -TaskName $script:StoreUpdateTask[$role]
         if (-not $task -or $task.Actions[0].Arguments -ne (Get-OSSetupStoreUpdateTaskArgument -Role $role)) { return $false }
         if ("$($task.State)" -eq 'Disabled' -or -not "$($task.Description)".EndsWith($script:StoreUpdateTaskMarker)) { return $false }
         if ($role -ne 'System') {

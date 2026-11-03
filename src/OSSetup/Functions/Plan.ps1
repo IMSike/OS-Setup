@@ -15,8 +15,8 @@
         [Parameter(Mandatory)]
         [hashtable]$Context
     )
-    # Listes DISM lues une fois pour toute la passe, à partir de l'état du moment.
-    Clear-OSSetupDismCache
+    # Listes d'état (DISM, tâches planifiées) lues une fois pour toute la passe, à partir de l'état du moment.
+    Clear-OSSetupStateCache
     # Pendant le plan, les tests de présence peuvent s'appuyer d'abord sur des listes lues une fois (ex. export winget).
     $Context['Planning'] = $true
     try {
@@ -133,8 +133,8 @@ function Invoke-OSSetupPlan {
     # jugées conformes au moment du plan sont revérifiées (ex. installation qui crée un raccourci que l'action suivante
     # doit supprimer, ou une entrée de démarrage qu'un autre élément doit désactiver).
     $changedItems = [System.Collections.Generic.HashSet[string]]::new()
-    # Les listes DISM lues pendant le plan ont pu changer depuis (attente de confirmation).
-    Clear-OSSetupDismCache
+    # Les listes d'état lues pendant le plan ont pu changer depuis (attente de confirmation).
+    Clear-OSSetupStateCache
     foreach ($step in $Plan) {
         $changedDependency = @($step.DependsOn | Where-Object { $changedItems.Contains($_) })
         if ($step.Status -eq 'ok' -and ($changedItems.Contains($step.ItemId) -or $changedDependency)) {
@@ -189,14 +189,14 @@ function Invoke-OSSetupPlan {
                     if ($provider.ContainsKey('Read') -and $Context.ContainsKey('BackupRoot')) {
                         Save-OSSetupOriginalValue -BackupRoot $Context.BackupRoot -Step $step -Provider $provider -Context $Context -Confirm:$false
                     }
-                    # Listes DISM relues par l'action (état réel après l'éventuelle annulation d'une mise à jour du
+                    # Listes d'état relues par l'action (état réel après l'éventuelle annulation d'une mise à jour du
                     # Store), puis par le contrôle qui suit : toute action peut les modifier, quel que soit son provider.
-                    Clear-OSSetupDismCache
+                    Clear-OSSetupStateCache
                     try {
                         $outcome = @(& $provider.Invoke $step.Action $Context)
                     }
                     finally {
-                        Clear-OSSetupDismCache
+                        Clear-OSSetupStateCache
                     }
                     $signaled = [bool]($outcome | Where-Object { $_ -is [System.Collections.IDictionary] -and $_['RebootRequired'] })
                     $runAtClose = @($outcome | Where-Object { $_ -is [System.Collections.IDictionary] -and $_['RunAtClose'] } |

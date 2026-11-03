@@ -14,7 +14,7 @@ param()
 
     Test     = {
         param($Action, $Context)
-        $task = Get-ScheduledTask -TaskName $Action['name'] -ErrorAction SilentlyContinue
+        $task = Get-OSSetupScheduledTask -TaskName $Action['name']
         if (-not $task) { return $false }
         $expected = Get-OSSetupLogonTaskArgument -Script $Action['script']
         @($task.Actions | Where-Object { $_.Arguments -eq $expected }).Count -eq 1 -and $task.Principal.RunLevel -eq 'Highest'
@@ -22,7 +22,7 @@ param()
 
     Read     = {
         param($Action, $Context)
-        $task = Get-ScheduledTask -TaskName $Action['name'] -ErrorAction SilentlyContinue
+        $task = Get-OSSetupScheduledTask -TaskName $Action['name']
         if ($task) { [ordered]@{ exists = $true; arguments = "$($task.Actions[0].Arguments)" } } else { [ordered]@{ exists = $false } }
     }
 
