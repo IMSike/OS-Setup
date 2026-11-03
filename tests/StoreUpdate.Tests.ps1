@@ -199,7 +199,8 @@ function Invoke-FakeSchtasks {
     BeforeEach {
         $now = [datetime]'2026-11-01T10:00:00'
         $sim = @{ clock = $now; busyUntil = $null; lastRunTime = $now.AddDays(-1); startOnRun = $true; duration = 60; skew = 0; stampRuns = $true
-            runs = [System.Collections.Generic.List[datetime]]::new(); log = [System.Collections.Generic.List[string]]::new() }
+            runs = [System.Collections.Generic.List[datetime]]::new(); log = [System.Collections.Generic.List[string]]::new()
+        }
     }
 
     It 'attend la fin d''une exécution en cours avant de relancer la tâche' {
@@ -296,7 +297,8 @@ function Invoke-FakeScheduler {
         $root = $TestDrive
         $sim = @{ clock = $now; busyUntil = $null; lastRunTime = $now.AddDays(-1)
             runs = [System.Collections.Generic.List[datetime]]::new(); log = [System.Collections.Generic.List[string]]::new()
-            block = [System.Collections.Generic.List[string]]::new() }
+            block = [System.Collections.Generic.List[string]]::new()
+        }
         $apps = @([pscustomobject]@{ family = 'Microsoft.PowerShell_8wekyb3d8bbwe'; productId = '9MZ1SNWT0N5D' })
     }
 
@@ -703,7 +705,8 @@ Describe 'Mises à jour encadrées du Store' {
                 $userId = if ($role -eq 'System') { 'SYSTEM' } else { $taskUser[$role] }
                 [pscustomobject]@{ TaskName = $TaskName; State = $taskState; Description = "OS-Setup : tâche. $marker"
                     Principal = [pscustomobject]@{ UserId = $userId }
-                    Actions = @([pscustomobject]@{ Arguments = (Get-OSSetupStoreUpdateTaskArgument -Role $role) }) }
+                    Actions = @([pscustomobject]@{ Arguments = (Get-OSSetupStoreUpdateTaskArgument -Role $role) })
+                }
             }
             Mock -ModuleName OSSetup Get-OSSetupDoNotUpdate { 1 }
         }

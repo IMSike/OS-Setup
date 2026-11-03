@@ -31,7 +31,7 @@ Read [Architecture](docs/en/architecture.md) first, then [Adding an item](docs/e
 - Engine: PowerShell 7.4+. `bootstrap.ps1` runs on Windows PowerShell 5.1 without any external module.
 - `Set-StrictMode -Version Latest` and `$ErrorActionPreference = 'Stop'` at the top of scripts.
 - `[CmdletBinding()]` everywhere, `Verb-Noun` names with approved verbs, typed parameters, no aliases, no ambiguous positional arguments.
-- 4-space indentation, OTBS braces.
+- 4-space indentation, Stroustrup braces: opening brace at the end of the line, closing brace on its own line, `else`, `elseif`, `catch` and `finally` on the next line (checked by PSScriptAnalyzer).
 - PSScriptAnalyzer clean with `PSScriptAnalyzerSettings.psd1` (checked by a Pester test when the module is installed).
 - Identifiers (functions, variables, data keys) in English; user messages in French for now.
 - Encoding: `.ps1`, `.psm1`, `.psd1` in **UTF-8 with BOM** and CRLF (Windows PowerShell 5.1 reads BOM-less files as ANSI); other text files in UTF-8 without BOM. Enforced by `.gitattributes` and `.editorconfig`.
