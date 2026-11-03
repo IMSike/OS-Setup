@@ -44,17 +44,23 @@ $ErrorActionPreference = 'Stop'
 $script:WingetAlreadyInstalled = -1978335189  # 0x8A15002B : déjà installé, aucune mise à jour applicable
 
 function Write-Step {
+    [CmdletBinding()]
     param([string]$Message)
     Write-Host -Object "==> $Message" -ForegroundColor Cyan
 }
 
 function Test-Elevated {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param()
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     ([Security.Principal.WindowsPrincipal]$identity).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
 function ConvertTo-PowerShellArgument {
     # Les noms de paramètres (-Nom) restent tels quels, les valeurs sont entre apostrophes.
+    [CmdletBinding()]
+    [OutputType([string])]
     param([string]$Value)
     if ($Value -match '^-[A-Za-z][A-Za-z0-9]*:?$') { return $Value }
     "'" + ($Value -replace "'", "''") + "'"
@@ -66,6 +72,8 @@ function Assert-InteractiveUser {
     Sinon (compte standard + identifiants d'un autre administrateur), les réglages « utilisateur »
     iraient dans le profil de l'administrateur au lieu de celui de l'utilisateur.
     #>
+    [CmdletBinding()]
+    param()
     # -IncludeUserName exige les droits administrateur (la fonction n'est appelée qu'une fois élevé).
     $sessionId = (Get-Process -Id $PID).SessionId
     $explorer = Get-Process -Name 'explorer' -IncludeUserName -ErrorAction SilentlyContinue |
@@ -86,6 +94,7 @@ function Assert-InteractiveUser {
 
 function Update-SessionPath {
     # Recharge PATH depuis le registre pour voir les outils installés pendant la session.
+    [CmdletBinding()]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'Ne modifie que le PATH du processus courant.')]
     param()
     $machine = [Environment]::GetEnvironmentVariable('Path', 'Machine')
@@ -94,6 +103,8 @@ function Update-SessionPath {
 }
 
 function Wait-Winget {
+    [CmdletBinding()]
+    [OutputType([bool])]
     param([int]$Seconds)
     $deadline = (Get-Date).AddSeconds($Seconds)
     do {
@@ -107,6 +118,8 @@ function Wait-Winget {
 function Install-WingetFromGitHub {
     # Installe la dernière version publiée de winget (Microsoft.DesktopAppInstaller) et ses dépendances,
     # depuis https://github.com/microsoft/winget-cli/releases.
+    [CmdletBinding()]
+    param()
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
     $ProgressPreference = 'SilentlyContinue'  # la barre de progression ralentit fortement les téléchargements en 5.1
     $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/microsoft/winget-cli/releases/latest' -UseBasicParsing
@@ -149,6 +162,8 @@ function Install-WingetFromGitHub {
 function Initialize-Winget {
     # Un Windows 10 installé depuis le média officiel contient une version de 2019 de « Programme d'installation
     # d'application », sans winget : winget n'arrive qu'avec la mise à jour par le Microsoft Store, en arrière-plan.
+    [CmdletBinding()]
+    param()
     if (Get-Command -Name winget -ErrorAction SilentlyContinue) { return }
     Write-Step "winget absent : installation depuis la publication officielle (github.com/microsoft/winget-cli)"
     Install-WingetFromGitHub
@@ -163,6 +178,7 @@ $script:InstalledTools = @()
 function Install-WingetPackage {
     # Un paquet installé ici est noté dans $script:InstalledTools : il sera désinstallé en fin de setup si aucun
     # élément choisi ne l'installe.
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Id,
         [Parameter(Mandatory)][string]$Command,
@@ -200,6 +216,7 @@ function Install-WingetPackage {
 function Save-BootstrapInfo {
     # Informe le setup de ce que le bootstrap a laissé sur la machine, pour le nettoyage de fin :
     # copie du dépôt créée par lui (supprimable), script du bootstrap hors dépôt, outils installés.
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$RepoRoot,
         [Parameter(Mandatory)][bool]$OwnsClone,
