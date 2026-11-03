@@ -1,7 +1,12 @@
 ﻿# Entretien de Docker Desktop, lancé à l'ouverture de session par la tâche planifiée « OS-Setup - Docker (entretien) »
 # (déployé par OS-Setup dans %ProgramFiles%\OS-Setup\docker, modifiable par les seuls administrateurs puisque la tâche
 # l'exécute avec les droits les plus élevés ; modifier le dépôt, pas cette copie). Windows PowerShell 5.1, droits
-# administrateur, compte de l'utilisateur : journal et état dans son %LOCALAPPDATA%\OS-Setup.
+# administrateur, compte de l'utilisateur : journal et état à côté du script, dans ce même dossier réservé aux
+# administrateurs (lisible par les utilisateurs).
+#
+# Droits élevés : aucun chemin écrit ou exécuté ne vient d'une variable d'environnement (modifiable par l'utilisateur
+# dans HKCU\Environment, elle détournerait docker.exe ou le journal) ; dossiers connus et exécutables de Windows par
+# leur chemin complet. Contrôlé par tests/Data.Tests.ps1 (aucune variable $env: dans les scripts élevés).
 #
 # Le disque virtuel de Docker (docker_data.vhdx) grossit mais ne rétrécit jamais seul. Une fois par semaine au plus :
 #   1. compactage du disque virtuel, tant que Docker et WSL sont arrêtés (diskpart, outil de Windows) ;
@@ -19,40 +24,73 @@ param(
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+# Modules chargés à la demande : seulement ceux de Windows. Le dossier Modules du profil, prioritaire sous 5.1 et
+# modifiable par l'utilisateur, remplacerait sinon une commande de ce script par la sienne, exécutée en administrateur.
+[Environment]::SetEnvironmentVariable('PSModulePath', ((Join-Path -Path $PSHOME -ChildPath 'Modules') + ';' +
+        (Join-Path -Path ([Environment]::GetFolderPath('ProgramFiles')) -ChildPath 'WindowsPowerShell\Modules')), 'Process')
 
-$stateRoot = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'OS-Setup'
+# Journal et état à côté du script : %ProgramFiles%\OS-Setup\docker une fois déployé.
+$stateRoot = $PSScriptRoot
 $statePath = Join-Path -Path $stateRoot -ChildPath 'docker-maintenance.json'
 $logPath = Join-Path -Path $stateRoot -ChildPath 'docker-maintenance.log'
-$dockerExe = Join-Path -Path $env:ProgramFiles -ChildPath 'Docker\Docker\Docker Desktop.exe'
-$dockerCli = Join-Path -Path $env:ProgramFiles -ChildPath 'Docker\Docker\resources\bin\docker.exe'
+$programFiles = [Environment]::GetFolderPath('ProgramFiles')
+$system32 = [Environment]::SystemDirectory
+$dockerExe = Join-Path -Path $programFiles -ChildPath 'Docker\Docker\Docker Desktop.exe'
+$dockerCli = Join-Path -Path $programFiles -ChildPath 'Docker\Docker\resources\bin\docker.exe'
+$diskpart = Join-Path -Path $system32 -ChildPath 'diskpart.exe'
+$wsl = Join-Path -Path $system32 -ChildPath 'wsl.exe'
+$explorer = Join-Path -Path ([Environment]::GetFolderPath('Windows')) -ChildPath 'explorer.exe'
+# Disque virtuel de Docker : dans le profil de l'utilisateur, par nature (dossier de Docker Desktop).
+$localAppData = [Environment]::GetFolderPath('LocalApplicationData')
 $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 $approvedKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run'
 $runName = 'Docker Desktop'
 $intervalDays = 7
 
 function Write-MaintenanceLog {
+    [CmdletBinding()]
     param([string]$Message)
-    New-Item -Path $stateRoot -ItemType Directory -Force | Out-Null
-    Add-Content -Path $logPath -Value ('{0:yyyy-MM-dd HH:mm:ss} {1}' -f (Get-Date), $Message) -Encoding UTF8
+    Add-Content -LiteralPath $logPath -Value ('{0:yyyy-MM-dd HH:mm:ss} {1}' -f (Get-Date), $Message) -Encoding UTF8
 }
 
 function Get-MaintenanceState {
-    if (Test-Path -Path $statePath) { return Get-Content -Path $statePath -Raw | ConvertFrom-Json }
-    [pscustomobject]@{ lastCompaction = $null; lastPrune = $null }
+    [CmdletBinding()]
+    param()
+    $state = [pscustomobject]@{ lastCompaction = $null; lastPrune = $null }
+    if (-not (Test-Path -LiteralPath $statePath)) { return $state }
+    # Dates relues une à une : un fichier illisible ou incomplet vaut un entretien jamais fait.
+    try {
+        $saved = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+        foreach ($name in 'lastCompaction', 'lastPrune') {
+            $value = $saved.PSObject.Properties[$name]
+            $date = [datetime]::MinValue
+            if ($value -and [datetime]::TryParse("$($value.Value)", [ref]$date)) { $state.$name = $date.ToString('o') }
+        }
+    }
+    catch {
+        Write-MaintenanceLog 'état illisible : entretien refait'
+    }
+    $state
 }
 
 function Test-Due {
-    param($Date)
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param([AllowNull()][object]$Date)
     $Force -or -not $Date -or ((Get-Date) - [datetime]$Date).TotalDays -ge $intervalDays
 }
 
 function Get-RunningWslDistribution {
+    [CmdletBinding()]
+    [OutputType([System.Object[]], [System.Array])]
+    param()
     # wsl.exe écrit en UTF-16 : décodage adapté le temps de l'appel. Code de sortie non nul : aucune distribution en
     # marche, ou WSL absent (le message affiché n'est alors pas une liste de distributions).
     $previous = [Console]::OutputEncoding
     try {
         [Console]::OutputEncoding = [System.Text.Encoding]::Unicode
-        $output = @(& wsl.exe --list --running --quiet 2>$null)
+        if (-not (Test-Path -LiteralPath $wsl)) { return @() }
+        $output = @(& $wsl --list --running --quiet 2>$null)
         if ($LASTEXITCODE -ne 0) { return @() }
         @($output | Where-Object { $_ -and $_.Trim() })
     }
@@ -62,8 +100,12 @@ function Get-RunningWslDistribution {
 }
 
 function Invoke-VhdCompaction {
+    [CmdletBinding()]
     param([string]$Path)
-    $before = (Get-Item -Path $Path).Length
+    # Chemin écrit dans un script diskpart exécuté en administrateur : un guillemet ou un retour à la ligne (dossier
+    # du profil choisi par l'utilisateur) y ajouterait des commandes.
+    if ($Path -match '["\r\n]') { throw "chemin du disque virtuel refusé : $Path" }
+    $before = (Get-Item -LiteralPath $Path).Length
     # Commandes diskpart (exécutées en administrateur) à côté de ce script, dans un dossier que seuls les
     # administrateurs modifient : dans %TEMP%, un programme de la session pourrait les remplacer avant leur exécution.
     $script = Join-Path -Path $PSScriptRoot -ChildPath 'os-setup-compact.txt'
@@ -73,17 +115,17 @@ function Invoke-VhdCompaction {
         'compact vdisk'
         'detach vdisk'
     )
-    $output = & diskpart.exe /s $script 2>&1
+    $output = & $diskpart /s $script 2>&1
     $exitCode = $LASTEXITCODE
     Remove-Item -Path $script -Force
     if ($exitCode -ne 0) {
         # Le disque peut rester attaché si le compactage a échoué : le détacher pour que Docker démarre.
         Set-Content -Path $script -Encoding ASCII -Value @("select vdisk file=`"$Path`"", 'detach vdisk')
-        & diskpart.exe /s $script 2>&1 | Out-Null
+        & $diskpart /s $script 2>&1 | Out-Null
         Remove-Item -Path $script -Force
         throw "diskpart a échoué (code $exitCode) : $(($output | Select-Object -Last 3) -join ' ')"
     }
-    $after = (Get-Item -Path $Path).Length
+    $after = (Get-Item -LiteralPath $Path).Length
     Write-MaintenanceLog ('compactage : {0:N1} Go -> {1:N1} Go ({2:N1} Go rendus à Windows)' -f ($before / 1GB), ($after / 1GB), (($before - $after) / 1GB))
 }
 
@@ -103,11 +145,11 @@ try {
     if (Test-Due -Date $state.lastCompaction) {
         $candidates = if ($VhdPath) { @($VhdPath) } else {
             @(
-                (Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Docker\wsl\disk\docker_data.vhdx')
-                (Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Docker\wsl\data\ext4.vhdx')
+                (Join-Path -Path $localAppData -ChildPath 'Docker\wsl\disk\docker_data.vhdx')
+                (Join-Path -Path $localAppData -ChildPath 'Docker\wsl\data\ext4.vhdx')
             )
         }
-        $vhd = $candidates | Where-Object { Test-Path -Path $_ } | Select-Object -First 1
+        $vhd = $candidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
         $running = @(Get-RunningWslDistribution)
         if (-not $vhd) {
             Write-MaintenanceLog 'compactage : disque virtuel de Docker introuvable (Docker jamais démarré ?)'
@@ -126,13 +168,13 @@ catch {
 }
 
 if ($NoDocker) {
-    $state | ConvertTo-Json | Set-Content -Path $statePath -Encoding UTF8
+    $state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding UTF8
     return
 }
 
 # 2. Démarrage de Docker Desktop, sans droits administrateur (par l'Explorateur), si son réglage le demande.
 if ($autoStart -and -not $dockerRunning -and (Test-Path -Path $dockerExe)) {
-    Start-Process -FilePath 'explorer.exe' -ArgumentList "`"$dockerExe`""
+    Start-Process -FilePath $explorer -ArgumentList "`"$dockerExe`""
     Write-MaintenanceLog 'Docker Desktop démarré'
     $dockerRunning = $true
 }
@@ -160,4 +202,4 @@ catch {
     Write-MaintenanceLog "images orphelines en échec : $($_.Exception.Message)"
 }
 
-$state | ConvertTo-Json | Set-Content -Path $statePath -Encoding UTF8
+$state | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding UTF8
