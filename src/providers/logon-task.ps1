@@ -29,7 +29,7 @@ param()
     Invoke   = {
         param($Action, $Context)
         $user = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-        $powershell = Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        $powershell = Get-OSSetupWindowsPowerShellPath
         $taskAction = New-ScheduledTaskAction -Execute $powershell -Argument (Get-OSSetupLogonTaskArgument -Script $Action['script'])
         $trigger = New-ScheduledTaskTrigger -AtLogOn -User $user
         $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Highest

@@ -141,6 +141,7 @@
         'Get-OSSetupStoreCancelScript'
         'Get-OSSetupUninstallEntry'
         'Import-OSSetupAppxModule'
+        'Get-OSSetupWindowsPowerShellPath'
         'Invoke-OSSetupWindowsPowerShell'
         'Set-OSSetupPowerValue'
         'Stop-OSSetupStoreUpdate'

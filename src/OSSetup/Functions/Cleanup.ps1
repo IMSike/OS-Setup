@@ -181,7 +181,7 @@ function Invoke-OSSetupCleanup {
         [ordered]@{ waitPid = $PID; uninstall = $uninstall; remove = $remove.ToArray(); logPath = $cleanupLogPath; logoff = [bool]$Logoff } |
             ConvertTo-Json | Set-Content -Path $config -Encoding utf8
         # Dossier de travail hors du dépôt : sinon le dossier à supprimer resterait verrouillé.
-        Start-Process -FilePath ([IO.Path]::Combine([Environment]::SystemDirectory, 'WindowsPowerShell\v1.0\powershell.exe')) `
+        Start-Process -FilePath (Get-OSSetupWindowsPowerShellPath) `
             -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', "`"$script`"", '-ConfigPath', "`"$config`"" `
             -WorkingDirectory ([System.IO.Path]::GetTempPath()) -WindowStyle Hidden
     }
