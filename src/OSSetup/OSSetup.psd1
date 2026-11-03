@@ -114,9 +114,12 @@
         'Test-OSSetupAnswer'
         'Write-OSSetupChoiceWarning'
         # Resume.ps1
+        'Copy-OSSetupResumeCode'
         'Get-OSSetupMaxPass'
+        'Get-OSSetupResumeRoot'
         'Read-OSSetupRunState'
         'Register-OSSetupResumeTask'
+        'Remove-OSSetupResumeCode'
         'Remove-OSSetupRunState'
         'Request-OSSetupLogoff'
         'Request-OSSetupRestart'

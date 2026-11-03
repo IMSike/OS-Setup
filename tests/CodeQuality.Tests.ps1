@@ -7,6 +7,7 @@
     $windowsPowerShellScripts = [System.Collections.Generic.List[string]]@(
         'bootstrap.ps1'
         'src\cleanup.ps1'
+        'src\resume.ps1'
         'dotfiles\docker\docker-maintenance.ps1'
     )
     foreach ($file in Get-ChildItem -Path (Join-Path -Path $discoveryRoot -ChildPath 'catalog') -Filter '*.json' -Recurse) {
