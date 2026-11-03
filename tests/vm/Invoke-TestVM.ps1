@@ -169,6 +169,18 @@ try {
     }
 
     # --- Exécution dans la session de l'utilisateur ----------------------------------------------
+    # Juste après le retour à un point de contrôle, le réseau de la VM met un moment à résoudre les noms : winget
+    # échouerait (0x80072EE7, nom de serveur non résolu). Attente bornée à 2 minutes.
+    Write-TestVMStep 'Attente du réseau de la VM'
+    $dnsReady = Invoke-Command -Session $session -ScriptBlock {
+        $until = (Get-Date).AddMinutes(2)
+        while ((Get-Date) -lt $until) {
+            try { [void][Net.Dns]::GetHostAddresses('storeedgefd.dsx.mp.microsoft.com'); return $true }
+            catch { Start-Sleep -Seconds 5 }
+        }
+        $false
+    }
+    if (-not $dnsReady) { Write-Warning 'Le réseau de la VM ne résout pas les noms après 2 minutes : le test risque d''échouer.' }
     Write-TestVMStep "Lancement de bootstrap.ps1 $($SetupArguments -join ' ')"
     Invoke-Command -Session $session -ArgumentList $script:GuestRepoRoot, $script:TestUserName, $SetupArguments -ScriptBlock {
         param($RepoRoot, $UserName, $Arguments)
@@ -232,7 +244,7 @@ try {
                     return @{ Finished = $true; ExitCode = [int](Get-Content -Path $guestExit -Raw).Trim() }
                 }
                 # run.json porte le numéro de la passe en cours, ou de la dernière terminée en attente de redémarrage.
-                $note = if (Test-Path -Path $pending) { "redémarrage demandé : reprise attendue (passe $(1 + (Get-Content -Path $pending -Raw | ConvertFrom-Json).pass))" } else { '' }
+                $note = if (Test-Path -Path $pending) { "reprise en attente ou en cours (passe enregistrée : $((Get-Content -Path $pending -Raw | ConvertFrom-Json).pass))" } else { '' }
                 @{ Finished = $false; Note = $note }
             }
             if (-not (Wait-Job -Job $job -Timeout 60)) {
