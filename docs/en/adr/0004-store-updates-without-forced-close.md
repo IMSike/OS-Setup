@@ -27,7 +27,7 @@ Observed in the test VM (Windows 10 22H2 and Windows 11):
 PowerShell 7 is installed from the Store (`winget --source msstore`, product `9MZ1SNWT0N5D`), on Windows 10 and Windows 11, by the bootstrap and by the `pwsh` item. Windows Terminal is installed from the Store too (product `9N0DX20HK701`) by the `windows-terminal` item; a copy from the `winget` source (GitHub release) is the same package (same identity, Store signature) and is kept. Both declare a `store-update-guard` action:
 
 - `DoNotUpdate = 1` for their package family;
-- three scheduled tasks, shared by all guarded apps (list in `apps.json`). Scripts live in `%ProgramFiles%\OS-Setup\store-update`; only administrators can modify them:
+- three scheduled tasks, shared by all guarded apps (list in `apps.json`). Scripts live in `%ProgramFiles%\OS-Setup\store-update`: one per task, plus `StoreUpdate.Common.ps1`, the functions all three load (log, installed version, open processes, orphan resume task). Only administrators can modify them, and the setup checks them against the repository by hash, the shared file included since the SYSTEM task runs it too:
   - **`OS-Setup - Store (système)`** (SYSTEM, daily and at logon; authenticated users may run it, not modify it):
     - restores the block if it was lifted;
     - for a closed app: lifts the block, has the update installed without forced close, puts the block back;

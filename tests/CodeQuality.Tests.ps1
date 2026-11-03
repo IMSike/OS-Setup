@@ -11,6 +11,7 @@
         'src\store-update\StoreUpdate.System.ps1'
         'src\store-update\StoreUpdate.User.ps1'
         'src\store-update\StoreUpdate.Prompt.ps1'
+        'src\store-update\StoreUpdate.Common.ps1'
         'dotfiles\docker\docker-maintenance.ps1'
     )
     foreach ($file in Get-ChildItem -Path (Join-Path -Path $discoveryRoot -ChildPath 'catalog') -Filter '*.json' -Recurse) {

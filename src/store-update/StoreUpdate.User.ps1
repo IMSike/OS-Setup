@@ -3,33 +3,17 @@
 # - mode check : demande au Store si une mise à jour existe, sans rien télécharger, puis retire la demande de sa file.
 # - mode update : demande la mise à jour sans fermeture forcée (AllowForcedAppRestart = false) et attend sa fin.
 # Résultat de chaque application dans check.json (avec la date de la dernière vérification aboutie), lu par la fenêtre
-# de l'utilisateur. Windows PowerShell 5.1 : l'API du
-# Store (WinRT) n'est pas accessible depuis PowerShell 7.
+# de l'utilisateur. Windows PowerShell 5.1 : l'API du Store (WinRT) n'est pas accessible depuis PowerShell 7.
 # Déployé par OS-Setup dans %ProgramFiles%\OS-Setup\store-update : modifier le dépôt, pas cette copie.
 [CmdletBinding()]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', 'logLabel', Justification = 'Lu par Write-StoreUpdateLog (StoreUpdate.Common.ps1).')]
 param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$root = $PSScriptRoot
-$log = Join-Path -Path $root -ChildPath 'store-update.log'
+# Variables et fonctions communes aux trois scripts : $root, $log, Write-StoreUpdateLog, Get-AppVersion, Get-AppProcess.
+. (Join-Path -Path $PSScriptRoot -ChildPath 'StoreUpdate.Common.ps1')
+$logLabel = $env:USERNAME
 $checkFile = Join-Path -Path $root -ChildPath 'check.json'
-
-# Copie (scripts autonomes) : Write-StoreUpdateLog aussi dans StoreUpdate.System.ps1 et StoreUpdate.Prompt.ps1.
-function Write-StoreUpdateLog {
-    param([string]$Message)
-    $line = '{0:yyyy-MM-dd HH:mm:ss} [{1}] {2}' -f (Get-Date), $env:USERNAME, $Message
-    foreach ($attempt in 1..10) {
-        try { Add-Content -Path $log -Value $line -Encoding UTF8 -ErrorAction Stop; return } catch { Start-Sleep -Milliseconds 200 }
-    }
-}
-
-function Get-PackageVersion {
-    # Même calcul que Get-AppVersion de StoreUpdate.Prompt.ps1. Paquet absent : chaîne vide (sous StrictMode, lire
-    # Version sur $null lèverait une erreur).
-    param([Parameter(Mandatory)][string]$Name)
-    $package = Get-AppxPackage -Name $Name | Sort-Object -Property { [version]$_.Version } -Descending | Select-Object -First 1
-    if ($package) { "$($package.Version)" } else { '' }
-}
 
 function ConvertTo-CheckEntry {
     # Résultat d'une application dans check.json. lastSuccess : date de la dernière vérification aboutie (« à jour »,
@@ -77,9 +61,7 @@ try {
         $version = ''
         $success = $false
         try {
-            # Version et processus : mêmes calculs que Get-AppVersion et Get-AppProcess de StoreUpdate.Prompt.ps1.
-            $packageName = $app.family.Split('_')[0]
-            $version = Get-PackageVersion -Name $packageName
+            $version = Get-AppVersion -App $app
             $available = $false
             $state = ''
             $queued = @($manager.AppInstallItems | Where-Object { $_.ProductId -eq $id })
@@ -89,8 +71,7 @@ try {
                 $manager.Cancel($id)
                 Start-Sleep -Seconds 3
             }
-            $pattern = "*\WindowsApps\$($packageName)_*"
-            $open = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -like $pattern }).Count -gt 0
+            $open = @(Get-AppProcess -App $app).Count -gt 0
             if ($request.mode -eq 'check' -or $open) {
                 # Application ouverte : une installation serait reportée, puis forcée. On demande seulement si elle existe.
                 if ($item) {
@@ -130,7 +111,7 @@ try {
                     } while ("$($status.InstallState)" -notin 'Completed', 'Canceled', 'Error' -and (Get-Date) -lt $deadline)
                     $state = "$($status.InstallState)"
                     $available = $state -ne 'Completed'
-                    $after = Get-PackageVersion -Name $packageName
+                    $after = Get-AppVersion -App $app
                     $code = if ($status.ErrorCode) { ', code 0x{0:X8}' -f $status.ErrorCode.HResult }
                     Write-StoreUpdateLog "$($app.name) $version -> $after : $state$code"
                     $version = $after

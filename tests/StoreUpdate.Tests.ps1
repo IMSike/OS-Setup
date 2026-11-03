@@ -5,17 +5,43 @@
 }
 
 Describe 'Scripts des tâches des mises à jour du Store' {
-    It '<_> est analysable sans erreur' -ForEach @('StoreUpdate.System.ps1', 'StoreUpdate.User.ps1', 'StoreUpdate.Prompt.ps1') {
+    It '<_> est analysable sans erreur' -ForEach @('StoreUpdate.System.ps1', 'StoreUpdate.User.ps1', 'StoreUpdate.Prompt.ps1', 'StoreUpdate.Common.ps1') {
         $errors = $null
         [void][System.Management.Automation.Language.Parser]::ParseFile((Join-Path -Path $sourceRoot -ChildPath $_), [ref]$null, [ref]$errors)
         $errors | Should -BeNullOrEmpty
     }
 
-    It '<_> suit les conventions : StrictMode, CmdletBinding, mention de copie déployée' -ForEach @('StoreUpdate.System.ps1', 'StoreUpdate.User.ps1', 'StoreUpdate.Prompt.ps1') {
+    It '<_> suit les conventions : StrictMode, CmdletBinding, fonctions communes chargées, mention de copie déployée' -ForEach @('StoreUpdate.System.ps1', 'StoreUpdate.User.ps1', 'StoreUpdate.Prompt.ps1') {
         $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path -Path $sourceRoot -ChildPath $_), [ref]$null, [ref]$null)
         $ast.ParamBlock.Attributes.TypeName.Name | Should -Contain 'CmdletBinding'
-        $ast.EndBlock.Statements.Extent.Text | Should -Contain 'Set-StrictMode -Version Latest'
+        $statements = @($ast.EndBlock.Statements.Extent.Text)
+        $statements | Should -Contain 'Set-StrictMode -Version Latest'
+        # Chargées sous le StrictMode du script, avant toute fonction qui s'en sert, avec l'étiquette du journal.
+        $load = [array]::IndexOf($statements, ". (Join-Path -Path `$PSScriptRoot -ChildPath 'StoreUpdate.Common.ps1')")
+        $load | Should -BeGreaterThan ([array]::IndexOf($statements, 'Set-StrictMode -Version Latest'))
+        $statements | Where-Object { $_ -like '$logLabel = *' } | Should -HaveCount 1
         $ast.Extent.Text | Should -Match 'modifier le dépôt, pas cette copie'
+    }
+
+    It 'StoreUpdate.Common.ps1 ne définit que des variables et des fonctions, sans en redéfinir dans les scripts' {
+        # Chargé aussi par la tâche SYSTEM : rien ne s'y exécute au chargement.
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.Common.ps1'), [ref]$null, [ref]$null)
+        $ast.Extent.Text | Should -Match 'modifier le dépôt, pas cette copie'
+        $ast.ParamBlock.Parameters | Should -BeNullOrEmpty
+        foreach ($statement in $ast.EndBlock.Statements) {
+            ($statement -is [System.Management.Automation.Language.FunctionDefinitionAst] -or $statement -is [System.Management.Automation.Language.AssignmentStatementAst]) |
+                Should -BeTrue -Because $statement.Extent.Text
+        }
+        $common = @($ast.EndBlock.Statements | Where-Object { $_ -is [System.Management.Automation.Language.FunctionDefinitionAst] } | ForEach-Object { $_.Name })
+        $common | Should -Be @('Write-StoreUpdateLog', 'Get-AppVersion', 'Get-AppProcess', 'Get-ResumeOrphanReason')
+        $ast.FindAll({ param($Node) $Node -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | ForEach-Object {
+            $_.Body.ParamBlock.Attributes.TypeName.Name | Should -Contain 'CmdletBinding' -Because $_.Name
+        }
+        foreach ($name in 'StoreUpdate.System.ps1', 'StoreUpdate.User.ps1', 'StoreUpdate.Prompt.ps1') {
+            $script = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path -Path $sourceRoot -ChildPath $name), [ref]$null, [ref]$null)
+            $defined = @($script.FindAll({ param($Node) $Node -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | ForEach-Object { $_.Name })
+            $defined | Where-Object { $_ -in $common } | Should -BeNullOrEmpty -Because $name
+        }
     }
 
     It 'la recherche isole chaque application et écrit check.json après chacune' {
@@ -46,21 +72,29 @@ Describe 'Scripts des tâches des mises à jour du Store' {
 
     It 'la tâche SYSTEM n''attend dans le pont WMI que les applications installées' {
         $text = Get-Content -Path (Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.System.ps1') -Raw
-        $text | Should -Match '\$present = @\(\$apps \| Where-Object \{ Get-AppVersion -App \$_ \}\)'
+        $text | Should -Match '\$present = @\(\$apps \| Where-Object \{ Get-AppVersion -App \$_ -AllUsers \}\)'
         $text | Should -Match '\$installed\.Count -eq \$present\.Count'
         $text | Should -Not -Match '\$installed\.Count -eq \$apps\.Count'
+        # Sous SYSTEM, sans -AllUsers, Get-AppxPackage ne verrait que les paquets du compte SYSTEM : aucun.
+        $text | Should -Not -Match 'Get-AppVersion -App \$\w+( |\))(?!-AllUsers)'
     }
 
-    It '<Script> retient la version la plus récente comme version, pas comme texte' -ForEach @(
-        @{ Script = 'StoreUpdate.System.ps1'; Function = 'Get-AppVersion'; Call = 'Get-AppVersion -App ([pscustomobject]@{ family = ''Microsoft.PowerShell_8wekyb3d8bbwe'' })' }
-        @{ Script = 'StoreUpdate.Prompt.ps1'; Function = 'Get-AppVersion'; Call = 'Get-AppVersion -App ([pscustomobject]@{ family = ''Microsoft.PowerShell_8wekyb3d8bbwe'' })' }
-        @{ Script = 'StoreUpdate.User.ps1'; Function = 'Get-PackageVersion'; Call = 'Get-PackageVersion -Name ''Microsoft.PowerShell''' }
+    It 'Get-AppVersion retient la version la plus récente comme version, pas comme texte (<Case>)' -ForEach @(
+        @{ Case = 'compte de l''utilisateur'; AllUsers = $false }
+        @{ Case = 'tous les comptes, tâche SYSTEM'; AllUsers = $true }
     ) {
         # Deux versions installées côte à côte (mise à jour en cours) : en texte, 7.5.9.0 passerait devant 7.5.10.0.
-        $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path -Path $sourceRoot -ChildPath $Script), [ref]$null, [ref]$null)
-        $definition = $ast.Find({ param($Node) $Node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $Node.Name -eq $Function }, $true).Extent.Text
-        $stub = 'function Get-AppxPackage { param([string]$Name, [switch]$AllUsers) @([pscustomobject]@{ Version = ''7.5.9.0'' }, [pscustomobject]@{ Version = ''7.5.10.0'' }) }'
-        "$(& ([scriptblock]::Create("$stub`n$definition`n$Call")))" | Should -Be '7.5.10.0'
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.Common.ps1'), [ref]$null, [ref]$null)
+        $definition = $ast.Find({ param($Node) $Node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $Node.Name -eq 'Get-AppVersion' }, $true).Extent.Text
+        $calls = [System.Collections.Generic.List[string]]::new()
+        function Get-AppxPackage {
+            param([string]$Name, [switch]$AllUsers)
+            $calls.Add("$Name $AllUsers")
+            if ($Name -eq 'Microsoft.PowerShell') { @([pscustomobject]@{ Version = '7.5.9.0' }, [pscustomobject]@{ Version = '7.5.10.0' }) }
+        }
+        . ([scriptblock]::Create($definition))
+        Get-AppVersion -App ([pscustomobject]@{ family = 'Microsoft.PowerShell_8wekyb3d8bbwe' }) -AllUsers:$AllUsers | Should -Be '7.5.10.0'
+        $calls | Should -Be @("Microsoft.PowerShell $AllUsers")
     }
 
     It 'la tâche SYSTEM recrée le journal et check.json absents, modifiables par les utilisateurs' {
@@ -91,7 +125,7 @@ Describe 'Scripts des tâches des mises à jour du Store' {
         $argument | Should -BeLike "--headless `"$expected`" *"
     }
 
-    It '<_> appelle les exécutables système par leur chemin complet' -ForEach @('StoreUpdate.System.ps1', 'StoreUpdate.Prompt.ps1') {
+    It '<_> appelle les exécutables système par leur chemin complet' -ForEach @('StoreUpdate.System.ps1', 'StoreUpdate.Prompt.ps1', 'StoreUpdate.Common.ps1') {
         $text = Get-Content -Path (Join-Path -Path $sourceRoot -ChildPath $_) -Raw
         $text | Should -Not -Match '&\s+(schtasks|icacls)\.exe'
     }
@@ -112,21 +146,18 @@ Describe 'Scripts des tâches des mises à jour du Store' {
         $assignment.Right.Expression.Value | Should -Be $expected
     }
 
-    It 'chaque script déclaré par le module existe dans src/store-update' {
-        $names = InModuleScope OSSetup { @($script:StoreUpdateScript.Values) }
-        $names.Count | Should -Be 3
-        foreach ($name in $names) { Join-Path -Path $sourceRoot -ChildPath $name | Should -Exist }
+    It 'le module déploie tous les fichiers de src/store-update, et rien d''autre' {
+        $names = InModuleScope OSSetup { @($script:StoreUpdateFile) }
+        $names | Sort-Object | Should -Be @(Get-ChildItem -Path $sourceRoot -Filter '*.ps1' | ForEach-Object { $_.Name } | Sort-Object)
+        $scripts = InModuleScope OSSetup { @($script:StoreUpdateScript.Values) }
+        $scripts | Should -HaveCount 3
+        foreach ($name in $scripts) { $name | Should -BeIn $names }
     }
 
-    It 'la tâche SYSTEM reconnaît la tâche de reprise du setup sous son nom actuel' {
+    It 'les fonctions communes reconnaissent la tâche de reprise du setup sous son nom actuel' {
         $resume = InModuleScope OSSetup { $script:ResumeTaskName }
         $resume | Should -Not -BeNullOrEmpty
-        Get-Content -Path (Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.System.ps1') -Raw | Should -Match ([regex]::Escape("`$resumeTask = '$resume'"))
-    }
-
-    It 'la fenêtre reconnaît la tâche de reprise du setup sous son nom actuel' {
-        $resume = InModuleScope OSSetup { $script:ResumeTaskName }
-        Get-Content -Path (Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.Prompt.ps1') -Raw | Should -Match ([regex]::Escape("$resumeTask = '$resume'"))
+        Get-Content -Path (Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.Common.ps1') -Raw | Should -Match ([regex]::Escape("`$resumeTask = '$resume'"))
     }
 }
 
@@ -295,7 +326,8 @@ Describe 'Fenêtre : décisions sous Windows PowerShell 5.1' {
         # $TestDrive ; Store, processus, tâche SYSTEM et fenêtre remplacés : aucun effet sur le système.
         $powershell = Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe'
         $promptScript = (Resolve-Path -Path (Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.Prompt.ps1')).Path
-        $app = [ordered]@{ family = 'Microsoft.PowerShell_8wekyb3d8bbwe'; productId = '9MZ1SNWT0N5D'; name = 'PowerShell 7'; closeFirst = @() }
+        $commonScript = (Resolve-Path -Path (Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.Common.ps1')).Path
+        $app =[ordered]@{ family = 'Microsoft.PowerShell_8wekyb3d8bbwe'; productId = '9MZ1SNWT0N5D'; name = 'PowerShell 7'; closeFirst = @() }
 
         function Invoke-PromptScenario {
             # Lance la fenêtre (ou $Call) avec la version installée, l'état ouvert et le choix indiqués ; renvoie les appels
@@ -488,12 +520,11 @@ function Test-ResumePending { `$$Resume }
     }
 
     It 'lit la version d''un paquet absent comme une chaîne vide, sans erreur sous StrictMode' {
-        # Vraie fonction Get-AppVersion (extraite du script), sous Windows PowerShell 5.1 et StrictMode.
+        # Vraie fonction Get-AppVersion des fonctions communes, sous Windows PowerShell 5.1 et StrictMode.
         $command = @"
 Set-StrictMode -Version Latest
 `$ErrorActionPreference = 'Stop'
-`$ast = [System.Management.Automation.Language.Parser]::ParseFile('$promptScript', [ref]`$null, [ref]`$null)
-. ([scriptblock]::Create(`$ast.Find({ param(`$Node) `$Node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and `$Node.Name -eq 'Get-AppVersion' }, `$true).Extent.Text))
+. '$commonScript'
 '[' + (Get-AppVersion -App ([pscustomobject]@{ family = 'OSSetup.PaquetInexistant_0000000000000' })) + ']'
 "@
         $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
@@ -546,9 +577,9 @@ function Get-Process { [CmdletBinding()] param([int[]]`$Id) [pscustomobject]@{ I
         $result.systemRuns | Should -Be 0
     }
 
-    It 'la tâche de reprise orpheline est reconnue de la même façon par la fenêtre et par la tâche SYSTEM' {
-        # Vraie fonction des deux scripts, sous Windows PowerShell 5.1 et StrictMode, sur une tâche simulée.
-        $systemScript = (Resolve-Path -Path (Join-Path -Path $sourceRoot -ChildPath 'StoreUpdate.System.ps1')).Path
+    It 'reconnaît une tâche de reprise orpheline' {
+        # Vraie fonction des fonctions communes (fenêtre et tâche SYSTEM), sous Windows PowerShell 5.1 et StrictMode, sur
+        # une tâche simulée.
         $repo = Join-Path -Path $root -ChildPath 'repo'
         New-Item -Path (Join-Path -Path $repo -ChildPath 'state') -ItemType Directory -Force | Out-Null
         Set-Content -Path (Join-Path -Path $repo -ChildPath 'setup.ps1') -Value '# setup'
@@ -557,30 +588,26 @@ function Get-Process { [CmdletBinding()] param([int[]]`$Id) [pscustomobject]@{ I
         $command = @"
 Set-StrictMode -Version Latest
 `$ErrorActionPreference = 'Stop'
-`$resumeHours = 48
+. '$commonScript'
 `$repo = '$repo'
 `$runState = Join-Path -Path `$repo -ChildPath 'state\run.json'
 function New-Task([string]`$Execute, [string]`$Setup) { [pscustomobject]@{ Actions = @([pscustomobject]@{ Execute = `$Execute; Arguments = "-NoProfile -ExecutionPolicy Bypass -File ```"`$Setup```" -Resume" }) } }
 `$ok = New-Task -Execute '$exe' -Setup (Join-Path -Path `$repo -ChildPath 'setup.ps1')
-foreach (`$script in '$promptScript', '$systemScript') {
-    `$ast = [System.Management.Automation.Language.Parser]::ParseFile(`$script, [ref]`$null, [ref]`$null)
-    . ([scriptblock]::Create(`$ast.Find({ param(`$Node) `$Node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and `$Node.Name -eq 'Get-ResumeOrphanReason' }, `$true).Extent.Text))
-    Set-Content -Path `$runState -Value '{}'
-    'valide=' + (Get-ResumeOrphanReason -Task `$ok)
-    'setup=' + (Get-ResumeOrphanReason -Task (New-Task -Execute '$exe' -Setup (Join-Path -Path `$repo -ChildPath 'absent.ps1')))
-    'exe=' + [bool](Get-ResumeOrphanReason -Task (New-Task -Execute '$root\absent.exe' -Setup (Join-Path -Path `$repo -ChildPath 'setup.ps1')))
-    (Get-Item -Path `$runState).LastWriteTime = (Get-Date).AddHours(-49)
-    'ancienne=' + (Get-ResumeOrphanReason -Task `$ok)
-    Remove-Item -Path `$runState
-    'etat=' + (Get-ResumeOrphanReason -Task `$ok)
-}
+Set-Content -Path `$runState -Value '{}'
+'valide=' + (Get-ResumeOrphanReason -Task `$ok)
+'setup=' + (Get-ResumeOrphanReason -Task (New-Task -Execute '$exe' -Setup (Join-Path -Path `$repo -ChildPath 'absent.ps1')))
+'exe=' + [bool](Get-ResumeOrphanReason -Task (New-Task -Execute '$root\absent.exe' -Setup (Join-Path -Path `$repo -ChildPath 'setup.ps1')))
+(Get-Item -Path `$runState).LastWriteTime = (Get-Date).AddHours(-49)
+'ancienne=' + (Get-ResumeOrphanReason -Task `$ok)
+Remove-Item -Path `$runState
+'etat=' + (Get-ResumeOrphanReason -Task `$ok)
 "@
         $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
         $expected = @('valide=', 'setup=setup.ps1 introuvable', 'exe=True', 'ancienne=aucune passe depuis plus de 48 h', 'etat=aucune exécution en attente (state\run.json absent)')
         $output = @(& $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $encoded)
         # Sortie standard de l'enfant : accents comparés sans dépendre de la page de code de la console.
         # Une lettre accentuée peut arriver en un ou deux caractères : chaque suite non ASCII compte pour un seul '?'.
-        ($output -replace '[^\x20-\x7E]+', '?') | Should -Be (@($expected + $expected) -replace '[^\x20-\x7E]+', '?')
+        ($output -replace '[^\x20-\x7E]+', '?') | Should -Be ($expected -replace '[^\x20-\x7E]+', '?')
     }
 
     It 'n''avertit pas après une vérification aboutie récente' {
@@ -767,7 +794,7 @@ Describe 'Mises à jour encadrées du Store' {
             InModuleScope OSSetup -Parameters @{ Action = $pwshAction; Source = $sourceRoot } {
                 param($Action, $Source) Install-OSSetupStoreUpdateGuard -Action $Action -SourceRoot $Source -Confirm:$false
             }
-            foreach ($name in 'StoreUpdate.System.ps1', 'StoreUpdate.User.ps1', 'StoreUpdate.Prompt.ps1') {
+            foreach ($name in 'StoreUpdate.System.ps1', 'StoreUpdate.User.ps1', 'StoreUpdate.Prompt.ps1', 'StoreUpdate.Common.ps1') {
                 (Get-FileHash -Path (Join-Path -Path $root -ChildPath $name)).Hash | Should -Be (Get-FileHash -Path (Join-Path -Path $sourceRoot -ChildPath $name)).Hash
             }
             $apps = @(Get-Content -Path (Join-Path -Path $root -ChildPath 'apps.json') -Raw | ConvertFrom-Json)

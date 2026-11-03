@@ -20,6 +20,9 @@ $script:StoreUpdateScript = [ordered]@{
     User   = 'StoreUpdate.User.ps1'
     Prompt = 'StoreUpdate.Prompt.ps1'
 }
+# Fichiers déployés et contrôlés par leur empreinte : le script de chaque tâche et les fonctions qu'ils chargent tous
+# trois avec un point (exécutées aussi par la tâche SYSTEM).
+$script:StoreUpdateFile = @(@($script:StoreUpdateScript.Values) + 'StoreUpdate.Common.ps1')
 # Version de la définition des tâches (déclencheurs, réglages, compte, descripteur de sécurité, action), notée à la fin
 # de leur description et contrôlée par Test-OSSetupStoreUpdateGuard : toute modification de
 # Register-OSSetupStoreUpdateTask l'incrémente, pour que les postes déjà configurés réenregistrent leurs tâches.
@@ -185,7 +188,7 @@ function Test-OSSetupStoreUpdateGuard {
         [string]$SourceRoot
     )
     $root = Get-OSSetupStoreUpdateRoot
-    foreach ($name in $script:StoreUpdateScript.Values) {
+    foreach ($name in $script:StoreUpdateFile) {
         $target = Join-Path -Path $root -ChildPath $name
         if (-not (Test-Path -Path $target -PathType Leaf)) { return $false }
         if ((Get-FileHash -Path $target).Hash -ne (Get-FileHash -Path (Join-Path -Path $SourceRoot -ChildPath $name)).Hash) { return $false }
@@ -228,7 +231,7 @@ function Install-OSSetupStoreUpdateGuard {
     # Sous Program Files, le dossier hérite de droits en lecture seule pour les utilisateurs : seuls les
     # administrateurs peuvent modifier les scripts que la tâche SYSTEM exécute.
     New-Item -Path $root -ItemType Directory -Force | Out-Null
-    foreach ($name in $script:StoreUpdateScript.Values) {
+    foreach ($name in $script:StoreUpdateFile) {
         Copy-Item -Path (Join-Path -Path $SourceRoot -ChildPath $name) -Destination $root -Force
     }
     # Journal commun et résultat des vérifications : écrits aussi par les tâches de l'utilisateur.

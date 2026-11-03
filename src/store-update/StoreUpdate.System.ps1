@@ -10,51 +10,20 @@
 # n'agit que pour le compte qui l'appelle. Le blocage est toujours remis, même en cas d'erreur.
 # Déployé par OS-Setup dans %ProgramFiles%\OS-Setup\store-update : modifier le dépôt, pas cette copie.
 [CmdletBinding()]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', 'logLabel', Justification = 'Lu par Write-StoreUpdateLog (StoreUpdate.Common.ps1).')]
 param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+# Variables et fonctions communes aux trois scripts : $root, $log, $schtasks, $resumeTask, $resumeHours,
+# Write-StoreUpdateLog, Get-AppVersion, Get-AppProcess, Get-ResumeOrphanReason.
+. (Join-Path -Path $PSScriptRoot -ChildPath 'StoreUpdate.Common.ps1')
+$logLabel = 'système'
 $userTask = 'OS-Setup - Store (recherche)'
-# Exécutables système par leur chemin complet : sous SYSTEM, ne pas dépendre de l'ordre du PATH.
-$schtasks = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'schtasks.exe'
+# Exécutable système par son chemin complet : sous SYSTEM, ne pas dépendre de l'ordre du PATH.
 $icacls = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'icacls.exe'
-$root = $PSScriptRoot
-$log = Join-Path -Path $root -ChildPath 'store-update.log'
 # Pont WMI du fournisseur MDM : même requête que Get-OSSetupDoNotUpdateInstance (src/OSSetup/Functions/StoreUpdate.ps1).
 $namespace = 'root\cimv2\mdm\dmmap'
 $class = 'MDM_EnterpriseModernAppManagement_AppManagement01_02'
-# Tâche de reprise du setup ($script:ResumeTaskName de src/OSSetup/Functions/Resume.ps1, nom copié : script autonome),
-# ignorée sans nouvelle passe depuis $resumeHours heures (Get-ResumeOrphanReason).
-$resumeTask = 'OS-Setup - reprise'
-$resumeHours = 48
-
-# Copies (scripts autonomes) : Write-StoreUpdateLog aussi dans StoreUpdate.User.ps1 et StoreUpdate.Prompt.ps1 (étiquette
-# différente) ; Get-AppProcess et Get-AppVersion aussi dans StoreUpdate.Prompt.ps1, en ligne dans StoreUpdate.User.ps1 ;
-# Get-ResumeOrphanReason aussi dans StoreUpdate.Prompt.ps1.
-function Get-ResumeOrphanReason {
-    # Tâche de reprise présente mais qui ne reprendra plus rien : raison, sinon rien. Orpheline quand son setup.ps1, son
-    # exécutable ou state\run.json (écrit à chaque passe, supprimé à la fin) n'existe plus (dépôt déplacé ou supprimé,
-    # PowerShell retiré), ou quand aucune passe n'a eu lieu depuis $resumeHours heures. Sinon les applications encadrées
-    # resteraient en vérification seule indéfiniment.
-    param([Parameter(Mandatory)][object]$Task)
-    $action = @($Task.Actions)[0]
-    $setup = $null
-    if ($action -and "$($action.Arguments)" -match '-File\s+"([^"]+)"') { $setup = $Matches[1] }
-    if (-not $setup -or -not (Test-Path -LiteralPath $setup)) { return 'setup.ps1 introuvable' }
-    $runState = Join-Path -Path (Split-Path -Path $setup -Parent) -ChildPath 'state\run.json'
-    if (-not (Test-Path -LiteralPath $runState)) { return 'aucune exécution en attente (state\run.json absent)' }
-    $execute = "$($action.Execute)".Trim('"')
-    if (-not $execute -or -not (Test-Path -LiteralPath $execute)) { return "exécutable introuvable ($execute)" }
-    if ((Get-Item -LiteralPath $runState).LastWriteTime -lt (Get-Date).AddHours(-$resumeHours)) { return "aucune passe depuis plus de $resumeHours h" }
-}
-
-function Write-StoreUpdateLog {
-    param([string]$Message)
-    # Journal partagé avec les tâches de l'utilisateur : quelques essais si un autre écrit au même moment.
-    $line = '{0:yyyy-MM-dd HH:mm:ss} [système] {1}' -f (Get-Date), $Message
-    foreach ($attempt in 1..10) {
-        try { Add-Content -Path $log -Value $line -Encoding UTF8 -ErrorAction Stop; return } catch { Start-Sleep -Milliseconds 200 }
-    }
-}
 
 function Write-DoNotUpdate {
     param([string]$Family, [int]$Value)
@@ -63,19 +32,6 @@ function Write-DoNotUpdate {
         $instance.DoNotUpdate = $Value
         Set-CimInstance -CimInstance $instance
     }
-}
-
-function Get-AppProcess {
-    param([Parameter(Mandatory)][pscustomobject]$App)
-    $pattern = '*\WindowsApps\' + $App.family.Split('_')[0] + '_*'
-    @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -like $pattern })
-}
-
-function Get-AppVersion {
-    param([Parameter(Mandatory)][pscustomobject]$App)
-    # Paquet absent : rien (sous StrictMode, lire Version sur $null lèverait une erreur).
-    $package = Get-AppxPackage -AllUsers -Name $App.family.Split('_')[0] | Sort-Object -Property { [version]$_.Version } -Descending | Select-Object -First 1
-    if ($package) { $package.Version }
 }
 
 function Save-OpenProcess {
@@ -159,7 +115,7 @@ try {
     $apps = ConvertFrom-Json -InputObject (Get-Content -Path (Join-Path -Path $root -ChildPath 'apps.json') -Raw -Encoding UTF8)
     $apps = @($apps)
     # Application encadrée puis désinstallée : elle reste dans apps.json mais n'apparaîtra jamais dans le pont WMI.
-    $present = @($apps | Where-Object { Get-AppVersion -App $_ })
+    $present = @($apps | Where-Object { Get-AppVersion -App $_ -AllUsers })
     # Juste après le démarrage, le pont WMI du Store peut ne pas encore exposer les paquets : on les attend 3 min au plus.
     $deadline = (Get-Date).AddMinutes(3)
     while ($true) {
@@ -199,10 +155,10 @@ try {
         Invoke-UserSearch -App $open -Mode 'check' -TimeoutMinutes 3
     }
     if ($closed) {
-        $before = @($closed | ForEach-Object { "$($_.name) $(Get-AppVersion -App $_)" }) -join ', '
+        $before = @($closed | ForEach-Object { "$($_.name) $(Get-AppVersion -App $_ -AllUsers)" }) -join ', '
         Write-StoreUpdateLog "fermées, mise à jour : $before"
         Invoke-UserSearch -App $closed -Mode 'update' -TimeoutMinutes 15
-        Write-StoreUpdateLog "après : $(@($closed | ForEach-Object { "$($_.name) $(Get-AppVersion -App $_)" }) -join ', ')"
+        Write-StoreUpdateLog "après : $(@($closed | ForEach-Object { "$($_.name) $(Get-AppVersion -App $_ -AllUsers)" }) -join ', ')"
     }
 }
 catch {

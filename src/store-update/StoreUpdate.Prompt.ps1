@@ -10,6 +10,7 @@
 #   de 14 jours (lastSuccess de check.json).
 # Déployé par OS-Setup dans %ProgramFiles%\OS-Setup\store-update : modifier le dépôt, pas cette copie.
 [CmdletBinding()]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', 'logLabel', Justification = 'Lu par Write-StoreUpdateLog (StoreUpdate.Common.ps1).')]
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'TestChoice', Justification = 'Lu par les fonctions du script.')]
 param(
     # Essais automatisés : choisit le bouton indiqué sans attendre l'utilisateur (Now, 10m, 1h, 5h, 24h). NowCancel :
@@ -19,34 +20,20 @@ param(
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+# Variables et fonctions communes aux trois scripts : $root, $log, $schtasks, $resumeTask, $resumeHours,
+# Write-StoreUpdateLog, Get-AppVersion, Get-AppProcess, Get-ResumeOrphanReason.
+. (Join-Path -Path $PSScriptRoot -ChildPath 'StoreUpdate.Common.ps1')
+$logLabel = "$env:USERNAME, fenêtre"
 $systemTask = 'OS-Setup - Store (système)'
-# Tâche de reprise du setup ($script:ResumeTaskName du module) : tant qu'elle existe, la tâche SYSTEM ne fait que vérifier.
-$resumeTask = 'OS-Setup - reprise'
-# Tâche de reprise sans nouvelle passe depuis ce délai : ignorée (Get-ResumeOrphanReason).
-$resumeHours = 48
-# Exécutable système par son chemin complet, pas par le PATH.
-$schtasks = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'schtasks.exe'
 # Vérification auprès du Store au plus toutes les 4 heures.
 $checkHours = 4
 # Avertissement, au plus une fois par jour, au-delà de 14 jours sans vérification aboutie.
 $warnDays = 14
-$root = $PSScriptRoot
-$log = Join-Path -Path $root -ChildPath 'store-update.log'
 $stateFile = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'OS-Setup\store-update.json'
 $title = 'Mise à jour du Store'
 # Fenêtre « Vérification auprès du Store… » de la revérification de « Maintenant » : affichée (active), formulaire (form,
 # absent en essai), bouton Annuler utilisé (cancelled). Table modifiée en place : pas de portée $script: à gérer.
 $progress = @{ active = $false; cancelled = $false; form = $null }
-
-# Copies (scripts autonomes) : Write-StoreUpdateLog aussi dans StoreUpdate.System.ps1 et StoreUpdate.User.ps1 (étiquette
-# différente) ; Get-AppProcess et Get-AppVersion aussi dans StoreUpdate.System.ps1, en ligne dans StoreUpdate.User.ps1.
-function Write-StoreUpdateLog {
-    param([string]$Message)
-    $line = '{0:yyyy-MM-dd HH:mm:ss} [{1}, fenêtre] {2}' -f (Get-Date), $env:USERNAME, $Message
-    foreach ($attempt in 1..10) {
-        try { Add-Content -Path $log -Value $line -Encoding UTF8 -ErrorAction Stop; return } catch { Start-Sleep -Milliseconds 200 }
-    }
-}
 
 function Read-JsonFile {
     param([string]$Path)
@@ -59,19 +46,6 @@ function Save-State {
     param([Parameter(Mandatory)][object]$State)
     New-Item -Path (Split-Path -Path $stateFile -Parent) -ItemType Directory -Force | Out-Null
     [IO.File]::WriteAllText($stateFile, (ConvertTo-Json -InputObject $State), [Text.UTF8Encoding]::new($false))
-}
-
-function Get-AppVersion {
-    param([Parameter(Mandatory)][pscustomobject]$App)
-    # Paquet absent : chaîne vide (sous StrictMode, lire Version sur $null lèverait une erreur).
-    $package = Get-AppxPackage -Name $App.family.Split('_')[0] | Sort-Object -Property { [version]$_.Version } -Descending | Select-Object -First 1
-    if ($package) { "$($package.Version)" } else { '' }
-}
-
-function Get-AppProcess {
-    param([Parameter(Mandatory)][pscustomobject]$App)
-    $pattern = '*\WindowsApps\' + $App.family.Split('_')[0] + '_*'
-    @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -like $pattern })
 }
 
 function Get-OpenSnapshot {
@@ -256,23 +230,6 @@ function Invoke-SystemRun {
     } until ($done -or -not $task -or (Get-Date) -gt $deadline)
     if (-not $done) { Write-StoreUpdateLog 'tâche système non terminée' }
     $done
-}
-
-function Get-ResumeOrphanReason {
-    # Tâche de reprise présente mais qui ne reprendra plus rien : raison, sinon rien. Orpheline quand son setup.ps1, son
-    # exécutable ou state\run.json (écrit à chaque passe, supprimé à la fin) n'existe plus (dépôt déplacé ou supprimé,
-    # PowerShell retiré), ou quand aucune passe n'a eu lieu depuis $resumeHours heures. Sinon les applications encadrées
-    # resteraient en vérification seule indéfiniment.
-    param([Parameter(Mandatory)][object]$Task)
-    $action = @($Task.Actions)[0]
-    $setup = $null
-    if ($action -and "$($action.Arguments)" -match '-File\s+"([^"]+)"') { $setup = $Matches[1] }
-    if (-not $setup -or -not (Test-Path -LiteralPath $setup)) { return 'setup.ps1 introuvable' }
-    $runState = Join-Path -Path (Split-Path -Path $setup -Parent) -ChildPath 'state\run.json'
-    if (-not (Test-Path -LiteralPath $runState)) { return 'aucune exécution en attente (state\run.json absent)' }
-    $execute = "$($action.Execute)".Trim('"')
-    if (-not $execute -or -not (Test-Path -LiteralPath $execute)) { return "exécutable introuvable ($execute)" }
-    if ((Get-Item -LiteralPath $runState).LastWriteTime -lt (Get-Date).AddHours(-$resumeHours)) { return "aucune passe depuis plus de $resumeHours h" }
 }
 
 function Test-ResumePending {
