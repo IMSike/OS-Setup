@@ -64,7 +64,7 @@ function Save-State {
 function Get-AppVersion {
     param([Parameter(Mandatory)][pscustomobject]$App)
     # Paquet absent : chaîne vide (sous StrictMode, lire Version sur $null lèverait une erreur).
-    $package = Get-AppxPackage -Name $App.family.Split('_')[0] | Sort-Object -Property Version -Descending | Select-Object -First 1
+    $package = Get-AppxPackage -Name $App.family.Split('_')[0] | Sort-Object -Property { [version]$_.Version } -Descending | Select-Object -First 1
     if ($package) { "$($package.Version)" } else { '' }
 }
 

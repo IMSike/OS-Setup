@@ -27,7 +27,7 @@ function Get-PackageVersion {
     # Même calcul que Get-AppVersion de StoreUpdate.Prompt.ps1. Paquet absent : chaîne vide (sous StrictMode, lire
     # Version sur $null lèverait une erreur).
     param([Parameter(Mandatory)][string]$Name)
-    $package = Get-AppxPackage -Name $Name | Sort-Object -Property Version -Descending | Select-Object -First 1
+    $package = Get-AppxPackage -Name $Name | Sort-Object -Property { [version]$_.Version } -Descending | Select-Object -First 1
     if ($package) { "$($package.Version)" } else { '' }
 }
 

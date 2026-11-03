@@ -51,6 +51,18 @@ Describe 'Scripts des tâches des mises à jour du Store' {
         $text | Should -Not -Match '\$installed\.Count -eq \$apps\.Count'
     }
 
+    It '<Script> retient la version la plus récente comme version, pas comme texte' -ForEach @(
+        @{ Script = 'StoreUpdate.System.ps1'; Function = 'Get-AppVersion'; Call = 'Get-AppVersion -App ([pscustomobject]@{ family = ''Microsoft.PowerShell_8wekyb3d8bbwe'' })' }
+        @{ Script = 'StoreUpdate.Prompt.ps1'; Function = 'Get-AppVersion'; Call = 'Get-AppVersion -App ([pscustomobject]@{ family = ''Microsoft.PowerShell_8wekyb3d8bbwe'' })' }
+        @{ Script = 'StoreUpdate.User.ps1'; Function = 'Get-PackageVersion'; Call = 'Get-PackageVersion -Name ''Microsoft.PowerShell''' }
+    ) {
+        # Deux versions installées côte à côte (mise à jour en cours) : en texte, 7.5.9.0 passerait devant 7.5.10.0.
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path -Path $sourceRoot -ChildPath $Script), [ref]$null, [ref]$null)
+        $definition = $ast.Find({ param($Node) $Node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $Node.Name -eq $Function }, $true).Extent.Text
+        $stub = 'function Get-AppxPackage { param([string]$Name, [switch]$AllUsers) @([pscustomobject]@{ Version = ''7.5.9.0'' }, [pscustomobject]@{ Version = ''7.5.10.0'' }) }'
+        "$(& ([scriptblock]::Create("$stub`n$definition`n$Call")))" | Should -Be '7.5.10.0'
+    }
+
     It 'les tâches lancent Windows PowerShell par son chemin complet' {
         $argument = InModuleScope OSSetup { Get-OSSetupStoreUpdateTaskArgument -Role System }
         $expected = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'WindowsPowerShell\v1.0\powershell.exe'

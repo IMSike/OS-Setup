@@ -74,7 +74,7 @@ function Get-AppProcess {
 function Get-AppVersion {
     param([Parameter(Mandatory)][pscustomobject]$App)
     # Paquet absent : rien (sous StrictMode, lire Version sur $null lèverait une erreur).
-    $package = Get-AppxPackage -AllUsers -Name $App.family.Split('_')[0] | Sort-Object -Property Version -Descending | Select-Object -First 1
+    $package = Get-AppxPackage -AllUsers -Name $App.family.Split('_')[0] | Sort-Object -Property { [version]$_.Version } -Descending | Select-Object -First 1
     if ($package) { $package.Version }
 }
 
