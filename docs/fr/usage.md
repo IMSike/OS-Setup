@@ -17,6 +17,10 @@ Le setup se déroule en deux étapes :
 
 Le compte utilisé doit être administrateur : depuis un compte standard, le setup s'arrête (les réglages iraient dans le profil d'un autre compte).
 
+### Simulation
+
+`powershell -NoProfile -ExecutionPolicy Bypass -File .\bootstrap.ps1 -WhatIf` ne modifie rien : ni élévation, ni installation de winget, Git ou PowerShell 7, ni clonage ou mise à jour du dépôt, ni `state\bootstrap.json`. Le bootstrap affiche seulement ce qu'il ferait (chaque outil présent ou à installer, dépôt à cloner, à mettre à jour ou utilisé tel quel), puis lance `setup.ps1 -WhatIf` si PowerShell 7 et une copie du dépôt sont déjà là (la copie est utilisée telle quelle, sans `git pull`). Sinon, il s'arrête en expliquant pourquoi : sur une machine vierge, la simulation du setup ne peut tourner qu'une fois les outils et le dépôt en place. Lancer le bootstrap sans `-WhatIf` (le plan est montré et doit être validé avant toute modification), ou `./setup.ps1 -WhatIf` depuis une copie du dépôt.
+
 ### Dans les menus
 
 | Touche | Effet |
