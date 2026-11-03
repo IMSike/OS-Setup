@@ -186,7 +186,7 @@ function Start-OSSetupUnelevatedExplorer {
     $principal = New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited
     Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -Force | Out-Null
     try {
-        & schtasks.exe /run /tn $taskName | Out-Null
+        & (Join-Path -Path $env:WINDIR -ChildPath 'System32\schtasks.exe') /run /tn $taskName | Out-Null
         Start-Sleep -Seconds 2
     }
     finally {
