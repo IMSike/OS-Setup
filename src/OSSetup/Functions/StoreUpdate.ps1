@@ -234,13 +234,15 @@ function Install-OSSetupStoreUpdateGuard {
     foreach ($name in $script:StoreUpdateFile) {
         Copy-Item -Path (Join-Path -Path $SourceRoot -ChildPath $name) -Destination $root -Force
     }
-    # Journal commun et résultat des vérifications : écrits aussi par les tâches de l'utilisateur.
+    # Journal commun et résultat des vérifications : écrits aussi par les tâches de l'utilisateur. icacls par son chemin
+    # complet, comme les tâches : pas d'outil homonyme pris dans le PATH (le setup tourne administrateur).
+    $icacls = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'icacls.exe'
     foreach ($name in $script:StoreUpdateSharedFile) {
         $path = Join-Path -Path $root -ChildPath $name
         if (-not (Test-Path -Path $path -PathType Leaf)) {
             [System.IO.File]::WriteAllText($path, $(if ($name -like '*.json') { '{}' } else { '' }), [System.Text.UTF8Encoding]::new($false))
         }
-        & icacls.exe $path /grant '*S-1-5-32-545:(M)' | Out-Null
+        Invoke-OSSetupNativeCommand -FilePath $icacls -ArgumentList $path, '/grant', '*S-1-5-32-545:(M)' -Label 'icacls'
     }
     $entry = ConvertTo-OSSetupStoreUpdateApp -Action $Action
     $apps = @(@(Get-OSSetupStoreUpdateApp | Where-Object { $_.family -ne $Action['family'] }) + $entry)

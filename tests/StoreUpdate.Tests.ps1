@@ -683,7 +683,7 @@ Describe 'Mises à jour encadrées du Store' {
         Mock -ModuleName OSSetup Get-OSSetupScheduledTask {
             [pscustomobject]@{ TaskName = $TaskName; Actions = @([pscustomobject]@{ Arguments = 'faux' }) }
         }
-        Mock -ModuleName OSSetup icacls.exe {}
+        Mock -ModuleName OSSetup Invoke-OSSetupNativeCommand {}
     }
 
     Context 'conformité' {
@@ -805,7 +805,15 @@ Describe 'Mises à jour encadrées du Store' {
             $apps[1].name | Should -Be 'PowerShell 7'
             $apps[1].closeFirst | Should -Be @('herdr')
             Get-Content -Path (Join-Path -Path $root -ChildPath 'check.json') -Raw | Should -Be '{}'
-            Should -Invoke -ModuleName OSSetup icacls.exe -Times 2 -Exactly
+            # icacls par son chemin complet, sur les deux fichiers partagés.
+            $icacls = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'icacls.exe'
+            foreach ($name in 'store-update.log', 'check.json') {
+                $path = Join-Path -Path $root -ChildPath $name
+                Should -Invoke -ModuleName OSSetup Invoke-OSSetupNativeCommand -Times 1 -Exactly -ParameterFilter {
+                    $FilePath -eq $icacls -and ($ArgumentList -join ' ') -eq "$path /grant *S-1-5-32-545:(M)"
+                }
+            }
+            Should -Invoke -ModuleName OSSetup Invoke-OSSetupNativeCommand -Times 2 -Exactly
             Should -Invoke -ModuleName OSSetup Register-OSSetupStoreUpdateTask -Times 1 -Exactly
             Should -Invoke -ModuleName OSSetup Set-OSSetupDoNotUpdate -ParameterFilter { $Family -eq 'Microsoft.PowerShell_8wekyb3d8bbwe' } -Times 1 -Exactly
         }
