@@ -115,6 +115,12 @@ if ($Resume) {
         if ($runState['dataRoot']) { $dataRoot = $runState['dataRoot'] }
         if (-not (Test-Path -LiteralPath $dataRoot -PathType Container)) { $abandon = "dossier du setup introuvable ($dataRoot)" }
     }
+    if (-not $abandon) {
+        # Écritures élevées dans le dépôt de l'utilisateur : jamais au travers d'une jonction ou d'un lien.
+        Enable-OSSetupDataGuard -Root $dataRoot
+        try { Assert-OSSetupDataPath -Path $dataRoot }
+        catch { $abandon = $_.Exception.Message.TrimEnd('.') }
+    }
     if ($abandon) {
         # Rien où journaliser : la fenêtre de la reprise affiche la raison, puis tout ce qui concerne la reprise est retiré.
         Write-Host -Object "Reprise du setup abandonnée : $abandon." -ForegroundColor Red

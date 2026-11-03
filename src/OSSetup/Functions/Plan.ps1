@@ -274,6 +274,7 @@ function Save-OSSetupOriginalValue {
         before      = $before
     }
     if (-not $PSCmdlet.ShouldProcess($path, 'Enregistrer la valeur d''origine')) { return }
+    Assert-OSSetupDataPath -Path $path
     $entries = [System.Collections.Generic.List[object]]::new()
     if (Test-Path -Path $path) {
         foreach ($existing in @(Get-Content -Path $path -Raw -Encoding utf8 | ConvertFrom-Json)) { $entries.Add($existing) }

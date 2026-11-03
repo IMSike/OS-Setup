@@ -137,6 +137,7 @@ function Backup-OSSetupFile {
     $relative = $fullPath -replace '^([A-Za-z]):', '$1' -replace '^[\\/]+', ''
     $destination = Join-Path -Path $BackupRoot -ChildPath $relative
     if ($PSCmdlet.ShouldProcess($fullPath, "Sauvegarder vers $destination")) {
+        Assert-OSSetupDataPath -Path $destination
         New-Item -Path (Split-Path -Path $destination -Parent) -ItemType Directory -Force | Out-Null
         Copy-Item -Path $fullPath -Destination $destination -Force
     }

@@ -111,16 +111,25 @@ function Save-OSSetupHistory {
     )
     $target = Join-Path -Path $HistoryRoot -ChildPath $RunId
     if (-not $PSCmdlet.ShouldProcess($target, 'Conserver l''historique')) { return }
+    # Reprise élevée : ni la destination ni les sources ne passent par un lien (un lien parmi les sauvegardes ferait
+    # copier un fichier protégé vers un dossier lisible par l'utilisateur).
+    Assert-OSSetupDataPath -Path $target
     New-Item -Path $target -ItemType Directory -Force | Out-Null
     $sources = @(
         Join-Path -Path $Root -ChildPath "logs\setup-$RunId.log"
         Join-Path -Path $Root -ChildPath 'state\answers-last.json'
     )
     foreach ($source in $sources) {
+        Assert-OSSetupDataPath -Path $source
         if (Test-Path -Path $source) { Copy-Item -Path $source -Destination $target -Force }
     }
     $backups = Join-Path -Path $Root -ChildPath "state\backups\$RunId"
+    Assert-OSSetupDataPath -Path $backups
     if (Test-Path -Path $backups) {
+        # Tous les éléments : un lien physique n'a pas d'attribut qui le signale.
+        foreach ($entry in @(Get-ChildItem -LiteralPath $backups -Recurse -Force)) {
+            Assert-OSSetupDataPath -Path $entry.FullName
+        }
         Copy-Item -Path $backups -Destination (Join-Path -Path $target -ChildPath 'backups') -Recurse -Force
     }
     $target

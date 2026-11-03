@@ -130,6 +130,8 @@
         'Wait-OSSetupCountdown'
         'Wait-OSSetupUserSession'
         'Write-OSSetupRunResult'
+        'Enable-OSSetupDataGuard'
+        'Assert-OSSetupDataPath'
         # StoreUpdate.ps1
         'ConvertTo-OSSetupStoreUpdateApp'
         'Get-OSSetupAccountSid'

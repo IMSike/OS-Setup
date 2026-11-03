@@ -276,3 +276,25 @@ Describe 'src/cleanup.ps1 : suppression sans suivre les liens' {
         Get-Content -Path "$work\setup.log" -Raw -Encoding utf8 | Should -BeLike "*Suppression de $clone : faite*"
     }
 }
+
+Describe 'src/cleanup.ps1 : chemins dont un dossier parent est un lien' {
+    It 'ne supprime rien et n''écrit pas le journal au travers d''une jonction' {
+        $work = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid().ToString('N'))
+        $outside = Join-Path -Path $work -ChildPath 'outside'
+        New-Item -Path "$outside\clone", (Join-Path -Path $work -ChildPath 'repo') -ItemType Directory -Force | Out-Null
+        Set-Content -Path "$outside\clone\keep.txt" -Value 'à garder'
+        $junction = Join-Path -Path $work -ChildPath 'repo\parent'
+        New-Item -Path $junction -ItemType Junction -Value $outside | Out-Null
+        $cleanupScript = Join-Path -Path $work -ChildPath 'cleanup.ps1'
+        Copy-Item -Path (Join-Path -Path $repoRoot -ChildPath 'src\cleanup.ps1') -Destination $cleanupScript
+        $cleanupConfig = Join-Path -Path $work -ChildPath 'cleanup.json'
+        [ordered]@{ waitPid = [int]::MaxValue; run = @(); uninstall = @(); remove = @("$junction\clone"); logPath = "$junction\setup.log"; logoff = $false } |
+            ConvertTo-Json -Depth 4 | Set-Content -Path $cleanupConfig -Encoding utf8
+        Mock Wait-Process {}
+
+        & $cleanupScript -ConfigPath $cleanupConfig
+
+        Get-Content -LiteralPath "$outside\clone\keep.txt" | Should -Be 'à garder'
+        Test-Path -LiteralPath "$outside\setup.log" | Should -BeFalse
+    }
+}

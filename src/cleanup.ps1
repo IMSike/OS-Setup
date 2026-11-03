@@ -31,11 +31,29 @@ function Get-CleanupSetting {
     if ($property) { $property.Value } else { $null }
 }
 
+function Test-CleanupLink {
+    # Vrai si un dossier du chemin, jusqu'à la racine du disque, est une jonction ou un lien symbolique ; avec
+    # -Leaf, contrôle aussi l'élément lui-même (y compris lien physique). Le nettoyage s'exécute en administrateur
+    # et ses chemins sont dans le dépôt de l'utilisateur : un lien placé par un programme lancé sous son compte
+    # redirigerait l'écriture ou la suppression vers un dossier protégé (ADR 0005).
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param([Parameter(Mandatory)][string]$Path, [switch]$Leaf)
+    $current = [IO.Path]::GetFullPath($Path)
+    if (-not $Leaf) { $current = [IO.Path]::GetDirectoryName($current) }
+    while ($current) {
+        $entry = Get-Item -LiteralPath $current -Force -ErrorAction SilentlyContinue
+        if ($entry -and $entry.LinkType -in 'Junction', 'SymbolicLink', 'HardLink') { return $true }
+        $current = [IO.Path]::GetDirectoryName($current)
+    }
+    $false
+}
+
 function Write-CleanupLog {
     [CmdletBinding()]
     param([string]$Message)
     $logPath = Get-CleanupSetting -Name 'logPath'
-    if ($logPath) {
+    if ($logPath -and -not (Test-CleanupLink -Path $logPath -Leaf)) {
         $line = '{0:yyyy-MM-dd HH:mm:ss} [CLEANUP] {1}' -f (Get-Date), $Message
         Add-Content -Path $logPath -Value $line -Encoding UTF8
     }
@@ -95,6 +113,11 @@ foreach ($id in @(Get-CleanupSetting -Name 'uninstall' | Where-Object { $_ })) {
 }
 
 foreach ($path in @(Get-CleanupSetting -Name 'remove' | Where-Object { $_ })) {
+    # Un dossier parent devenu lien désignerait un autre dossier que celui prévu : rien n'est supprimé.
+    if (Test-CleanupLink -Path $path) {
+        Write-CleanupLog ('Suppression de {0} : refusée (un dossier du chemin est un lien)' -f $path)
+        continue
+    }
     # Quelques essais : un fichier peut rester verrouillé un court instant après la fermeture du setup.
     $removed = $false
     for ($attempt = 1; $attempt -le 15 -and -not $removed; $attempt++) {

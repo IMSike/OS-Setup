@@ -323,3 +323,68 @@ Describe 'setup.ps1 : relance élevée' {
         $ast.Extent.Text | Should -Match '\$pwsh = Get-OSSetupPwshPath'
     }
 }
+
+Describe 'Écritures de la reprise élevée dans le dépôt' {
+    BeforeEach {
+        $work = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid().ToString('N'))
+        $outside = Join-Path -Path $work -ChildPath 'outside'
+        New-Item -Path (Join-Path -Path $work -ChildPath 'repo'), $outside -ItemType Directory -Force | Out-Null
+        $junction = Join-Path -Path $work -ChildPath 'repo\logs'
+        New-Item -Path $junction -ItemType Junction -Value $outside | Out-Null
+    }
+    AfterEach {
+        InModuleScope OSSetup { $script:DataGuardRoot = $null; $script:LogPath = $null }
+    }
+
+    It 'laisse tout passer hors reprise' {
+        { Assert-OSSetupDataPath -Path (Join-Path -Path $junction -ChildPath 'setup.log') } | Should -Not -Throw
+    }
+
+    It 'pendant la reprise, refuse un chemin dont un dossier est une jonction, même si le fichier n''existe pas' {
+        Enable-OSSetupDataGuard -Root (Join-Path -Path $work -ChildPath 'repo')
+        { Assert-OSSetupDataPath -Path (Join-Path -Path $junction -ChildPath 'setup.log') } | Should -Throw '*Junction*'
+    }
+
+    It 'pendant la reprise, refuse un fichier qui est un lien physique' {
+        Enable-OSSetupDataGuard -Root (Join-Path -Path $work -ChildPath 'repo')
+        Set-Content -Path "$outside\target.txt" -Value 'x'
+        $hardLink = Join-Path -Path $work -ChildPath 'repo\answers-last.json'
+        New-Item -Path $hardLink -ItemType HardLink -Value "$outside\target.txt" | Out-Null
+        { Assert-OSSetupDataPath -Path $hardLink } | Should -Throw '*HardLink*'
+    }
+
+    It 'pendant la reprise, accepte un chemin sans lien' {
+        Enable-OSSetupDataGuard -Root (Join-Path -Path $work -ChildPath 'repo')
+        Set-Content -Path "$work\repo\existing.txt" -Value 'x'
+        { Assert-OSSetupDataPath -Path "$work\repo\existing.txt" } | Should -Not -Throw
+        { Assert-OSSetupDataPath -Path "$work\repo\state\backups\run\original-values.json" } | Should -Not -Throw
+    }
+
+    It 'pendant la reprise, arrête le journal devenu une jonction sans écrire dans sa cible' {
+        Enable-OSSetupDataGuard -Root (Join-Path -Path $work -ChildPath 'repo')
+        InModuleScope OSSetup -Parameters @{ Path = (Join-Path -Path $junction -ChildPath 'setup.log') } {
+            param($Path)
+            $script:LogPath = $Path
+        }
+        Mock -ModuleName OSSetup Write-Host {}
+
+        { Write-OSSetupLog -Message 'ligne' } | Should -Throw '*Junction*'
+
+        InModuleScope OSSetup { $script:LogPath } | Should -BeNullOrEmpty
+        Test-Path -LiteralPath "$outside\setup.log" | Should -BeFalse
+    }
+
+    It 'pendant la reprise, ne copie pas dans l''historique une sauvegarde qui contient une jonction' {
+        Enable-OSSetupDataGuard -Root (Join-Path -Path $work -ChildPath 'repo')
+        Set-Content -Path "$outside\secret.txt" -Value 'protégé'
+        $backups = Join-Path -Path $work -ChildPath 'repo\state\backups\run1'
+        New-Item -Path $backups -ItemType Directory -Force | Out-Null
+        New-Item -Path "$backups\lien" -ItemType Junction -Value $outside | Out-Null
+        $history = Join-Path -Path $work -ChildPath 'history'
+
+        { Save-OSSetupHistory -Root (Join-Path -Path $work -ChildPath 'repo') -RunId 'run1' -HistoryRoot $history -Confirm:$false } |
+            Should -Throw '*Junction*'
+
+        @(Get-ChildItem -LiteralPath $history -Recurse -Filter 'secret.txt' -ErrorAction SilentlyContinue).Count | Should -Be 0
+    }
+}
