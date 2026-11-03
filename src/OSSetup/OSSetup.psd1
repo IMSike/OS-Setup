@@ -15,6 +15,7 @@
         'Invoke-OSSetupCleanup'
         'Read-OSSetupBootstrapInfo'
         'Save-OSSetupHistory'
+        'Test-OSSetupRemovableBootstrapScript'
         # Data.ps1
         'Get-OSSetupPlatform'
         'Import-OSSetupData'

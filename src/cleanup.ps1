@@ -7,30 +7,68 @@
     Lit sa configuration (JSON) : processus à attendre, désinstallations reportées à la fermeture du setup
     (commande, entrée « Programmes et fonctionnalités »), paquets winget à désinstaller, chemins à supprimer,
     journal où consigner le résultat, fermeture de session. Supprime ensuite sa configuration et lui-même, puis ferme la session si demandé.
+    Les chemins sont supprimés sans suivre les jonctions ni les liens symboliques : un lien placé dans le dépôt est
+    retiré lui-même, jamais le contenu du dossier qu'il désigne (le nettoyage s'exécute en administrateur).
 #>
+[CmdletBinding()]
 param(
     [Parameter(Mandatory)]
     [string]$ConfigPath
 )
 
+Set-StrictMode -Version Latest
+# Continue, pas Stop : chaque étape du nettoyage est indépendante, un échec (désinstallation, fichier verrouillé) ne
+# doit pas empêcher les suivantes ni la suppression du script et de sa configuration.
 $ErrorActionPreference = 'Continue'
 $config = Get-Content -Path $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
 
+function Get-CleanupSetting {
+    # Valeur de la configuration, ou $null si elle est absente (StrictMode refuse une propriété inexistante).
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Name)
+    $property = $config.PSObject.Properties[$Name]
+    if ($property) { $property.Value } else { $null }
+}
+
 function Write-CleanupLog {
+    [CmdletBinding()]
     param([string]$Message)
-    if ($config.logPath) {
+    $logPath = Get-CleanupSetting -Name 'logPath'
+    if ($logPath) {
         $line = '{0:yyyy-MM-dd HH:mm:ss} [CLEANUP] {1}' -f (Get-Date), $Message
-        Add-Content -Path $config.logPath -Value $line -Encoding UTF8
+        Add-Content -Path $logPath -Value $line -Encoding UTF8
+    }
+}
+
+function Invoke-CleanupDeletion {
+    # Supprime un fichier ou un dossier sans suivre les points d'analyse (jonctions, liens symboliques) : le lien
+    # est supprimé, pas sa cible. Remove-Item -Recurse de Windows PowerShell 5.1 peut entrer dans une jonction et
+    # vider le dossier qu'elle désigne. Exception au premier élément impossible à supprimer (nouvel essai à l'appelant).
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+    $entry = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+    $reparse = [bool]($entry.Attributes -band [IO.FileAttributes]::ReparsePoint)
+    if ($entry -is [IO.DirectoryInfo]) {
+        if (-not $reparse) {
+            foreach ($child in $entry.EnumerateFileSystemInfos()) { Invoke-CleanupDeletion -Path $child.FullName }
+        }
+        # Dossier vide, ou lien vers un dossier : Directory.Delete non récursif retire le lien sans toucher sa cible.
+        # Attributs (lecture seule) retirés seulement sur un vrai dossier, jamais au travers d'un lien.
+        if (-not $reparse) { $entry.Attributes = [IO.FileAttributes]::Directory }
+        [IO.Directory]::Delete($entry.FullName, $false)
+    }
+    else {
+        if (-not $reparse) { $entry.Attributes = [IO.FileAttributes]::Normal }
+        [IO.File]::Delete($entry.FullName)
     }
 }
 
 # Attend la fin du setup (fenêtre fermée).
-Wait-Process -Id $config.waitPid -ErrorAction SilentlyContinue
+Wait-Process -Id (Get-CleanupSetting -Name 'waitPid') -ErrorAction SilentlyContinue
 
 # Désinstallations reportées à la fermeture du setup (ex. MSI du PowerShell qui l'exécutait). Idempotent : une
 # entrée déjà absente de « Programmes et fonctionnalités » n'est pas désinstallée une seconde fois.
-$run = @()
-if ($config.PSObject.Properties['run']) { $run = @($config.run | Where-Object { $_ }) }
+$run = @(Get-CleanupSetting -Name 'run' | Where-Object { $_ })
 foreach ($command in $run) {
     if (-not (Test-Path -LiteralPath $command.registryKey)) {
         Write-CleanupLog ('Désinstallation de {0} : déjà faite' -f $command.displayName)
@@ -50,17 +88,17 @@ foreach ($command in $run) {
     Write-CleanupLog ('Désinstallation de {0} : {1} (code {2})' -f $command.displayName, $outcome, $code)
 }
 
-foreach ($id in @($config.uninstall | Where-Object { $_ })) {
+foreach ($id in @(Get-CleanupSetting -Name 'uninstall' | Where-Object { $_ })) {
     & winget uninstall --id $id --exact --silent --disable-interactivity --accept-source-agreements | Out-Null
     Write-CleanupLog ('Désinstallation de {0} : code {1}' -f $id, $LASTEXITCODE)
 }
 
-foreach ($path in @($config.remove | Where-Object { $_ })) {
+foreach ($path in @(Get-CleanupSetting -Name 'remove' | Where-Object { $_ })) {
     # Quelques essais : un fichier peut rester verrouillé un court instant après la fermeture du setup.
     $removed = $false
     for ($attempt = 1; $attempt -le 15 -and -not $removed; $attempt++) {
         try {
-            if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction Stop }
+            if (Test-Path -LiteralPath $path) { Invoke-CleanupDeletion -Path $path }
             $removed = $true
         }
         catch {
@@ -74,7 +112,7 @@ Remove-Item -LiteralPath $ConfigPath -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
 
 # En dernier : fermer la session interromprait le nettoyage.
-if ($config.PSObject.Properties['logoff'] -and $config.logoff) {
+if (Get-CleanupSetting -Name 'logoff') {
     Write-CleanupLog 'Fermeture de la session'
-    & shutdown.exe /l
+    & (Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'shutdown.exe') /l
 }

@@ -4,14 +4,15 @@
 
     function New-TestClone {
         # Faux dépôt laissé par le bootstrap : journal, réponses, sauvegardes, bootstrap.json, src/cleanup.ps1.
-        param([bool]$OwnsClone, [string[]]$InstalledTool = @(), [string]$RunId = 'r1')
+        param([bool]$OwnsClone, [string[]]$InstalledTool = @(), [string]$RunId = 'r1',
+            [string]$BootstrapScript = (Join-Path -Path ([IO.Path]::GetTempPath()) -ChildPath 'bootstrap.ps1'))
         $root = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid())
         New-Item -Path "$root\logs", "$root\state\backups\$RunId", "$root\src" -ItemType Directory -Force | Out-Null
         Set-Content -Path "$root\logs\setup-$RunId.log" -Value 'journal'
         Set-Content -Path "$root\state\answers-last.json" -Value '{}'
         Set-Content -Path "$root\state\backups\$RunId\config.txt" -Value 'ancienne config'
         Copy-Item -Path (Join-Path -Path $repoRoot -ChildPath 'src\cleanup.ps1') -Destination "$root\src\cleanup.ps1"
-        @{ ownsClone = $OwnsClone; bootstrapScript = 'C:\Temp\bootstrap.ps1'; installedTools = $InstalledTool } |
+        @{ ownsClone = $OwnsClone; bootstrapScript = $BootstrapScript; installedTools = $InstalledTool } |
             ConvertTo-Json | Set-Content -Path "$root\state\bootstrap.json"
         $root
     }
@@ -48,6 +49,28 @@ Describe 'Get-OSSetupSelectedWingetId' {
             }
         }
         Get-OSSetupSelectedWingetId -Data $data -ItemId 'git', 'dark' | Should -Be @('Git.Git')
+    }
+}
+
+Describe 'Test-OSSetupRemovableBootstrapScript' {
+    It 'accepte un .ps1 posé dans %TEMP%' {
+        Test-OSSetupRemovableBootstrapScript -Path (Join-Path -Path ([IO.Path]::GetTempPath()) -ChildPath 'bootstrap.ps1') | Should -BeTrue
+    }
+
+    It 'accepte un .ps1 posé dans Téléchargements' {
+        Mock -ModuleName OSSetup Get-ItemPropertyValue { 'C:\Users\test\Downloads' }
+        Test-OSSetupRemovableBootstrapScript -Path 'C:\Users\test\Downloads\bootstrap.ps1' | Should -BeTrue
+    }
+
+    It 'refuse <Case>' -ForEach @(
+        @{ Case = 'un autre dossier'; Path = 'C:\Windows\System32\bootstrap.ps1' }
+        @{ Case = 'un sous-dossier de %TEMP%'; Path = (Join-Path -Path ([IO.Path]::GetTempPath()) -ChildPath 'x\bootstrap.ps1') }
+        @{ Case = 'un fichier autre que .ps1'; Path = (Join-Path -Path ([IO.Path]::GetTempPath()) -ChildPath 'bootstrap.exe') }
+        @{ Case = 'une remontée hors de %TEMP%'; Path = (Join-Path -Path ([IO.Path]::GetTempPath()) -ChildPath '..\bootstrap.ps1') }
+        @{ Case = 'un chemin relatif'; Path = 'bootstrap.ps1' }
+        @{ Case = 'un chemin vide'; Path = '' }
+    ) {
+        Test-OSSetupRemovableBootstrapScript -Path $Path | Should -BeFalse
     }
 }
 
@@ -121,11 +144,19 @@ Describe 'Invoke-OSSetupCleanup' {
         $root = New-TestClone -OwnsClone $true -InstalledTool 'Git.Git' -RunId $runId
         Invoke-OSSetupCleanup -Root $root -RunId $runId -SelectedWingetId 'Git.Git' -Yes
         $config = Get-LaunchedConfig
-        $config.remove | Should -Be @($root, 'C:\Temp\bootstrap.ps1')
+        $config.remove | Should -Be @($root, (Join-Path -Path ([IO.Path]::GetTempPath()) -ChildPath 'bootstrap.ps1'))
         $config.uninstall | Should -BeNullOrEmpty
         $config.waitPid | Should -Be $PID
         Test-Path -Path (Join-Path -Path $historyRoot -ChildPath "$runId\setup-$runId.log") | Should -BeTrue
         Test-Path -Path (Join-Path -Path $historyRoot -ChildPath "$runId\backups\config.txt") | Should -BeTrue
+    }
+
+    It 'ne supprime pas un script du bootstrap noté hors de %TEMP% et de Téléchargements' {
+        $runId = "test-$([guid]::NewGuid().ToString('N'))"
+        $root = New-TestClone -OwnsClone $true -RunId $runId -BootstrapScript 'C:\Windows\System32\drivers\etc\hosts.ps1'
+        Invoke-OSSetupCleanup -Root $root -RunId $runId -SelectedWingetId @() -Yes
+        (Get-LaunchedConfig).remove | Should -Be @($root)
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -ParameterFilter { $Level -eq 'Warning' -and $Message -like '*Script du bootstrap conservé*' }
     }
 
     It 'sur une copie qui n''appartient pas au bootstrap, désinstalle seulement les outils non choisis' {
@@ -216,5 +247,31 @@ Describe 'src/cleanup.ps1 : désinstallations reportées' {
         & $script:cleanupScript -ConfigPath $script:cleanupConfig
         Should -Invoke Start-Process -Times 0 -Exactly
         Get-Content -Path $script:cleanupLog -Raw -Encoding utf8 | Should -BeLike '*Désinstallation de PowerShell 7-x64 : déjà faite*'
+    }
+}
+
+Describe 'src/cleanup.ps1 : suppression sans suivre les liens' {
+    It 'supprime le dossier, ses fichiers en lecture seule et la jonction, sans toucher la cible de la jonction' {
+        $work = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid().ToString('N'))
+        $clone = Join-Path -Path $work -ChildPath 'clone'
+        $outside = Join-Path -Path $work -ChildPath 'outside'
+        New-Item -Path "$clone\sub", $outside -ItemType Directory -Force | Out-Null
+        Set-Content -Path "$clone\sub\file.txt" -Value 'x'
+        Set-Content -Path "$clone\readonly.txt" -Value 'x'
+        (Get-Item -LiteralPath "$clone\readonly.txt").IsReadOnly = $true
+        Set-Content -Path "$outside\keep.txt" -Value 'à garder'
+        New-Item -Path "$clone\link" -ItemType Junction -Value $outside | Out-Null
+        $cleanupScript = Join-Path -Path $work -ChildPath 'cleanup.ps1'
+        Copy-Item -Path (Join-Path -Path $repoRoot -ChildPath 'src\cleanup.ps1') -Destination $cleanupScript
+        $cleanupConfig = Join-Path -Path $work -ChildPath 'cleanup.json'
+        [ordered]@{ waitPid = [int]::MaxValue; run = @(); uninstall = @(); remove = @($clone); logPath = "$work\setup.log"; logoff = $false } |
+            ConvertTo-Json -Depth 4 | Set-Content -Path $cleanupConfig -Encoding utf8
+        Mock Wait-Process {}
+
+        & $cleanupScript -ConfigPath $cleanupConfig
+
+        Test-Path -LiteralPath $clone | Should -BeFalse
+        Get-Content -LiteralPath "$outside\keep.txt" | Should -Be 'à garder'
+        Get-Content -Path "$work\setup.log" -Raw -Encoding utf8 | Should -BeLike "*Suppression de $clone : faite*"
     }
 }

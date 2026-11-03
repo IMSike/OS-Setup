@@ -22,6 +22,35 @@ function Read-OSSetupBootstrapInfo {
     }
 }
 
+function Test-OSSetupRemovableBootstrapScript {
+    <#
+    .SYNOPSIS
+        Vrai si le script du bootstrap noté dans state/bootstrap.json peut être supprimé par le nettoyage de fin : un
+        fichier .ps1 posé directement dans le %TEMP% de l'utilisateur ou dans son dossier Téléchargements.
+    .DESCRIPTION
+        bootstrap.json est dans la copie du dépôt, modifiable sans élévation, et le nettoyage de fin s'exécute en
+        administrateur : sans ce contrôle, un programme de la session pourrait y inscrire n'importe quel chemin à
+        supprimer. Le bootstrap se télécharge dans %TEMP% (procédure documentée) ou dans Téléchargements.
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Path
+    )
+    if (-not $Path -or -not [IO.Path]::IsPathRooted($Path) -or [IO.Path]::GetExtension($Path) -ne '.ps1') { return $false }
+    $parent = try { [IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($Path)).TrimEnd('\') } catch { return $false }
+    $downloads = Get-ItemPropertyValue -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders' `
+        -Name '{374DE290-123F-4565-9164-39C4925E467B}' -ErrorAction SilentlyContinue
+    if (-not $downloads) { $downloads = Join-Path -Path ([Environment]::GetFolderPath('UserProfile')) -ChildPath 'Downloads' }
+    foreach ($allowed in @([IO.Path]::GetTempPath(), $downloads)) {
+        $allowedPath = [IO.Path]::GetFullPath($allowed).TrimEnd('\')
+        if ($parent.Equals($allowedPath, [StringComparison]::OrdinalIgnoreCase)) { return $true }
+    }
+    $false
+}
+
 function Get-OSSetupSelectedWingetId {
     <#
     .SYNOPSIS
@@ -161,7 +190,10 @@ function Invoke-OSSetupCleanup {
         }
         if ($choice -ne 'keep') {
             $remove.Add($Root)
-            if ($info.bootstrapScript) { $remove.Add($info.bootstrapScript) }
+            if ($info.bootstrapScript) {
+                if (Test-OSSetupRemovableBootstrapScript -Path $info.bootstrapScript) { $remove.Add($info.bootstrapScript) }
+                else { Write-OSSetupLog -Level Warning -Message "Script du bootstrap conservé (hors de %TEMP% et de Téléchargements) : $($info.bootstrapScript)" }
+            }
             Write-OSSetupLog -Message "√ Suppression à la fermeture : $($remove -join ', ')"
         }
         else {
