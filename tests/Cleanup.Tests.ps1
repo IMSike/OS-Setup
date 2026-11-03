@@ -57,6 +57,8 @@ Describe 'Invoke-OSSetupCleanup' {
         Mock -ModuleName OSSetup Write-OSSetupLog {}
         Mock -ModuleName OSSetup Start-Process { $global:OSSetupTestCleanupArgs = $ArgumentList }
         $historyRoot = Join-Path -Path ([Environment]::GetFolderPath('LocalApplicationData')) -ChildPath 'OS-Setup'
+        # Jamais Program Files pendant les tests : le script et sa configuration vont dans TestDrive.
+        $PSDefaultParameterValues['Invoke-OSSetupCleanup:WorkRoot'] = Join-Path -Path $TestDrive -ChildPath 'cleanup-work'
     }
 
     AfterEach {
@@ -69,6 +71,31 @@ Describe 'Invoke-OSSetupCleanup' {
             }
         }
         Remove-Variable -Name OSSetupTestCleanupArgs -Scope Global -ErrorAction SilentlyContinue
+        $PSDefaultParameterValues.Remove('Invoke-OSSetupCleanup:WorkRoot')
+    }
+
+    It 'prépare le script et sa configuration dans le dossier réservé aux administrateurs, pas dans %TEMP%' {
+        $PSDefaultParameterValues.Remove('Invoke-OSSetupCleanup:WorkRoot')
+        $command = Get-Command -Name Invoke-OSSetupCleanup
+        $default = $command.ScriptBlock.Ast.Body.ParamBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq 'WorkRoot' }
+        $default.DefaultValue.Extent.Text | Should -Match "GetFolderPath\('ProgramFiles'\), 'OS-Setup', 'cleanup'"
+    }
+
+    It 'lit le script et la trace du bootstrap dans CodeRoot (copie de la reprise), pas dans le dépôt' {
+        $runId = "test-$([guid]::NewGuid().ToString('N'))"
+        $root = New-TestClone -OwnsClone $true -InstalledTool 'Git.Git' -RunId $runId
+        $code = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid())
+        New-Item -Path "$code\src", "$code\state" -ItemType Directory -Force | Out-Null
+        Set-Content -Path "$code\src\cleanup.ps1" -Value '# copie de la reprise'
+        Copy-Item -Path "$root\state\bootstrap.json" -Destination "$code\state\bootstrap.json"
+        # Trace du dépôt modifiée après la copie : elle ne doit pas être suivie.
+        @{ ownsClone = $true; bootstrapScript = 'C:\Windows\System32\drivers'; installedTools = @('Autre.Outil') } |
+            ConvertTo-Json | Set-Content -Path "$root\state\bootstrap.json"
+        Invoke-OSSetupCleanup -Root $root -CodeRoot $code -RunId $runId -SelectedWingetId @() -Yes
+        Get-Content -Path $global:OSSetupTestCleanupArgs[-3].Trim('"') -Raw | Should -Match 'copie de la reprise'
+        $config = Get-LaunchedConfig
+        $config.uninstall | Should -Be @('Git.Git')
+        $config.remove | Should -Be @($root, 'C:\Temp\bootstrap.ps1')
     }
 
     It 'ne fait rien sans trace du bootstrap (clone de développement)' {

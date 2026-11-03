@@ -49,6 +49,19 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $root = $PSScriptRoot
+if ($Resume) {
+    # Reprise élevée sans personne devant la console : aucun module d'un dossier que l'utilisateur peut modifier (son
+    # profil, une entrée ajoutée à PSModulePath, C:\Windows\Temp…) ne doit être chargé à la place d'un module de
+    # Windows ou de PowerShell. Liste fixe des dossiers de modules réservés aux administrateurs (ADR 0005), posée
+    # avant tout chargement de module, en .NET seulement.
+    $programFiles = [Environment]::GetFolderPath('ProgramFiles')
+    $env:PSModulePath = @(
+        [IO.Path]::Combine($PSHOME, 'Modules')
+        [IO.Path]::Combine($programFiles, 'PowerShell\Modules')
+        [IO.Path]::Combine($programFiles, 'WindowsPowerShell\Modules')
+        [IO.Path]::Combine([Environment]::SystemDirectory, 'WindowsPowerShell\v1.0\Modules')
+    ) -join ';'
+}
 Import-Module -Name (Join-Path -Path $root -ChildPath 'src\OSSetup\OSSetup.psd1') -Force
 
 # Une seule élévation pour toute l'exécution (inutile en simulation, qui ne modifie rien).
@@ -75,14 +88,46 @@ if ($IsWindows -and -not $WhatIfPreference -and -not (Test-OSSetupElevated)) {
     exit $process.ExitCode
 }
 
-$stateRoot = Join-Path -Path $root -ChildPath 'state'
+# Reprise après redémarrage (ADR 0005) : le code et run.json sont dans une copie modifiable par les seuls
+# administrateurs ; journaux, sauvegardes et réponses restent dans le dépôt de l'utilisateur ($dataRoot).
+$resumeRoot = Get-OSSetupResumeRoot
+$runStateRoot = Join-Path -Path $resumeRoot -ChildPath 'state'
+$dataRoot = $root
 $runState = $null
 if ($Resume) {
-    $runState = Read-OSSetupRunState -StateRoot $stateRoot
+    $abandon = $null
+    try {
+        $runState = Read-OSSetupRunState -StateRoot $runStateRoot
+        # Tâche d'une version antérieure (setup.ps1 du dépôt, état dans le dépôt) : la reprise continue, la tâche
+        # suivante passera par la copie.
+        $legacyStateRoot = Join-Path -Path $root -ChildPath 'state'
+        if (-not $runState -and (Test-Path -LiteralPath (Join-Path -Path $legacyStateRoot -ChildPath 'run.json'))) {
+            $runState = Read-OSSetupRunState -StateRoot $legacyStateRoot
+            $runState['dataRoot'] = $root
+            Save-OSSetupRunState -StateRoot $runStateRoot -State $runState
+            Remove-OSSetupRunState -StateRoot $legacyStateRoot
+        }
+    }
+    catch {
+        $abandon = "état de reprise illisible ($($_.Exception.Message))"
+    }
+    if ($runState) {
+        if ($runState['dataRoot']) { $dataRoot = $runState['dataRoot'] }
+        if (-not (Test-Path -LiteralPath $dataRoot -PathType Container)) { $abandon = "dossier du setup introuvable ($dataRoot)" }
+    }
+    if ($abandon) {
+        # Rien où journaliser : la fenêtre de la reprise affiche la raison, puis tout ce qui concerne la reprise est retiré.
+        Write-Host -Object "Reprise du setup abandonnée : $abandon." -ForegroundColor Red
+        Unregister-OSSetupResumeTask
+        Remove-OSSetupResumeCode -ErrorAction SilentlyContinue
+        if (-not $NoPause) { Read-Host -Prompt 'Appuyez sur Entrée pour fermer cette fenêtre' | Out-Null }
+        exit 1
+    }
 }
+$stateRoot = Join-Path -Path $dataRoot -ChildPath 'state'
 # Une reprise poursuit le même journal que l'exécution d'origine.
 $runId = if ($runState) { $runState['runId'] } else { Get-Date -Format 'yyyyMMdd-HHmmss' }
-$logPath = Start-OSSetupLog -Directory (Join-Path -Path $root -ChildPath 'logs') -RunId $runId
+$logPath = Start-OSSetupLog -Directory (Join-Path -Path $dataRoot -ChildPath 'logs') -RunId $runId
 Write-OSSetupLog -Message "OS_Setup — journal : $logPath"
 
 $exitCode = 0
@@ -100,9 +145,12 @@ try {
         Write-OSSetupLog -Message "=== Reprise après redémarrage (passe $($runState['pass'])) ==="
         if ($runState['pass'] -gt (Get-OSSetupMaxPass)) {
             Unregister-OSSetupResumeTask
-            Remove-OSSetupRunState -StateRoot $stateRoot
+            Remove-OSSetupRunState -StateRoot $runStateRoot
             throw "Trop de redémarrages successifs ($($runState['pass'] - 1)) : arrêt pour éviter une boucle. Voir le journal."
         }
+        # Passe comptée tout de suite : un redémarrage pendant la passe (installateur, coupure) ne la recommence pas
+        # avec le même numéro, et la limite de passes arrête bien une boucle.
+        Save-OSSetupRunState -StateRoot $runStateRoot -State $runState
         Wait-OSSetupUserSession
     }
 
@@ -195,14 +243,17 @@ try {
     if (-not $WhatIfPreference -and ($results | Where-Object { $_.RebootRequired })) {
         $waitingForRestart = $true
         $nextState = @{
-            runId   = $runId
-            pass    = if ($runState) { $runState['pass'] } else { 1 }
-            yes     = [bool]$Yes
-            failed  = ($exitCode -ne 0)
-            answers = $answers
+            runId    = $runId
+            pass     = if ($runState) { $runState['pass'] } else { 1 }
+            yes      = [bool]$Yes
+            failed   = ($exitCode -ne 0)
+            answers  = $answers
+            dataRoot = $dataRoot
         }
-        Save-OSSetupRunState -StateRoot $stateRoot -State $nextState
-        Register-OSSetupResumeTask -SetupPath $PSCommandPath
+        # Copie d'abord (elle garde son dossier state), puis l'état, puis la tâche qui les utilise.
+        Copy-OSSetupResumeCode -SourceRoot $root
+        Save-OSSetupRunState -StateRoot $runStateRoot -State $nextState
+        Register-OSSetupResumeTask -ResumeRoot $resumeRoot
         Write-OSSetupLog -Message ''
         Write-OSSetupLog -Level Warning -Message 'Un redémarrage est nécessaire pour terminer. Le setup reprendra automatiquement à l''ouverture de session.'
         if ($results | Where-Object { $_.Status -eq 'atclose' }) {
@@ -230,7 +281,7 @@ finally {
         Write-OSSetupRunResult -StateRoot $stateRoot -RunId $runId -ExitCode $exitCode
         if (Test-OSSetupElevated) {
             Unregister-OSSetupResumeTask
-            Remove-OSSetupRunState -StateRoot $stateRoot
+            Remove-OSSetupRunState -StateRoot $runStateRoot
             # Outils du bootstrap à garder : ceux que les éléments retenus installent. Liste inconnue (échec avant
             # la résolution) : $null, aucun outil n'est désinstallé.
             $selectedWingetIds = $null
@@ -243,11 +294,16 @@ finally {
                 $runAtClose = @($results | Where-Object { $_.Status -eq 'atclose' } | ForEach-Object { $_.RunAtClose })
             }
             try {
-                Invoke-OSSetupCleanup -Root $root -RunId $runId -SelectedWingetId $selectedWingetIds -RunAtClose $runAtClose -Yes:$Yes -Logoff:$logoff
+                Invoke-OSSetupCleanup -Root $dataRoot -CodeRoot $root -RunId $runId -SelectedWingetId $selectedWingetIds -RunAtClose $runAtClose -Yes:$Yes -Logoff:$logoff
             }
             catch {
                 Write-OSSetupLog -Level Warning -Message "Nettoyage de fin impossible : $($_.Exception.Message)"
             }
+            # Copie de la reprise (ou reste d'une exécution abandonnée) : plus utile une fois le script du nettoyage
+            # copié depuis elle. Le processus en cours ne garde aucun fichier ouvert dedans ; un échec ne bloque pas
+            # la fin (la prochaine exécution la remplace).
+            try { Remove-OSSetupResumeCode }
+            catch { Write-OSSetupLog -Level Warning -Message "Copie de la reprise non supprimée : $($_.Exception.Message)" }
         }
     }
     elseif ($WhatIfPreference) {

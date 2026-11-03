@@ -119,7 +119,7 @@ In addition to installation, an item can deploy configuration files from `dotfil
 
 ### Reboots
 
-The setup is **resumable**. A reboot is signaled by the provider (code 3010, Windows feature, winget code `0x8A150109`) or declared by the item (`requiresReboot`): the item finishes its actions, its dependents are postponed. At the end of a pass, the state is saved in `state/run.json`, a scheduled task "OS-Setup - reprise" ("OS-Setup - resume") is created (at logon, highest privileges: no new UAC prompt), then the machine restarts (immediately with `-Yes`, otherwise after a 10 s countdown that a key press postpones). On resume: same answers, same log, at most 5 passes. This task runs the repository's `setup.ps1`, which the user can modify without elevation: like any elevated task that runs a user-modifiable script, it is a bridge to administrator rights without a UAC prompt, but only while the setup is in progress, since it is deleted when the setup finishes.
+The setup is **resumable**. A reboot is signaled by the provider (code 3010, Windows feature, winget code `0x8A150109`) or declared by the item (`requiresReboot`): the item finishes its actions, its dependents are postponed. At the end of a pass, the setup copies itself to `%ProgramFiles%\OS-Setup\resume` (read only for users), saves its state in `state\run.json` of that copy, creates a scheduled task "OS-Setup - reprise" ("OS-Setup - resume") (at logon, highest privileges: no new UAC prompt), then the machine restarts (immediately with `-Yes`, otherwise after a 10 s countdown that a key press postpones). On resume: same answers, same log, at most 5 passes. This task runs Windows PowerShell from the system folder with the copy's launcher `resume.ps1`, which starts the copy's `setup.ps1 -Resume` with the Store `pwsh.exe` found in its package folder, and the resume pass loads modules only from administrators-only folders: nothing that the elevated task runs can be modified without administrator rights ([ADR 0005](adr/0005-resume-from-administrators-only-copy.md)). Logs, backups and answers stay in the repository. The task and the copy are deleted when the setup finishes.
 
 A setting that only takes effect at the next logon declares `requiresLogoff`: the session is closed at the end of the setup (see [Deferred effect](how-it-works.md#deferred-effect)).
 
@@ -135,7 +135,7 @@ The setup leaves only what was chosen. The bootstrap records what it installed i
 - Git and PowerShell 7 installed by the bootstrap are uninstalled if no chosen item installs them;
 - if the repository copy was created by the bootstrap, a menu offers: delete everything, keep the history (log, answers, backups in `%LOCALAPPDATA%\OS-Setup\<date>`), or keep everything. With `-Yes`: the history. A development clone is never deleted.
 
-The work is done by `src/cleanup.ps1`, copied into `%TEMP%` and launched detached under Windows PowerShell 5.1: it waits for the setup to close, runs the postponed uninstalls (skipped if the software is already gone), uninstalls, deletes, then deletes itself. Its results go to the setup log (or the kept history), lines `[CLEANUP]`. It takes a few minutes: do not restart right after the setup ends.
+The work is done by `src/cleanup.ps1`, copied with its configuration into `%ProgramFiles%\OS-Setup\cleanup` (administrators only, since it runs elevated) and launched detached under Windows PowerShell 5.1: it waits for the setup to close, runs the postponed uninstalls (skipped if the software is already gone), uninstalls, deletes, then deletes itself. Its results go to the setup log (or the kept history), lines `[CLEANUP]`. It takes a few minutes: do not restart right after the setup ends.
 
 ## Windows specifics
 
@@ -155,3 +155,4 @@ The engine can **audit** what exists and produce a **plan** (`[ok]` / `[à faire
 | [0002](adr/0002-agent-assistance.md) | Agent assistance on a machine already in use |
 | [0003](adr/0003-in-house-dotfiles.md) | Deployment of configuration files by the engine |
 | [0004](adr/0004-store-updates-without-forced-close.md) | Store apps (PowerShell 7, Windows Terminal) updated without forced close |
+| [0005](adr/0005-resume-from-administrators-only-copy.md) | Resume after reboot from an administrators-only copy |

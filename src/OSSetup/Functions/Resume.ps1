@@ -1,9 +1,78 @@
-﻿# Reprise après redémarrage : état persisté dans state/, tâche planifiée à l'ouverture de session.
-#   state/run.json         exécution en cours, à reprendre (supprimé à la fin)
-#   state/last-result.json résultat de la dernière exécution terminée (code de sortie)
+﻿# Reprise après redémarrage : tâche planifiée à l'ouverture de session, droits les plus élevés (ADR 0005).
+#   %ProgramFiles%\OS-Setup\resume\        copie figée du setup (code, catalogue, dotfiles) et lanceur resume.ps1,
+#                                          modifiables par les seuls administrateurs ; supprimée à la fin
+#   %ProgramFiles%\OS-Setup\resume\state\run.json  exécution en cours, à reprendre (supprimé à la fin)
+#   <dépôt>\state\last-result.json        résultat de la dernière exécution terminée (code de sortie)
+# Journaux, sauvegardes et réponses restent dans le dépôt (dataRoot de run.json) : la reprise les écrit, ne les lit pas.
 
 $script:ResumeTaskName = 'OS-Setup - reprise'
 $script:MaxPasses = 5
+# Entrées de la racine du dépôt que la copie figée ne reprend pas : inutiles à l'exécution, ou état de l'utilisateur.
+$script:ResumeCopyExclude = @('.git', '.github', '.githooks', '.claude', '.maintainer', '.vscode', 'docs', 'logs', 'state', 'tests')
+
+function Get-OSSetupResumeRoot {
+    <#
+    .SYNOPSIS
+        Dossier de la copie figée de la reprise : %ProgramFiles%\OS-Setup\resume (chemin connu par l'API, pas par une
+        variable d'environnement que l'utilisateur pourrait redéfinir).
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param()
+    [IO.Path]::Combine([Environment]::GetFolderPath('ProgramFiles'), 'OS-Setup', 'resume')
+}
+
+function Copy-OSSetupResumeCode {
+    <#
+    .SYNOPSIS
+        Copie le setup (code, catalogue, profils, schémas, dotfiles) dans le dossier de la reprise, avec le lanceur
+        src\resume.ps1 à sa racine. Sans effet quand le setup s'exécute déjà depuis cette copie (reprise suivante).
+    .DESCRIPTION
+        Le dossier hérite des droits de Program Files : lecture seule pour les utilisateurs. Son sous-dossier state
+        (run.json) est conservé ; le reste est remplacé. Les liens et jonctions de la racine du dépôt sont ignorés.
+    #>
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [Parameter(Mandatory)]
+        [string]$SourceRoot,
+
+        [string]$Destination = (Get-OSSetupResumeRoot)
+    )
+    $source = [IO.Path]::GetFullPath($SourceRoot).TrimEnd('\')
+    $target = [IO.Path]::GetFullPath($Destination).TrimEnd('\')
+    if ($source -eq $target) { return }
+    if (-not $PSCmdlet.ShouldProcess($target, 'Copier le setup pour la reprise')) { return }
+    New-Item -Path $target -ItemType Directory -Force | Out-Null
+    Get-ChildItem -LiteralPath $target -Force | Where-Object { $_.Name -ne 'state' } | Remove-Item -Recurse -Force
+    foreach ($entry in Get-ChildItem -LiteralPath $source -Force) {
+        if ($entry.Name -in $script:ResumeCopyExclude -or $entry.Attributes -band [IO.FileAttributes]::ReparsePoint) { continue }
+        Copy-Item -LiteralPath $entry.FullName -Destination $target -Recurse -Force
+    }
+    Copy-Item -LiteralPath (Join-Path -Path $source -ChildPath 'src\resume.ps1') -Destination (Join-Path -Path $target -ChildPath 'resume.ps1') -Force
+    # Trace du bootstrap (outils à désinstaller, chemins à supprimer) : le nettoyage de fin de la reprise la lit ici,
+    # pas dans le dépôt, que l'utilisateur peut modifier.
+    $bootstrapInfo = Join-Path -Path $source -ChildPath 'state\bootstrap.json'
+    $targetState = Join-Path -Path $target -ChildPath 'state'
+    Remove-Item -LiteralPath (Join-Path -Path $targetState -ChildPath 'bootstrap.json') -Force -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath $bootstrapInfo -PathType Leaf) {
+        New-Item -Path $targetState -ItemType Directory -Force | Out-Null
+        Copy-Item -LiteralPath $bootstrapInfo -Destination $targetState -Force
+    }
+}
+
+function Remove-OSSetupResumeCode {
+    <#
+    .SYNOPSIS
+        Supprime la copie figée de la reprise (fin d'exécution, ou reste d'une exécution abandonnée).
+    #>
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [string]$Path = (Get-OSSetupResumeRoot)
+    )
+    if ((Test-Path -LiteralPath $Path) -and $PSCmdlet.ShouldProcess($Path, 'Supprimer la copie de la reprise')) {
+        Remove-Item -LiteralPath $Path -Recurse -Force
+    }
+}
 
 function Save-OSSetupRunState {
     <#
@@ -21,7 +90,9 @@ function Save-OSSetupRunState {
     $path = Join-Path -Path $StateRoot -ChildPath 'run.json'
     if ($PSCmdlet.ShouldProcess($path, 'Enregistrer l''état de reprise')) {
         New-Item -Path $StateRoot -ItemType Directory -Force | Out-Null
-        $State | ConvertTo-Json -Depth 6 | Set-Content -Path $path -Encoding utf8NoBOM
+        # Fichier temporaire puis renommage : une coupure pendant l'écriture ne laisse jamais un état tronqué.
+        $State | ConvertTo-Json -Depth 6 | Set-Content -Path "$path.tmp" -Encoding utf8NoBOM
+        Move-Item -LiteralPath "$path.tmp" -Destination $path -Force
     }
 }
 
@@ -86,13 +157,14 @@ function Write-OSSetupRunResult {
 function Get-OSSetupPwshPath {
     <#
     .SYNOPSIS
-        Exécutable PowerShell à relancer (élévation, tâche de reprise) : l'alias d'exécution du PowerShell du Store
+        Exécutable PowerShell de la relance élevée : l'alias d'exécution du PowerShell du Store
         (%LOCALAPPDATA%\Microsoft\WindowsApps\pwsh.exe) dès qu'il existe, quel que soit le PowerShell courant ;
         sinon celui du processus courant.
     .DESCRIPTION
         Le chemin du paquet du Store contient sa version et change à chaque mise à jour ; l'alias d'exécution reste.
-        Sur un ancien poste lancé depuis un MSI de PowerShell 7, que l'élément pwsh désinstalle, la relance et la
-        reprise ne doivent pas dépendre de ce MSI.
+        Sur un ancien poste lancé depuis un MSI de PowerShell 7, que l'élément pwsh désinstalle, la relance ne doit
+        pas dépendre de ce MSI. La tâche de reprise, elle, n'utilise pas l'alias, modifiable par l'utilisateur : voir
+        src\resume.ps1 (ADR 0005).
     #>
     [CmdletBinding()]
     [OutputType([string])]
@@ -110,16 +182,20 @@ function Register-OSSetupResumeTask {
     .SYNOPSIS
         Tâche planifiée qui relance le setup (-Resume) à l'ouverture de session de l'utilisateur courant,
         avec les droits les plus élevés : aucune nouvelle invite UAC.
+    .DESCRIPTION
+        Elle exécute Windows PowerShell 5.1 (System32) sur le lanceur resume.ps1 de la copie figée (ResumeRoot) :
+        exécutable, script et état modifiables par les seuls administrateurs (ADR 0005). Le lanceur retrouve à chaque
+        reprise le pwsh.exe du paquet du Store, dont le chemin change à chaque mise à jour.
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
-        [Parameter(Mandatory)]
-        [string]$SetupPath
+        [string]$ResumeRoot = (Get-OSSetupResumeRoot)
     )
     $user = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-    $pwsh = Get-OSSetupPwshPath
-    $action = New-ScheduledTaskAction -Execute $pwsh -WorkingDirectory (Split-Path -Path $SetupPath -Parent) `
-        -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$SetupPath`" -Resume"
+    $powershell = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'WindowsPowerShell\v1.0\powershell.exe'
+    $launcher = Join-Path -Path $ResumeRoot -ChildPath 'resume.ps1'
+    $action = New-ScheduledTaskAction -Execute $powershell -WorkingDirectory (Split-Path -Path $ResumeRoot -Parent) `
+        -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$launcher`""
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User $user
     $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Highest
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)

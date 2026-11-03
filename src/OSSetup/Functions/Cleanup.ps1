@@ -124,9 +124,17 @@ function Invoke-OSSetupCleanup {
         [object[]]$RunAtClose = @(),
 
         # Ferme la session une fois le nettoyage fait (éléments effectifs à la prochaine ouverture de session).
-        [switch]$Logoff
+        [switch]$Logoff,
+
+        # Dossier du code dont src\cleanup.ps1 et la trace du bootstrap (state\bootstrap.json) sont lus : la copie de
+        # la reprise pendant une reprise (le dépôt, modifiable par l'utilisateur, n'est pas relu), par défaut Root.
+        [string]$CodeRoot = $Root,
+
+        # Dossier où le script et sa configuration attendent la fermeture du setup : réservé aux administrateurs, car
+        # ils sont exécutés avec les droits administrateur (commandes de désinstallation, chemins à supprimer).
+        [string]$WorkRoot = [IO.Path]::Combine([Environment]::GetFolderPath('ProgramFiles'), 'OS-Setup', 'cleanup')
     )
-    $info = Read-OSSetupBootstrapInfo -Root $Root
+    $info = Read-OSSetupBootstrapInfo -Root $CodeRoot
 
     # @(...) autour du if : sinon un résultat vide devient $null et un résultat unique une simple chaîne.
     $uninstall = @(if ($info -and $null -ne $SelectedWingetId) { Get-OSSetupToolToRemove -InstalledTool $info.installedTools -SelectedWingetId $SelectedWingetId })
@@ -179,13 +187,14 @@ function Invoke-OSSetupCleanup {
 
     if ($PSCmdlet.ShouldProcess('fin de setup', 'Lancer le nettoyage')) {
         $id = [guid]::NewGuid().ToString('N')
-        $script = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "OS-Setup-cleanup-$id.ps1"
-        $config = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "OS-Setup-cleanup-$id.json"
-        Copy-Item -Path (Join-Path -Path $Root -ChildPath 'src\cleanup.ps1') -Destination $script
+        New-Item -Path $WorkRoot -ItemType Directory -Force | Out-Null
+        $script = Join-Path -Path $WorkRoot -ChildPath "OS-Setup-cleanup-$id.ps1"
+        $config = Join-Path -Path $WorkRoot -ChildPath "OS-Setup-cleanup-$id.json"
+        Copy-Item -Path (Join-Path -Path $CodeRoot -ChildPath 'src\cleanup.ps1') -Destination $script
         [ordered]@{ waitPid = $PID; run = $run; uninstall = $uninstall; remove = $remove.ToArray(); logPath = $cleanupLogPath; logoff = [bool]$Logoff } |
             ConvertTo-Json -Depth 4 | Set-Content -Path $config -Encoding utf8
         # Dossier de travail hors du dépôt : sinon le dossier à supprimer resterait verrouillé.
-        Start-Process -FilePath (Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe') `
+        Start-Process -FilePath ([IO.Path]::Combine([Environment]::SystemDirectory, 'WindowsPowerShell\v1.0\powershell.exe')) `
             -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', "`"$script`"", '-ConfigPath', "`"$config`"" `
             -WorkingDirectory ([System.IO.Path]::GetTempPath()) -WindowStyle Hidden
     }

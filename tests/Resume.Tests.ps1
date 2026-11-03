@@ -131,6 +131,13 @@ Describe 'État de reprise' {
         Read-OSSetupRunState -StateRoot $stateRoot | Should -BeNullOrEmpty
     }
 
+    It 'écrit l''état sans laisser de fichier temporaire, en remplaçant le précédent' {
+        Save-OSSetupRunState -StateRoot $stateRoot -State @{ runId = 'r1'; pass = 1; answers = @{ profiles = @('base') } }
+        Save-OSSetupRunState -StateRoot $stateRoot -State @{ runId = 'r1'; pass = 2; answers = @{ profiles = @('base') } }
+        (Read-OSSetupRunState -StateRoot $stateRoot)['pass'] | Should -Be 2
+        (Get-ChildItem -LiteralPath $stateRoot).Name | Should -Be @('run.json')
+    }
+
     It 'écrit le résultat final' {
         Write-OSSetupRunResult -StateRoot $stateRoot -RunId 'r1' -ExitCode 1
         (Get-Content -Path (Join-Path -Path $stateRoot -ChildPath 'last-result.json') -Raw | ConvertFrom-Json).exitCode | Should -Be 1
@@ -212,20 +219,93 @@ Describe 'Get-OSSetupPwshPath' {
 }
 
 Describe 'Register-OSSetupResumeTask' {
-    It 'lance la reprise par l''alias du Store, même depuis le MSI de PowerShell 7' {
-        Mock -ModuleName OSSetup Test-Path { $true } -ParameterFilter { $LiteralPath -like '*\WindowsApps\pwsh.exe' }
-        Mock -ModuleName OSSetup Get-Process { [pscustomobject]@{ Path = 'C:\Program Files\PowerShell\7\pwsh.exe' } }
+    BeforeEach {
         Mock -ModuleName OSSetup New-ScheduledTaskAction { 'action' }
         Mock -ModuleName OSSetup New-ScheduledTaskTrigger { 'trigger' }
         Mock -ModuleName OSSetup New-ScheduledTaskPrincipal { 'principal' }
         Mock -ModuleName OSSetup New-ScheduledTaskSettingsSet { 'settings' }
         Mock -ModuleName OSSetup Register-ScheduledTask {} -RemoveParameterType Action, Trigger, Principal, Settings
+    }
+
+    It 'lance le lanceur de la copie figée par le Windows PowerShell du système, jamais l''alias du profil' {
         # Simulation en plus du remplacement : aucune tâche réelle ne peut être créée.
-        Register-OSSetupResumeTask -SetupPath 'C:\OS-Setup\setup.ps1' -WhatIf
+        Register-OSSetupResumeTask -ResumeRoot 'C:\Program Files\OS-Setup\resume' -WhatIf
+        $powershell = [IO.Path]::Combine([Environment]::SystemDirectory, 'WindowsPowerShell\v1.0\powershell.exe')
         Should -Invoke -ModuleName OSSetup New-ScheduledTaskAction -Times 1 -Exactly -ParameterFilter {
-            $Execute -eq (Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Microsoft\WindowsApps\pwsh.exe') -and $Argument -like '*-File "C:\OS-Setup\setup.ps1" -Resume'
+            $Execute -eq $powershell -and $Argument -like '*-File "C:\Program Files\OS-Setup\resume\resume.ps1"' -and
+            $Argument -notlike '*WindowsApps*'
         }
         Should -Invoke -ModuleName OSSetup Register-ScheduledTask -Times 0 -Exactly
+    }
+
+    It 'reste reconnue par la règle des tâches orphelines du Store (-File, state\run.json à côté)' {
+        Register-OSSetupResumeTask -ResumeRoot 'C:\Program Files\OS-Setup\resume' -WhatIf
+        Should -Invoke -ModuleName OSSetup New-ScheduledTaskAction -Times 1 -Exactly -ParameterFilter {
+            $Argument -match '-File\s+"([^"]+)"' -and
+            (Join-Path -Path (Split-Path -Path $Matches[1] -Parent) -ChildPath 'state\run.json') -eq 'C:\Program Files\OS-Setup\resume\state\run.json'
+        }
+    }
+}
+
+Describe 'Copie figée de la reprise' {
+    BeforeEach {
+        $source = Join-Path -Path $TestDrive -ChildPath "src-$([guid]::NewGuid().ToString('N'))"
+        $target = Join-Path -Path $TestDrive -ChildPath "resume-$([guid]::NewGuid().ToString('N'))"
+        foreach ($dir in 'src\OSSetup', 'catalog', 'docs', 'tests', 'logs', 'state', '.git') {
+            New-Item -Path (Join-Path -Path $source -ChildPath $dir) -ItemType Directory -Force | Out-Null
+        }
+        Set-Content -Path "$source\setup.ps1" -Value '# setup'
+        Set-Content -Path "$source\src\resume.ps1" -Value '# lanceur'
+        Set-Content -Path "$source\src\OSSetup\OSSetup.psm1" -Value '# module'
+        Set-Content -Path "$source\catalog\item.json" -Value '{}'
+        Set-Content -Path "$source\logs\setup.log" -Value 'journal'
+        Set-Content -Path "$source\state\answers-last.json" -Value '{}'
+    }
+
+    It 'copie le code et le catalogue, le lanceur à la racine, sans journaux, état, documentation, tests ni .git' {
+        Copy-OSSetupResumeCode -SourceRoot $source -Destination $target
+        (Get-ChildItem -LiteralPath $target -Force).Name | Sort-Object | Should -Be @('catalog', 'resume.ps1', 'setup.ps1', 'src')
+        Get-Content -Path "$target\resume.ps1" | Should -Be '# lanceur'
+        Test-Path -Path "$target\src\OSSetup\OSSetup.psm1" | Should -BeTrue
+    }
+
+    It 'garde run.json de la copie et remplace le reste' {
+        New-Item -Path "$target\state" -ItemType Directory -Force | Out-Null
+        Set-Content -Path "$target\state\run.json" -Value '{}'
+        Set-Content -Path "$target\ancien.ps1" -Value '# ancien'
+        Copy-OSSetupResumeCode -SourceRoot $source -Destination $target
+        Test-Path -Path "$target\state\run.json" | Should -BeTrue
+        Test-Path -Path "$target\ancien.ps1" | Should -BeFalse
+    }
+
+    It 'fige la trace du bootstrap dans la copie, et retire celle d''une copie précédente' {
+        Set-Content -Path "$source\state\bootstrap.json" -Value '{"ownsClone":true}'
+        Copy-OSSetupResumeCode -SourceRoot $source -Destination $target
+        Get-Content -Path "$target\state\bootstrap.json" | Should -Be '{"ownsClone":true}'
+        Remove-Item -Path "$source\state\bootstrap.json"
+        Copy-OSSetupResumeCode -SourceRoot $source -Destination $target
+        Test-Path -Path "$target\state\bootstrap.json" | Should -BeFalse
+    }
+
+    It 'ignore les jonctions de la racine du dépôt' {
+        $outside = Join-Path -Path $TestDrive -ChildPath "outside-$([guid]::NewGuid().ToString('N'))"
+        New-Item -Path $outside -ItemType Directory -Force | Out-Null
+        New-Item -Path "$source\lien" -ItemType Junction -Value $outside | Out-Null
+        Copy-OSSetupResumeCode -SourceRoot $source -Destination $target
+        Test-Path -Path "$target\lien" | Should -BeFalse
+    }
+
+    It 'ne fait rien quand le setup s''exécute déjà depuis la copie' {
+        Copy-OSSetupResumeCode -SourceRoot $source -Destination $source
+        Test-Path -Path "$source\resume.ps1" | Should -BeFalse
+        Test-Path -Path "$source\logs\setup.log" | Should -BeTrue
+    }
+
+    It 'supprime la copie, et ne signale rien quand elle n''existe pas' {
+        Copy-OSSetupResumeCode -SourceRoot $source -Destination $target
+        Remove-OSSetupResumeCode -Path $target
+        Test-Path -Path $target | Should -BeFalse
+        { Remove-OSSetupResumeCode -Path $target } | Should -Not -Throw
     }
 }
 

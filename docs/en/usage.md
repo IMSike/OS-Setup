@@ -87,14 +87,14 @@ The answers of each session are saved in `state/answers-last.json`: to replay th
 | `logs/` | Timestamped log of each run |
 | `state/answers-last.json` | Answers of the last session |
 | `state/backups/<date>/` | Backups of replaced files and `original-values.json` (original values of each modified setting, to roll back by hand) |
-| `state/run.json` | State of a run waiting for a reboot |
+| `%ProgramFiles%\OS-Setup\resume\` | Copy of the setup run by the resume task, with `state\run.json` (state of a run waiting for a reboot); deleted at the end of the setup |
 | `state/last-result.json` | Summary of the last run |
 
-These folders are inside the repository copy and ignored by Git. At the end of the setup, if the copy was created by the bootstrap, a menu offers to delete it while keeping the history (log, answers, backups) in `%LOCALAPPDATA%\OS-Setup\<date>`: see [End-of-setup cleanup](architecture.md#end-of-setup-cleanup).
+Apart from the resume copy, these folders are inside the repository copy and ignored by Git. At the end of the setup, if the copy was created by the bootstrap, a menu offers to delete it while keeping the history (log, answers, backups) in `%LOCALAPPDATA%\OS-Setup\<date>`: see [End-of-setup cleanup](architecture.md#end-of-setup-cleanup).
 
 ## Reboots and logoff
 
-If an item requires a reboot, the setup saves its state, creates a scheduled resume task and restarts the machine (10 s countdown that a key press postpones). It resumes by itself at the next logon, with no new UAC prompt.
+If an item requires a reboot, the setup saves its state, creates a scheduled resume task and restarts the machine (10 s countdown that a key press postpones). It resumes by itself at the next logon, with no new UAC prompt, running the setup as it was when the reboot was requested (a change made in the repository in between is ignored).
 
 Some settings only take effect at the next logon: the session is then closed at the end of the setup, in the same way.
 

@@ -87,14 +87,14 @@ Les réponses de chaque session sont enregistrées dans `state/answers-last.json
 | `logs/` | Journal horodaté de chaque exécution |
 | `state/answers-last.json` | Réponses de la dernière session |
 | `state/backups/<date>/` | Sauvegardes des fichiers remplacés et `original-values.json` (valeurs d'origine de chaque réglage modifié, pour revenir en arrière à la main) |
-| `state/run.json` | État d'une exécution en attente de redémarrage |
+| `%ProgramFiles%\OS-Setup\resume\` | Copie du setup exécutée par la tâche de reprise, avec `state\run.json` (état d'une exécution en attente de redémarrage) ; supprimée à la fin du setup |
 | `state/last-result.json` | Récapitulatif de la dernière exécution |
 
-Ces dossiers sont dans la copie du dépôt et ignorés par Git. En fin de setup, si la copie a été créée par le bootstrap, un menu propose de la supprimer en gardant l'historique (journal, réponses, sauvegardes) dans `%LOCALAPPDATA%\OS-Setup\<date>` : voir [Nettoyage de fin](architecture.md#nettoyage-de-fin).
+Hormis la copie de la reprise, ces dossiers sont dans la copie du dépôt et ignorés par Git. En fin de setup, si la copie a été créée par le bootstrap, un menu propose de la supprimer en gardant l'historique (journal, réponses, sauvegardes) dans `%LOCALAPPDATA%\OS-Setup\<date>` : voir [Nettoyage de fin](architecture.md#nettoyage-de-fin).
 
 ## Redémarrages et fermeture de session
 
-Si un élément demande un redémarrage, le setup enregistre son état, crée une tâche planifiée de reprise et redémarre la machine (compte à rebours de 10 s qu'une touche reporte). Il reprend seul à l'ouverture de session suivante, sans nouvelle invite UAC.
+Si un élément demande un redémarrage, le setup enregistre son état, crée une tâche planifiée de reprise et redémarre la machine (compte à rebours de 10 s qu'une touche reporte). Il reprend seul à l'ouverture de session suivante, sans nouvelle invite UAC, avec le setup tel qu'il était au moment de la demande de redémarrage (une modification faite entre-temps dans le dépôt est ignorée).
 
 Certains réglages ne prennent effet qu'à la prochaine ouverture de session : la session est alors fermée en fin de setup, de la même façon.
 

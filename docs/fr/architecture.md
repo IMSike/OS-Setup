@@ -119,7 +119,7 @@ En plus de l'installation, un élément peut déployer des fichiers de configura
 
 ### Redémarrages
 
-Le setup est **reprenable**. Un redémarrage est signalé par le provider (code 3010, fonctionnalité Windows, code winget `0x8A150109`) ou déclaré par l'élément (`requiresReboot`) : l'élément termine ses actions, ses dépendants sont reportés. En fin de passe, l'état est enregistré dans `state/run.json`, une tâche planifiée « OS-Setup - reprise » est créée (ouverture de session, droits les plus élevés : pas de nouvelle invite UAC), puis la machine redémarre (immédiatement avec `-Yes`, sinon après un compte à rebours de 10 s qu'une touche reporte). À la reprise : mêmes réponses, même journal, au plus 5 passes. Cette tâche lance le `setup.ps1` du dépôt, modifiable par l'utilisateur sans élévation : comme toute tâche élevée qui lance un script modifiable par l'utilisateur, c'est un pont vers les droits administrateur sans invite UAC, mais seulement pendant le setup, puisqu'elle est supprimée quand il se termine.
+Le setup est **reprenable**. Un redémarrage est signalé par le provider (code 3010, fonctionnalité Windows, code winget `0x8A150109`) ou déclaré par l'élément (`requiresReboot`) : l'élément termine ses actions, ses dépendants sont reportés. En fin de passe, le setup se copie dans `%ProgramFiles%\OS-Setup\resume` (lecture seule pour les utilisateurs), enregistre son état dans le `state\run.json` de cette copie, crée une tâche planifiée « OS-Setup - reprise » (ouverture de session, droits les plus élevés : pas de nouvelle invite UAC), puis la machine redémarre (immédiatement avec `-Yes`, sinon après un compte à rebours de 10 s qu'une touche reporte). À la reprise : mêmes réponses, même journal, au plus 5 passes. Cette tâche lance le Windows PowerShell du dossier système avec le lanceur `resume.ps1` de la copie, qui démarre le `setup.ps1 -Resume` de la copie avec le `pwsh.exe` du Store retrouvé dans le dossier de son paquet, et la reprise ne charge des modules que depuis des dossiers réservés aux administrateurs : rien de ce qu'exécute la tâche élevée ne peut être modifié sans droits administrateur ([ADR 0005](adr/0005-resume-from-administrators-only-copy.md)). Journaux, sauvegardes et réponses restent dans le dépôt. La tâche et la copie sont supprimées quand le setup se termine.
 
 Un réglage qui ne prend effet qu'à la prochaine ouverture de session déclare `requiresLogoff` : la session est fermée en fin de setup (voir [Effet différé](how-it-works.md#effet-différé)).
 
@@ -135,7 +135,7 @@ Le setup ne laisse que ce qui a été choisi. Le bootstrap consigne ce qu'il a i
 - Git et PowerShell 7 installés par le bootstrap sont désinstallés si aucun élément choisi ne les installe ;
 - si la copie du dépôt a été créée par le bootstrap, un menu propose : tout supprimer, garder l'historique (journal, réponses, sauvegardes dans `%LOCALAPPDATA%\OS-Setup\<date>`), ou tout garder. Avec `-Yes` : l'historique. Un clone de développement n'est jamais supprimé.
 
-Le travail est fait par `src/cleanup.ps1`, copié dans `%TEMP%` et lancé détaché sous Windows PowerShell 5.1 : il attend la fermeture du setup, lance les désinstallations reportées (sautées si le logiciel a déjà disparu), désinstalle, supprime, puis s'efface. Ses résultats vont dans le journal du setup (ou l'historique conservé), lignes `[CLEANUP]`. Il faut quelques minutes : ne pas redémarrer juste après la fin du setup.
+Le travail est fait par `src/cleanup.ps1`, copié avec sa configuration dans `%ProgramFiles%\OS-Setup\cleanup` (réservé aux administrateurs, puisqu'il s'exécute élevé) et lancé détaché sous Windows PowerShell 5.1 : il attend la fermeture du setup, lance les désinstallations reportées (sautées si le logiciel a déjà disparu), désinstalle, supprime, puis s'efface. Ses résultats vont dans le journal du setup (ou l'historique conservé), lignes `[CLEANUP]`. Il faut quelques minutes : ne pas redémarrer juste après la fin du setup.
 
 ## Particularités de Windows
 
@@ -155,3 +155,4 @@ Le moteur sait **auditer** l'existant et produire un **plan** (`[ok]` / `[à fai
 | [0002](adr/0002-agent-assistance.md) | Assistance d'un agent sur une machine déjà utilisée |
 | [0003](adr/0003-in-house-dotfiles.md) | Déploiement des fichiers de configuration par le moteur |
 | [0004](adr/0004-store-updates-without-forced-close.md) | Applications du Store (PowerShell 7, Windows Terminal) mises à jour sans fermeture forcée |
+| [0005](adr/0005-resume-from-administrators-only-copy.md) | Reprise après redémarrage depuis une copie réservée aux administrateurs |

@@ -29,6 +29,6 @@
 | [Ajouter un élément](adding-items.md) | Créer un logiciel ou un réglage dans le catalogue |
 | [Tests](testing.md) | Tests unitaires, qualité du code, VM de test Hyper-V |
 | [Pièges connus](pitfalls.md) | winget, Windows et PowerShell : comportements constatés |
-| [Décisions d'architecture](adr/) | [0001](adr/0001-engine-language.md) langage du moteur · [0002](adr/0002-agent-assistance.md) assistance d'un agent · [0003](adr/0003-in-house-dotfiles.md) fichiers de configuration · [0004](adr/0004-store-updates-without-forced-close.md) mises à jour du Store sans fermeture forcée |
+| [Décisions d'architecture](adr/) | [0001](adr/0001-engine-language.md) langage du moteur · [0002](adr/0002-agent-assistance.md) assistance d'un agent · [0003](adr/0003-in-house-dotfiles.md) fichiers de configuration · [0004](adr/0004-store-updates-without-forced-close.md) mises à jour du Store sans fermeture forcée · [0005](adr/0005-resume-from-administrators-only-copy.md) reprise depuis une copie réservée aux administrateurs |
 
 Voir aussi le [guide de contribution](../../CONTRIBUTING.fr.md).

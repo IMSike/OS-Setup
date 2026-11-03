@@ -201,7 +201,7 @@ try {
 
     # --- Attente de la fin, redémarrages compris ---------------------------------------------------
     # Fin d'exécution : state\last-result.json (écrit par setup.ps1 quand tout est terminé). À défaut, le code
-    # de sortie de Start-GuestRun.ps1 sans reprise en attente (state\run.json) : échec avant le setup.
+    # de sortie de Start-GuestRun.ps1 sans reprise en attente (run.json) : échec avant le setup.
     $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
     $started = Get-Date
     $exitCode = $null
@@ -218,7 +218,12 @@ try {
             $job = Invoke-Command -Session $session -ArgumentList $script:GuestRepoRoot -AsJob -ScriptBlock {
                 param($Root)
                 $result = Join-Path -Path $Root -ChildPath 'state\last-result.json'
-                $pending = Join-Path -Path $Root -ChildPath 'state\run.json'
+                # Reprise en attente : run.json de la copie de la reprise (ADR 0005), ou du dépôt (version précédente).
+                $pending = @(
+                    [IO.Path]::Combine([Environment]::GetFolderPath('ProgramFiles'), 'OS-Setup', 'resume', 'state', 'run.json')
+                    Join-Path -Path $Root -ChildPath 'state\run.json'
+                ) | Where-Object { Test-Path -Path $_ } | Select-Object -First 1
+                if (-not $pending) { $pending = 'absent' }
                 $guestExit = Join-Path -Path $Root -ChildPath 'logs\guest-exitcode.txt'
                 if (Test-Path -Path $result) {
                     return @{ Finished = $true; ExitCode = [int](Get-Content -Path $result -Raw | ConvertFrom-Json).exitCode }
@@ -226,7 +231,7 @@ try {
                 if ((Test-Path -Path $guestExit) -and -not (Test-Path -Path $pending)) {
                     return @{ Finished = $true; ExitCode = [int](Get-Content -Path $guestExit -Raw).Trim() }
                 }
-                # run.json porte le numéro de la dernière passe terminée.
+                # run.json porte le numéro de la passe en cours, ou de la dernière terminée en attente de redémarrage.
                 $note = if (Test-Path -Path $pending) { "redémarrage demandé : reprise attendue (passe $(1 + (Get-Content -Path $pending -Raw | ConvertFrom-Json).pass))" } else { '' }
                 @{ Finished = $false; Note = $note }
             }

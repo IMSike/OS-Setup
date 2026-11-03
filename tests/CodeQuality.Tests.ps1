@@ -7,6 +7,7 @@
     $windowsPowerShellScripts = [System.Collections.Generic.List[string]]@(
         'bootstrap.ps1'
         'src\cleanup.ps1'
+        'src\resume.ps1'
         'src\store-update\StoreUpdate.System.ps1'
         'src\store-update\StoreUpdate.User.ps1'
         'src\store-update\StoreUpdate.Prompt.ps1'
