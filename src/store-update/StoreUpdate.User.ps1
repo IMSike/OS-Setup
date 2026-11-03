@@ -19,6 +19,8 @@ function ConvertTo-CheckEntry {
     # Résultat d'une application dans check.json. lastSuccess : date de la dernière vérification aboutie (« à jour »,
     # « proposée », installation terminée), gardée d'un passage à l'autre tant que les suivants échouent (erreur, état
     # Error ou Canceled, délai dépassé) ; null si aucune n'a jamais abouti. La fenêtre avertit au-delà de 14 jours.
+    [CmdletBinding()]
+    [OutputType([System.Collections.Specialized.OrderedDictionary])]
     param([object]$Previous, [string]$Name, [string]$Version, [bool]$Available, [string]$State, [bool]$Success)
     $now = (Get-Date).ToString('o')
     $lastSuccess = $null
@@ -29,6 +31,7 @@ function ConvertTo-CheckEntry {
 
 function Wait-StoreOperation {
     # Opération asynchrone WinRT (IAsyncOperation) : pas de type PowerShell plus précis.
+    [CmdletBinding()]
     param([Parameter(Mandatory)][object]$Operation)
     $method = [System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
         $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1'

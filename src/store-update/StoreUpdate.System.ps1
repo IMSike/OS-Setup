@@ -26,6 +26,7 @@ $namespace = 'root\cimv2\mdm\dmmap'
 $class = 'MDM_EnterpriseModernAppManagement_AppManagement01_02'
 
 function Write-DoNotUpdate {
+    [CmdletBinding()]
     param([string]$Family, [int]$Value)
     $instance = Get-CimInstance -Namespace $namespace -ClassName $class | Where-Object { $_.InstanceID -eq $Family }
     if ($instance -and $instance.DoNotUpdate -ne $Value) {
@@ -35,6 +36,7 @@ function Write-DoNotUpdate {
 }
 
 function Save-OpenProcess {
+    [CmdletBinding()]
     param([object[]]$App)
     # Processus de chaque application vus par SYSTEM, toutes sessions comprises (une console administrateur ou la session
     # d'un autre compte échappent à la fenêtre de l'utilisateur) : open.json, lu par la fenêtre, qui ne ferme rien si
@@ -46,6 +48,7 @@ function Save-OpenProcess {
 }
 
 function Invoke-UserSearch {
+    [CmdletBinding()]
     param([object[]]$App, [string]$Mode, [int]$TimeoutMinutes)
     # Une seule instance de la recherche à la fois : demandée pendant une recherche précédente encore en cours (lancée
     # par une exécution arrêtée avant sa fin), elle serait ignorée, et la fin de la précédente, qui a lu l'ancien run.json,

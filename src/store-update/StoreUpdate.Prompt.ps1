@@ -36,6 +36,7 @@ $title = 'Mise à jour du Store'
 $progress = @{ active = $false; cancelled = $false; form = $null }
 
 function Read-JsonFile {
+    [CmdletBinding()]
     param([string]$Path)
     if (-not (Test-Path -Path $Path)) { return $null }
     # Sous Windows PowerShell 5.1, ConvertFrom-Json rend un tableau JSON d'un bloc : passer par une variable l'énumère.
@@ -43,12 +44,14 @@ function Read-JsonFile {
 }
 
 function Save-State {
+    [CmdletBinding()]
     param([Parameter(Mandatory)][object]$State)
     New-Item -Path (Split-Path -Path $stateFile -Parent) -ItemType Directory -Force | Out-Null
     [IO.File]::WriteAllText($stateFile, (ConvertTo-Json -InputObject $State), [Text.UTF8Encoding]::new($false))
 }
 
 function Get-OpenSnapshot {
+    [CmdletBinding()]
     param([Parameter(Mandatory)][datetime]$Since)
     # open.json de la tâche SYSTEM s'il est complet et a été écrit depuis $Since, rien sinon.
     $seen = Read-JsonFile -Path (Join-Path -Path $root -ChildPath 'open.json')
@@ -58,6 +61,7 @@ function Get-OpenSnapshot {
 }
 
 function Get-HiddenProcess {
+    [CmdletBinding()]
     param([Parameter(Mandatory)][pscustomobject]$App, [Parameter(Mandatory)][datetime]$Since)
     # Processus de l'application que la tâche SYSTEM a vus ouverts (open.json, toutes sessions) et que cette fenêtre ne
     # voit pas : console administrateur, session d'un autre compte. open.json absent, incomplet ou écrit avant $Since :
@@ -73,6 +77,7 @@ function Get-HiddenProcess {
 }
 
 function Get-PendingApp {
+    [CmdletBinding()]
     param([object[]]$App)
     # Mise à jour proposée lors de la dernière vérification, et pas encore installée depuis.
     $check = Read-JsonFile -Path (Join-Path -Path $root -ChildPath 'check.json')
@@ -85,6 +90,7 @@ function Get-PendingApp {
 }
 
 function Get-UncheckedApp {
+    [CmdletBinding()]
     param([object[]]$App)
     # Applications sans vérification aboutie depuis plus de $warnDays jours (le blocage reste en place : elles ne sont plus
     # mises à jour). Point de départ : lastSuccess de check.json ; sans aucune réussite (lastSuccess null, ou pas d'entrée :
@@ -108,6 +114,8 @@ function Get-UncheckedApp {
 }
 
 function Test-CheckStale {
+    [CmdletBinding()]
+    [OutputType([bool])]
     param([object[]]$App)
     $check = Read-JsonFile -Path (Join-Path -Path $root -ChildPath 'check.json')
     foreach ($item in $App) {
@@ -123,6 +131,7 @@ function Test-CheckStale {
 function Wait-Step {
     # Attente entre deux points sur la tâche SYSTEM. Pendant la fenêtre « Vérification auprès du Store… », attente par
     # tranches de 100 ms qui traitent ses messages (bouton Annuler) et s'arrête dès l'annulation.
+    [CmdletBinding()]
     param([int]$Seconds)
     if (-not $progress.active) { Start-Sleep -Seconds $Seconds; return }
     if ($TestChoice -eq 'NowCancel') { $progress.cancelled = $true; return }
@@ -140,6 +149,8 @@ function Wait-Step {
 function Show-Progress {
     # Petite fenêtre non modale pendant la revérification de « Maintenant » (jusqu'à 30 min). Annuler (ou Échap, ou sa
     # fermeture) arrête l'attente : rien n'est fermé. En essai (-TestChoice) : pas de fenêtre, NowCancel simule Annuler.
+    [CmdletBinding()]
+    param()
     $progress.active = $true
     $progress.cancelled = $false
     if ($TestChoice) { return }
@@ -181,6 +192,8 @@ function Show-Progress {
 }
 
 function Close-Progress {
+    [CmdletBinding()]
+    param()
     $progress.active = $false
     if (-not $progress.form) { return }
     # Un clic sur Annuler encore en file compte aussi.
@@ -193,6 +206,8 @@ function Close-Progress {
 }
 
 function Invoke-SystemRun {
+    [CmdletBinding()]
+    [OutputType([bool])]
     param([Parameter(Mandatory)][object]$State)
     # Lance la tâche SYSTEM (les utilisateurs ont le droit de l'exécuter, pas de la modifier) et attend sa fin.
     # Renvoie $true si une exécution lancée après la demande s'est terminée, $false sinon (délai dépassé, tâche absente,
@@ -234,16 +249,22 @@ function Invoke-SystemRun {
 
 function Test-ResumePending {
     # Reprise du setup en attente et encore capable de reprendre (Get-ResumeOrphanReason).
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param()
     $task = Get-ScheduledTask -TaskName $resumeTask -ErrorAction SilentlyContinue
     [bool]($task -and -not (Get-ResumeOrphanReason -Task $task))
 }
 
 function Test-RecentRun {
+    [CmdletBinding()]
+    [OutputType([bool])]
     param([Parameter(Mandatory)][object]$State)
     $State.lastRun -and ([datetime]$State.lastRun) -gt (Get-Date).AddHours(-1) -and ([datetime]$State.lastRun) -le (Get-Date)
 }
 
 function Show-UpdatePrompt {
+    [CmdletBinding()]
     param([object[]]$App)
     Add-Type -AssemblyName System.Windows.Forms, System.Drawing
     [System.Windows.Forms.Application]::EnableVisualStyles()
@@ -303,6 +324,7 @@ function Show-UpdatePrompt {
 }
 
 function Show-Message {
+    [CmdletBinding()]
     param([string]$Text)
     Write-StoreUpdateLog "message : $Text"
     if ($TestChoice) { return }
@@ -312,6 +334,8 @@ function Show-Message {
 
 function Invoke-StoreUpdatePrompt {
     # Corps de la fenêtre, dans une fonction : chargé avec un point (tests), le script définit ses fonctions sans rien lancer.
+    [CmdletBinding()]
+    param()
     try {
         $saved = Read-JsonFile -Path $stateFile
         # Valeurs absentes : $null explicite (sous Windows PowerShell 5.1, un $(…) vide s'écrirait {} en JSON).

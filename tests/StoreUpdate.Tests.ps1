@@ -20,6 +20,9 @@ Describe 'Scripts des tâches des mises à jour du Store' {
         $load = [array]::IndexOf($statements, ". (Join-Path -Path `$PSScriptRoot -ChildPath 'StoreUpdate.Common.ps1')")
         $load | Should -BeGreaterThan ([array]::IndexOf($statements, 'Set-StrictMode -Version Latest'))
         $statements | Where-Object { $_ -like '$logLabel = *' } | Should -HaveCount 1
+        $ast.FindAll({ param($Node) $Node -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | ForEach-Object {
+            $_.Body.ParamBlock.Attributes.TypeName.Name | Should -Contain 'CmdletBinding' -Because $_.Name
+        }
         $ast.Extent.Text | Should -Match 'modifier le dépôt, pas cette copie'
     }
 
