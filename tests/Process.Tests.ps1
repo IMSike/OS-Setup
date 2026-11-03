@@ -236,9 +236,11 @@ Describe 'Clear-OSSetupUnelevatedLeftover' -Skip:(-not $IsWindows) {
         Mock -ModuleName OSSetup Unregister-ScheduledTask
         Mock -ModuleName OSSetup Get-ScheduledTask {
             [pscustomobject]@{ TaskName = 'OS-Setup - sans droits administrateur (aaaaaaaa)'; State = 'Running'
-                Actions = @([pscustomobject]@{ Arguments = "-NoProfile -File `"$running\run.ps1`"" }) }
+                Actions = @([pscustomobject]@{ Arguments = "-NoProfile -File `"$running\run.ps1`"" })
+            }
             [pscustomobject]@{ TaskName = 'OS-Setup - sans droits administrateur (bbbbbbbb)'; State = 'Ready'
-                Actions = @([pscustomobject]@{ Arguments = "-NoProfile -File `"$finished\run.ps1`"" }) }
+                Actions = @([pscustomobject]@{ Arguments = "-NoProfile -File `"$finished\run.ps1`"" })
+            }
         }
     }
 

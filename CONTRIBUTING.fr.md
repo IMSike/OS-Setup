@@ -31,7 +31,7 @@ Lisez d'abord [Architecture](docs/fr/architecture.md), puis [Ajouter un élémen
 - Moteur : PowerShell 7.4+. `bootstrap.ps1` tourne sous Windows PowerShell 5.1, sans module externe.
 - `Set-StrictMode -Version Latest` et `$ErrorActionPreference = 'Stop'` en tête de script.
 - `[CmdletBinding()]` partout, noms `Verbe-Nom` avec des verbes approuvés, paramètres typés, pas d'alias, pas d'arguments positionnels ambigus.
-- Indentation de 4 espaces, accolades style OTBS.
+- Indentation de 4 espaces, accolades style Stroustrup : ouvrante en fin de ligne, fermante seule sur sa ligne, `else`, `elseif`, `catch` et `finally` sur la ligne suivante (vérifié par PSScriptAnalyzer).
 - Aucun avertissement de PSScriptAnalyzer avec `PSScriptAnalyzerSettings.psd1` (vérifié par un test Pester quand le module est installé).
 - Identifiants (fonctions, variables, clés de données) en anglais ; messages utilisateur en français pour l'instant.
 - Encodage : `.ps1`, `.psm1`, `.psd1` en **UTF-8 avec BOM** et CRLF (Windows PowerShell 5.1 lit un fichier sans BOM comme ANSI) ; autres fichiers texte en UTF-8 sans BOM. Figé par `.gitattributes` et `.editorconfig`.

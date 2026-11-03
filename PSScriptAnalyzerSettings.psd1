@@ -10,4 +10,11 @@
         # écrit à part par Write-OSSetupLog.
         'PSAvoidUsingWriteHost'
     )
+
+    # Accolades style Stroustrup (CONTRIBUTING.md) : ouvrante en fin de ligne, fermante seule sur sa ligne, else /
+    # elseif / catch / finally sur la ligne suivante. Les blocs tenant sur une ligne sont admis.
+    Rules        = @{
+        PSPlaceOpenBrace  = @{ Enable = $true; OnSameLine = $true; NewLineAfter = $true; IgnoreOneLineBlock = $true }
+        PSPlaceCloseBrace = @{ Enable = $true; NewLineAfter = $true; IgnoreOneLineBlock = $true; NoEmptyLineBefore = $false }
+    }
 }

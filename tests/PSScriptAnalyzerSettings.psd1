@@ -16,4 +16,10 @@
         # l'analyse (bloc par bloc) ne voit pas.
         'PSUseDeclaredVarsMoreThanAssignments'
     )
+
+    # Comme pour le code du dépôt : accolades style Stroustrup.
+    Rules        = @{
+        PSPlaceOpenBrace  = @{ Enable = $true; OnSameLine = $true; NewLineAfter = $true; IgnoreOneLineBlock = $true }
+        PSPlaceCloseBrace = @{ Enable = $true; NewLineAfter = $true; IgnoreOneLineBlock = $true; NoEmptyLineBefore = $false }
+    }
 }
