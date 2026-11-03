@@ -353,11 +353,34 @@ function ConvertTo-OSSetupUninstallCommand {
     if ($raw -match '(?i)msiexec(\.exe)?\s+/[IX]\s*(\{[0-9A-F-]+\})') {
         return [pscustomobject]@{ FilePath = 'msiexec.exe'; Arguments = "/x $($Matches[2]) /qn /norestart" }
     }
-    if ($raw -match '^\s*"([^"]+)"\s*(.*)$' -or $raw -match '^\s*(\S+)\s*(.*)$') {
-        $arguments = (@($Matches[2].Trim(), $Arguments) | Where-Object { $_ }) -join ' '
-        return [pscustomobject]@{ FilePath = $Matches[1]; Arguments = $arguments }
+    $filePath = $null
+    $rest = ''
+    if ($raw -match '^\s*"([^"]+)"\s*(.*)$') {
+        $filePath = $Matches[1]
+        $rest = $Matches[2]
     }
-    throw "Commande de désinstallation illisible : $raw"
+    elseif ($raw.Trim()) {
+        # Chemin sans guillemets (ex. « C:\Program Files\App\uninst.exe /S ») : comme Windows (CreateProcess), les
+        # préfixes coupés à chaque espace sont essayés dans l'ordre, et le premier qui désigne un fichier existant
+        # (tel quel ou avec .exe) est le programme. Aucun n'existe : le premier mot, comme avant.
+        $text = $raw.Trim()
+        foreach ($space in [regex]::Matches("$text ", '\s')) {
+            $candidate = $text.Substring(0, $space.Index)
+            if ($candidate -match '\s$') { continue }
+            $found = @($candidate, "$candidate.exe") | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+            if ($found) {
+                $filePath = $found
+                $rest = $text.Substring($space.Index)
+                break
+            }
+        }
+        if (-not $filePath) {
+            $filePath, $rest = $text -split '\s+', 2
+        }
+    }
+    if (-not $filePath) { throw "Commande de désinstallation illisible : $raw" }
+    $arguments = (@("$rest".Trim(), $Arguments) | Where-Object { $_ }) -join ' '
+    [pscustomobject]@{ FilePath = $filePath; Arguments = $arguments }
 }
 
 function Get-OSSetupUninstallEntryLocation {

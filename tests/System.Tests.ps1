@@ -148,6 +148,25 @@ Describe 'ConvertTo-OSSetupUninstallCommand' {
         $command.Arguments | Should -Be '/uninstall /silent'
     }
 
+    It 'découpe un chemin à espaces sans guillemets comme Windows : premier préfixe qui désigne un fichier' {
+        $folder = Join-Path -Path $TestDrive -ChildPath 'Program Files\My App'
+        New-Item -Path $folder -ItemType Directory -Force | Out-Null
+        Set-Content -Path (Join-Path -Path $folder -ChildPath 'uninst.exe') -Value ''
+        $entry = [pscustomobject]@{ DisplayName = 'App'; UninstallString = "$folder\uninst.exe /S  /user" }
+        $command = ConvertTo-OSSetupUninstallCommand -Entry $entry -Arguments '/silent'
+        $command.FilePath | Should -Be "$folder\uninst.exe"
+        $command.Arguments | Should -Be '/S  /user /silent'
+    }
+
+    It 'complète un préfixe sans extension par .exe, comme Windows' {
+        $folder = Join-Path -Path $TestDrive -ChildPath 'Other App'
+        New-Item -Path $folder -ItemType Directory -Force | Out-Null
+        Set-Content -Path (Join-Path -Path $folder -ChildPath 'remove.exe') -Value ''
+        $command = ConvertTo-OSSetupUninstallCommand -Entry ([pscustomobject]@{ DisplayName = 'App'; UninstallString = "$folder\remove /quiet" })
+        $command.FilePath | Should -Be "$folder\remove.exe"
+        $command.Arguments | Should -Be '/quiet'
+    }
+
     It 'lève une erreur sans commande de désinstallation' {
         { ConvertTo-OSSetupUninstallCommand -Entry ([pscustomobject]@{ DisplayName = 'App'; UninstallString = $null }) } | Should -Throw '*Aucune commande*'
     }
