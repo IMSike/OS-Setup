@@ -14,7 +14,8 @@ param()
 
     Test     = {
         param($Action, $Context)
-        Test-OSSetupWingetInstalled -Id $Action['id']
+        # Pendant le plan, l'export (lu une fois) est consulté avant winget list, lent pour chaque paquet.
+        Test-OSSetupWingetInstalled -Id $Action['id'] -ExportFirst:([bool]$Context['Planning'])
     }
 
     Invoke   = {

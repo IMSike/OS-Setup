@@ -29,12 +29,25 @@
     $script:WingetExportId
 }
 
+function Clear-OSSetupWingetExportCache {
+    <#
+    .SYNOPSIS
+        Oublie l'export winget lu : le prochain appel de Get-OSSetupWingetExportId le relit (après une désinstallation).
+    #>
+    [CmdletBinding()]
+    param()
+    Remove-Variable -Name WingetExportId -Scope Script -ErrorAction SilentlyContinue
+}
+
 function Test-OSSetupWingetInstalled {
     <#
     .SYNOPSIS
         Vrai si le paquet winget est installé : `winget list --id`, puis `winget export` en second avis.
     .DESCRIPTION
         L'export n'est pas consulté avec -ListOnly (sondage léger pendant l'attente qui suit une installation).
+        Avec -ExportFirst (plan), l'export, lu une seule fois pour la passe, est consulté avant `winget list`
+        (0,6 à 2 s par paquet) : un paquet qu'il contient est installé sans autre appel. Le résultat est le même,
+        seul l'ordre change ; pendant l'exécution, `winget list` reste le premier avis (état le plus frais).
     #>
     [CmdletBinding()]
     [OutputType([bool])]
@@ -46,10 +59,15 @@ function Test-OSSetupWingetInstalled {
         [switch]$Refresh,
 
         # winget list seul, sans second avis.
-        [switch]$ListOnly
+        [switch]$ListOnly,
+
+        # Export consulté d'abord (plan).
+        [switch]$ExportFirst
     )
+    if ($ExportFirst -and -not $ListOnly -and $Id -in @(Get-OSSetupWingetExportId -Refresh:$Refresh)) { return $true }
     & winget list --id $Id --exact --accept-source-agreements --disable-interactivity | Out-Null
     if ($LASTEXITCODE -eq 0) { return $true }
-    if ($ListOnly) { return $false }
+    # Avec -ExportFirst, l'export vient d'être consulté.
+    if ($ListOnly -or $ExportFirst) { return $false }
     $Id -in @(Get-OSSetupWingetExportId -Refresh:$Refresh)
 }

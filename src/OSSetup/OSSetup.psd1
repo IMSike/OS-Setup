@@ -153,6 +153,7 @@
         'Get-OSSetupVariableDefinition'
         'Resolve-OSSetupVariable'
         # Winget.ps1
+        'Clear-OSSetupWingetExportCache'
         'Get-OSSetupWingetExportId'
         'Test-OSSetupWingetInstalled'
         # Wsl.ps1
