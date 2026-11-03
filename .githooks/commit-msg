@@ -1,6 +1,7 @@
 #!/bin/sh
 # Rejects commit messages that do not follow the Angular convention (see CONTRIBUTING.md).
 # Enable once per clone: git config core.hooksPath .githooks
+# Same rules as the Commit messages workflow (.github/workflows/commit-lint.yml): keep both in step.
 
 subject=$(head -n 1 "$1")
 pattern='^(build|ci|docs|feat|fix|perf|refactor|revert|test)(\([a-z0-9._/-]+\))?!?: .+'
@@ -9,10 +10,17 @@ case "$subject" in
     Merge\ *|fixup!\ *|squash!\ *|amend!\ *) exit 0 ;;
 esac
 
-if ! printf '%s' "$subject" | grep -Eq "$pattern"; then
-    echo "Commit message does not follow the Angular convention:" >&2
+fail() {
+    echo "Commit message rejected: $1" >&2
     echo "    $subject" >&2
-    echo "Expected: <type>(<scope>)?: <subject>" >&2
+    echo "Expected: <type>(<scope>)?: <subject>, imperative, lowercase, 100 characters at most." >&2
     echo "Types: build, ci, docs, feat, fix, perf, refactor, revert, test" >&2
     exit 1
-fi
+}
+
+printf '%s' "$subject" | grep -Eq "$pattern" || fail 'not the Angular convention'
+[ "${#subject}" -le 100 ] || fail "longer than 100 characters (${#subject})"
+description=${subject#*: }
+printf '%s' "$description" | grep -Eq '^[A-Z]' && fail 'the subject starts with a capital letter'
+printf '%s' "$description" | grep -Eiq '^(the|a|an|one) ' && fail 'the subject is not in the imperative (starts with an article)'
+exit 0
