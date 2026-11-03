@@ -129,6 +129,8 @@
         'Wait-OSSetupUserSession'
         'Write-OSSetupRunResult'
         # System.ps1
+        'Clear-OSSetupStateCache'
+        'Get-OSSetupScheduledTask'
         'ConvertFrom-OSSetupPowerQuery'
         'ConvertTo-OSSetupUninstallCommand'
         'Disable-OSSetupStartupEntry'

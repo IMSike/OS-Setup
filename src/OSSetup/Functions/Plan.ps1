@@ -15,6 +15,8 @@
         [Parameter(Mandatory)]
         [hashtable]$Context
     )
+    # Listes d'état (tâches planifiées) lues une fois pour toute la passe, à partir de l'état du moment.
+    Clear-OSSetupStateCache
     # Pendant le plan, les tests de présence peuvent s'appuyer d'abord sur des listes lues une fois (ex. export winget).
     $Context['Planning'] = $true
     try {
@@ -128,6 +130,8 @@ function Invoke-OSSetupPlan {
     # jugées conformes au moment du plan sont revérifiées (ex. installation qui crée un raccourci que l'action suivante
     # doit supprimer, ou une entrée de démarrage qu'un autre élément doit désactiver).
     $changedItems = [System.Collections.Generic.HashSet[string]]::new()
+    # Les listes d'état lues pendant le plan ont pu changer depuis (attente de confirmation).
+    Clear-OSSetupStateCache
     foreach ($step in $Plan) {
         $changedDependency = @($step.DependsOn | Where-Object { $changedItems.Contains($_) })
         if ($step.Status -eq 'ok' -and ($changedItems.Contains($step.ItemId) -or $changedDependency)) {
@@ -180,7 +184,15 @@ function Invoke-OSSetupPlan {
                     if ($provider.ContainsKey('Read') -and $Context.ContainsKey('BackupRoot')) {
                         Save-OSSetupOriginalValue -BackupRoot $Context.BackupRoot -Step $step -Provider $provider -Context $Context -Confirm:$false
                     }
-                    $outcome = @(& $provider.Invoke $step.Action $Context)
+                    # Listes d'état relues par l'action, puis par le contrôle qui suit : toute action peut les modifier,
+                    # quel que soit son provider.
+                    Clear-OSSetupStateCache
+                    try {
+                        $outcome = @(& $provider.Invoke $step.Action $Context)
+                    }
+                    finally {
+                        Clear-OSSetupStateCache
+                    }
                     $signaled = [bool]($outcome | Where-Object { $_ -is [System.Collections.IDictionary] -and $_['RebootRequired'] })
                     if ($signaled) {
                         # L'état final (ex. fonctionnalité « Enable Pending ») ne sera visible qu'après redémarrage.

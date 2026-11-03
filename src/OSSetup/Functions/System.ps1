@@ -7,6 +7,10 @@ $script:PowerSettings = @{
     display   = @('SUB_VIDEO', 'VIDEOIDLE')
 }
 
+# Listes d'état longues à lire, lues une fois par passe, effacées avant et après chaque action exécutée : tâches
+# planifiées (une lecture de toutes les tâches coûte autant qu'une lecture par nom).
+$script:StateCache = @{}
+
 function Import-OSSetupAppxModule {
     <#
     .SYNOPSIS
@@ -269,6 +273,40 @@ function Disable-OSSetupStartupEntry {
         if (-not (Test-Path -Path $Entry.ApprovedKey)) { New-Item -Path $Entry.ApprovedKey -Force | Out-Null }
         New-ItemProperty -Path $Entry.ApprovedKey -Name $Entry.Name -PropertyType Binary -Value $value -Force | Out-Null
     }
+}
+
+function Clear-OSSetupStateCache {
+    <#
+    .SYNOPSIS
+        Oublie les listes d'état lues (tâches planifiées) : appelé au début de chaque passe et autour de chaque action
+        exécutée, pour que les vérifications relisent l'état réel.
+    #>
+    [CmdletBinding()]
+    param()
+    $script:StateCache.Clear()
+}
+
+function Get-OSSetupScheduledTask {
+    <#
+    .SYNOPSIS
+        Tâche planifiée par son nom (et son dossier), d'après la liste de toutes les tâches lue une fois par passe
+        (cache vidé par Clear-OSSetupStateCache). Rien si elle n'existe pas.
+    .DESCRIPTION
+        Pour les tests de présence des providers : Get-ScheduledTask coûte environ 0,4 s par appel, qu'il lise une
+        tâche ou toutes. Une attente qui suit l'état d'une tâche en cours appelle Get-ScheduledTask directement.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$TaskName,
+
+        # Dossier de la tâche (ex. « \Microsoft\Windows\Autochk\ ») ; sans lui, tous les dossiers.
+        [string]$TaskPath
+    )
+    if (-not $script:StateCache.ContainsKey('ScheduledTasks')) {
+        $script:StateCache['ScheduledTasks'] = @(Get-ScheduledTask -ErrorAction SilentlyContinue)
+    }
+    $script:StateCache['ScheduledTasks'] | Where-Object { $_.TaskName -eq $TaskName -and (-not $TaskPath -or $_.TaskPath -eq $TaskPath) }
 }
 
 function Split-OSSetupTaskPath {

@@ -73,6 +73,10 @@ Describe 'Provider service' {
 }
 
 Describe 'Provider scheduled-task' {
+    BeforeEach {
+        InModuleScope OSSetup { Clear-OSSetupStateCache }
+    }
+
     It 'est conforme si une tâche à désactiver est absente' {
         Mock -ModuleName OSSetup Get-ScheduledTask {}
         Invoke-TestProviderTest -Name scheduled-task -Action @{ task = '\X\Y'; enabled = $false } | Should -BeTrue
@@ -84,9 +88,41 @@ Describe 'Provider scheduled-task' {
     }
 
     It 'compare l''état de la tâche' {
-        Mock -ModuleName OSSetup Get-ScheduledTask { [pscustomobject]@{ State = 'Ready' } } -ParameterFilter { $TaskPath -eq '\X\' -and $TaskName -eq 'Y' }
+        Mock -ModuleName OSSetup Get-ScheduledTask {
+            [pscustomobject]@{ TaskPath = '\X\'; TaskName = 'Y'; State = 'Ready' }
+            [pscustomobject]@{ TaskPath = '\Autre\'; TaskName = 'Y'; State = 'Disabled' }
+        }
         Invoke-TestProviderTest -Name scheduled-task -Action @{ task = '\X\Y'; enabled = $false } | Should -BeFalse
         Invoke-TestProviderTest -Name scheduled-task -Action @{ task = '\X\Y'; enabled = $true } | Should -BeTrue
+    }
+}
+
+Describe 'Get-OSSetupScheduledTask' {
+    BeforeEach {
+        InModuleScope OSSetup { Clear-OSSetupStateCache }
+        Mock -ModuleName OSSetup Get-ScheduledTask {
+            [pscustomobject]@{ TaskPath = '\'; TaskName = 'A'; State = 'Ready' }
+            [pscustomobject]@{ TaskPath = '\Sous\'; TaskName = 'B'; State = 'Disabled' }
+        }
+    }
+
+    It 'lit toutes les tâches une seule fois pour la passe et filtre par nom et dossier' {
+        InModuleScope OSSetup {
+            (Get-OSSetupScheduledTask -TaskName 'A').State | Should -Be 'Ready'
+            (Get-OSSetupScheduledTask -TaskName 'B' -TaskPath '\Sous\').State | Should -Be 'Disabled'
+            Get-OSSetupScheduledTask -TaskName 'B' -TaskPath '\' | Should -BeNullOrEmpty
+            Get-OSSetupScheduledTask -TaskName 'C' | Should -BeNullOrEmpty
+        }
+        Should -Invoke -ModuleName OSSetup Get-ScheduledTask -Times 1 -Exactly -ParameterFilter { -not $TaskName }
+    }
+
+    It 'relit la liste après Clear-OSSetupStateCache' {
+        InModuleScope OSSetup {
+            Get-OSSetupScheduledTask -TaskName 'A' | Out-Null
+            Clear-OSSetupStateCache
+            Get-OSSetupScheduledTask -TaskName 'A' | Out-Null
+        }
+        Should -Invoke -ModuleName OSSetup Get-ScheduledTask -Times 2 -Exactly
     }
 }
 
