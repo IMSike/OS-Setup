@@ -192,7 +192,7 @@ function Register-OSSetupResumeTask {
         [string]$ResumeRoot = (Get-OSSetupResumeRoot)
     )
     $user = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-    $powershell = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'WindowsPowerShell\v1.0\powershell.exe'
+    $powershell = Get-OSSetupWindowsPowerShellPath
     $launcher = Join-Path -Path $ResumeRoot -ChildPath 'resume.ps1'
     $action = New-ScheduledTaskAction -Execute $powershell -WorkingDirectory (Split-Path -Path $ResumeRoot -Parent) `
         -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$launcher`""

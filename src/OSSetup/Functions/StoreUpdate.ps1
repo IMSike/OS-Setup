@@ -53,7 +53,7 @@ function Get-OSSetupStoreUpdateTaskArgument {
     )
     $script = Join-Path -Path (Get-OSSetupStoreUpdateRoot) -ChildPath $script:StoreUpdateScript[$Role]
     # Chemin complet : la tâche SYSTEM ne dépend pas de l'ordre du PATH.
-    $powershell = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'WindowsPowerShell\v1.0\powershell.exe'
+    $powershell = Get-OSSetupWindowsPowerShellPath
     "--headless `"$powershell`" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$script`""
 }
 

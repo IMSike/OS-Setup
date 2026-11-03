@@ -154,7 +154,7 @@ function Invoke-OSSetupUnelevatedCommand {
     $wrapper = Join-Path -Path $work -ChildPath 'run.ps1'
     $log = Join-Path -Path $work -ChildPath 'output.log'
     $exitFile = Join-Path -Path $work -ChildPath 'exitcode.txt'
-    $powershell = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'WindowsPowerShell\v1.0\powershell.exe'
+    $powershell = Get-OSSetupWindowsPowerShellPath
     $commandScript = Join-Path -Path $work -ChildPath 'command.ps1'
     $quote = { param([string]$Text) "'" + ($Text -replace "'", "''") + "'" }
     # Enveloppe : sortie en UTF-8 (sinon accents corrompus), code de sortie écrit en dernier, sous un nom temporaire

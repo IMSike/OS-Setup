@@ -160,6 +160,7 @@
         'Import-OSSetupAppxModule'
         'Import-OSSetupCompatibilityModule'
         'Import-OSSetupDismModule'
+        'Get-OSSetupWindowsPowerShellPath'
         'Invoke-OSSetupWindowsPowerShell'
         'Set-OSSetupPowerValue'
         'Stop-OSSetupStoreUpdate'

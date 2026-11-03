@@ -524,6 +524,14 @@ Describe 'Provider power' {
     }
 }
 
+Describe 'Get-OSSetupWindowsPowerShellPath' {
+    It 'donne le chemin complet de Windows PowerShell 5.1, dans le dossier système' {
+        $path = Get-OSSetupWindowsPowerShellPath
+        [IO.Path]::IsPathRooted($path) | Should -BeTrue
+        $path | Should -Be (Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'WindowsPowerShell\v1.0\powershell.exe')
+    }
+}
+
 Describe 'Set-OSSetupPowerValue' {
     It 'règle la valeur puis réactive le mode, par Invoke-OSSetupNativeCommand' {
         Mock -ModuleName OSSetup Invoke-OSSetupNativeCommand {}

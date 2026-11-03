@@ -203,6 +203,17 @@ catch {
 "@
 }
 
+function Get-OSSetupWindowsPowerShellPath {
+    <#
+    .SYNOPSIS
+        Chemin complet de Windows PowerShell 5.1 (powershell.exe) : un appel par le seul nom dépendrait de l'ordre du PATH.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param()
+    Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'WindowsPowerShell\v1.0\powershell.exe'
+}
+
 function Invoke-OSSetupWindowsPowerShell {
     <#
     .SYNOPSIS
@@ -213,7 +224,7 @@ function Invoke-OSSetupWindowsPowerShell {
         [Parameter(Mandatory)]
         [string]$Script
     )
-    $powershell = Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    $powershell = Get-OSSetupWindowsPowerShellPath
     $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($Script))
     $all = @(& $powershell -NoProfile -NonInteractive -EncodedCommand $encoded 2>&1)
     $exitCode = $LASTEXITCODE
