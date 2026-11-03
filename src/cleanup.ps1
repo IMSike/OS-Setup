@@ -2,7 +2,8 @@
 .SYNOPSIS
     Nettoyage de fin de setup, exécuté après la fermeture du setup (Windows PowerShell 5.1, processus détaché).
 .DESCRIPTION
-    Copié dans %TEMP% puis lancé par le setup : un script ne peut pas supprimer son propre dossier pendant
+    Copié dans %ProgramFiles%\OS-Setup\cleanup (réservé aux administrateurs : il s'exécute élevé, ADR 0005) puis
+    lancé par le setup : un script ne peut pas supprimer son propre dossier pendant
     qu'il s'exécute, et PowerShell 7 ne peut pas être désinstallé tant qu'il est en cours d'utilisation.
     Lit sa configuration (JSON) : processus à attendre, paquets winget à désinstaller, chemins à supprimer,
     journal où consigner le résultat, fermeture de session. Supprime ensuite sa configuration et lui-même, puis ferme la session si demandé.
