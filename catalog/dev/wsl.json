@@ -6,7 +6,7 @@
   "platforms": ["windows"],
   "requiresAdmin": true,
   "dependsOn": ["wsl-platform"],
-  "notes": "Version distribuée hors Windows (paquet Microsoft.WSL), installée après le redémarrage qui active les fonctionnalités. Distribution Linux : à ajouter plus tard.",
+  "notes": "Version distribuée hors Windows (paquet Microsoft.WSL), installée après le redémarrage qui active les fonctionnalités.",
   "actions": [
     { "provider": "winget", "id": "Microsoft.WSL" },
     {

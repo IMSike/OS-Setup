@@ -6,7 +6,7 @@ Goal: install and update drivers **according to the detected hardware**. "Pilote
 
 1. **Windows Update "drivers" pass** on all machines, through the built-in Windows Update API.
 2. **Manufacturer tools** when the hardware matches: those of brand-name PCs (drivers **and BIOS**) selected by default, Intel's unselected.
-3. **NVIDIA and AMD graphics cards**: through Windows Update for now (their tools are not in winget). A guided manual step (official page, verification) may be added.
+3. **NVIDIA and AMD graphics cards**: through Windows Update (their tools are not in winget).
 4. **Report** at the end of the setup: devices with no driver or in error, added to the summary.
 
 ## Items

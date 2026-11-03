@@ -137,5 +137,3 @@ To know which value to put back, the engine records, **before each modification*
 - file `state\backups\<date>\original-values.json` in the setup folder: for each action, the item, the description, the action and the previous state (`before`) — for example `{ "exists": false }` if the value did not exist, which means it is enough to delete it;
 - runs resumed after a reboot complete the same file;
 - at the end of the setup, with the "keep the history" option, it is kept in `%LOCALAPPDATA%\OS-Setup\<date>\backups\` with the log and the answers; with "delete everything", it disappears.
-
-An automatic undo command may rely on this file later.

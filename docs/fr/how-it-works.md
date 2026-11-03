@@ -137,5 +137,3 @@ Pour savoir quelle valeur remettre, le moteur enregistre, **avant chaque modific
 - fichier `state\backups\<date>\original-values.json` du dossier du setup : pour chaque action, l'élément, la description, l'action et l'état d'avant (`before`) — par exemple `{ "exists": false }` si la valeur n'existait pas, ce qui signifie qu'il suffit de la supprimer ;
 - les exécutions reprises après redémarrage complètent le même fichier ;
 - en fin de setup, avec l'option « garder l'historique », il est conservé dans `%LOCALAPPDATA%\OS-Setup\<date>\backups\` avec le journal et les réponses ; avec « tout supprimer », il disparaît.
-
-Une commande d'annulation automatique pourra s'appuyer sur ce fichier plus tard.

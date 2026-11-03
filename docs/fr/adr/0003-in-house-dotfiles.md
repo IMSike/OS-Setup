@@ -42,5 +42,5 @@ Les **données utilisateur** (mémoires Claude Code, historiques…) ne sont pas
 ## Conséquences
 
 - Aucun logiciel supplémentaire sur la machine cible.
-- Le code de déploiement est dans le moteur (provider `file`) et testé (Pester) : copie, gabarit, fusion JSON (`merge-json`, première utilisation : préférences d'installation de Chrome) et sauvegarde sont faits ; le diff affiché avant remplacement reste à écrire.
+- Le code de déploiement est dans le moteur (provider `file`) et testé (Pester) : copie, gabarit, fusion JSON (`merge-json`, première utilisation : préférences d'installation de Chrome) et sauvegarde.
 - Les besoins avancés (secrets, logique dans les gabarits) devront être traités au cas par cas ; si leur nombre croît, réévaluer un outil dédié.

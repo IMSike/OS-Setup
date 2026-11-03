@@ -6,7 +6,7 @@ Objectif : installer et mettre à jour les pilotes **selon le matériel détect�
 
 1. **Passe Windows Update « pilotes »** sur toutes les machines, par l'API intégrée de Windows Update.
 2. **Outils des fabricants** quand le matériel correspond : ceux des PC de marque (pilotes **et BIOS**) cochés par défaut, celui d'Intel décoché.
-3. **Cartes graphiques NVIDIA et AMD** : par Windows Update pour l'instant (leurs outils ne sont pas dans winget). Une étape manuelle guidée (page officielle, vérification) pourra être ajoutée.
+3. **Cartes graphiques NVIDIA et AMD** : par Windows Update (leurs outils ne sont pas dans winget).
 4. **Bilan** en fin de setup : périphériques sans pilote ou en erreur, ajoutés au récapitulatif.
 
 ## Éléments

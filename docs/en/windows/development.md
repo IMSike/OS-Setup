@@ -435,10 +435,10 @@ services:
     image: postgres:17
     environment:
       POSTGRES_USER: app
-      POSTGRES_PASSWORD: app   # mot de passe de développement local, jamais de production
+      POSTGRES_PASSWORD: app   # local development password, never production
       POSTGRES_DB: app
     ports:
-      - "5432:5432"            # un autre port (ex. "5433:5432") pour un 2e projet lancé en même temps
+      - "5432:5432"            # another port (e.g. "5433:5432") for a 2nd project running at the same time
     volumes:
       - db-data:/var/lib/postgresql/data
 volumes:

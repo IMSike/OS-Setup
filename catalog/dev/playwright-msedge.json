@@ -6,7 +6,7 @@
   "platforms": ["windows"],
   "dependsOn": ["playwright-cli"],
   "when": { "OSName": "windows-10" },
-  "notes": "Edge reste installé sous Windows 10 (neutralisé, pas supprimé) ; sous Windows 11, il sera désinstallé si possible.",
+  "notes": "Edge reste installé sous Windows 10 (neutralisé, pas supprimé).",
   "actions": [
     {
       "provider": "file",
