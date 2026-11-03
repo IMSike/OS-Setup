@@ -111,3 +111,23 @@ Describe 'Get-OSSetupPlan : unlessSelected' {
         @(Get-OSSetupPlan -Data $data -ItemId 'app' -Context $context).Count | Should -Be 1
     }
 }
+
+Describe 'Get-OSSetupPlan : contexte de plan' {
+    It 'signale le plan aux tests de présence (Planning), puis le retire du contexte' {
+        $data = [pscustomobject]@{
+            Items = @{
+                app = [ordered]@{ id = 'app'; name = 'App'; actions = @([ordered]@{ provider = 'shortcut'; path = 'C:\Nope\App.lnk'; present = $false }) }
+            }
+        }
+        $global:OSSetupTestPlanning = $null
+        Mock -ModuleName OSSetup Get-OSSetupProvider {
+            # Interface des providers : Test reçoit l'action puis le contexte ; seul le contexte compte ici.
+            @{ Describe = { 'test' }; Test = { $global:OSSetupTestPlanning = $args[1]['Planning']; $true } }
+        }
+        $context = @{ Variables = [ordered]@{} }
+        @(Get-OSSetupPlan -Data $data -ItemId 'app' -Context $context)[0].Status | Should -Be 'ok'
+        $global:OSSetupTestPlanning | Should -BeTrue
+        $context.ContainsKey('Planning') | Should -BeFalse
+        Remove-Variable -Name OSSetupTestPlanning -Scope Global
+    }
+}

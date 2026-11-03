@@ -29,6 +29,30 @@
     $script:WingetExportId
 }
 
+function Clear-OSSetupWingetExportCache {
+    <#
+    .SYNOPSIS
+        Oublie l'export winget lu : le prochain appel de Get-OSSetupWingetExportId le relit (après une désinstallation).
+    #>
+    [CmdletBinding()]
+    param()
+    Remove-Variable -Name WingetExportId -Scope Script -ErrorAction SilentlyContinue
+}
+
+function Get-OSSetupWingetSource {
+    <#
+    .SYNOPSIS
+        Source winget d'une action du provider winget (winget par défaut).
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [System.Collections.IDictionary]$Action
+    )
+    if ($Action['source']) { $Action['source'] } else { 'winget' }
+}
+
 function Test-OSSetupWingetInstalled {
     <#
     .SYNOPSIS
@@ -36,6 +60,9 @@ function Test-OSSetupWingetInstalled {
     .DESCRIPTION
         L'export ne couvre que la source winget : il n'est pas consulté pour un paquet d'une autre source (msstore),
         ni avec -ListOnly (sondage léger pendant l'attente qui suit une installation).
+        Avec -ExportFirst (plan), l'export, lu une seule fois pour la passe, est consulté avant `winget list`
+        (0,6 à 2 s par paquet) : un paquet qu'il contient est installé sans autre appel. Le résultat est le même,
+        seul l'ordre change ; pendant l'exécution, `winget list` reste le premier avis (état le plus frais).
     #>
     [CmdletBinding()]
     [OutputType([bool])]
@@ -50,10 +77,16 @@ function Test-OSSetupWingetInstalled {
         [switch]$Refresh,
 
         # winget list seul, sans second avis.
-        [switch]$ListOnly
+        [switch]$ListOnly,
+
+        # Export consulté d'abord (plan).
+        [switch]$ExportFirst
     )
+    $useExport = -not $ListOnly -and $Source -eq 'winget'
+    if ($ExportFirst -and $useExport -and $Id -in @(Get-OSSetupWingetExportId -Refresh:$Refresh)) { return $true }
     & winget list --id $Id --exact --accept-source-agreements --disable-interactivity | Out-Null
     if ($LASTEXITCODE -eq 0) { return $true }
-    if ($ListOnly -or $Source -ne 'winget') { return $false }
+    # Avec -ExportFirst, l'export vient d'être consulté.
+    if (-not $useExport -or $ExportFirst) { return $false }
     $Id -in @(Get-OSSetupWingetExportId -Refresh:$Refresh)
 }

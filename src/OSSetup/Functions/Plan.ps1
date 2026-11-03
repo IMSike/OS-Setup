@@ -17,54 +17,61 @@
     )
     # Listes DISM lues une fois pour toute la passe, à partir de l'état du moment.
     Clear-OSSetupDismCache
-    foreach ($id in $ItemId) {
-        $item = $Data.Items[$id]
-        $index = 0
-        foreach ($rawAction in $item['actions']) {
-            # Action sans objet quand un autre élément retenu prend le relais (ex. ne pas supprimer le raccourci
-            # posé par un installeur si l'utilisateur a demandé ce raccourci sur le bureau).
-            if ($rawAction['unlessSelected'] -and $Context.ContainsKey('ItemIds') -and $rawAction['unlessSelected'] -in $Context.ItemIds) {
-                continue
-            }
-            $index++
-            $step = [pscustomobject]@{
-                ItemId        = $id
-                ItemName      = $item['name']
-                RequiresAdmin = [bool]$item['requiresAdmin']
-                RequiresReboot = [bool]$item['requiresReboot']
-                RequiresLogoff = [bool]$item['requiresLogoff']
-                DependsOn     = @($item['dependsOn'] | Where-Object { $_ })
-                Index         = $index
-                Provider      = $rawAction['provider']
-                Action        = $null
-                Description   = $null
-                Status        = 'todo'
-                Detail        = $null
-            }
-            # Information personnelle non renseignée (ex. nom pour Git) : l'action est ignorée plutôt qu'appliquée à vide.
-            $missing = @(Get-OSSetupActionVariableName -Action $rawAction | Where-Object { $Context['MissingVariables'] -and $Context.MissingVariables.Contains($_) } |
-                    ForEach-Object { $Context.MissingVariables[$_] } | Select-Object -Unique)
-            if ($missing) {
-                $step.Status = 'skipped'
-                $step.Description = if ($rawAction['description']) { $rawAction['description'] } else { $rawAction['provider'] }
-                $step.Detail = "non renseigné : $($missing -join ', ')"
-                $step
-                continue
-            }
-            try {
-                $provider = Get-OSSetupProvider -Name $rawAction['provider']
-                $step.Action = Expand-OSSetupAction -Action $rawAction -Variables $Context.Variables
-                $step.Description = if ($step.Action['description']) { $step.Action['description'] } else { & $provider.Describe $step.Action $Context }
-                if (& $provider.Test $step.Action $Context) {
-                    $step.Status = 'ok'
+    # Pendant le plan, les tests de présence peuvent s'appuyer d'abord sur des listes lues une fois (ex. export winget).
+    $Context['Planning'] = $true
+    try {
+        foreach ($id in $ItemId) {
+            $item = $Data.Items[$id]
+            $index = 0
+            foreach ($rawAction in $item['actions']) {
+                # Action sans objet quand un autre élément retenu prend le relais (ex. ne pas supprimer le raccourci
+                # posé par un installeur si l'utilisateur a demandé ce raccourci sur le bureau).
+                if ($rawAction['unlessSelected'] -and $Context.ContainsKey('ItemIds') -and $rawAction['unlessSelected'] -in $Context.ItemIds) {
+                    continue
                 }
+                $index++
+                $step = [pscustomobject]@{
+                    ItemId        = $id
+                    ItemName      = $item['name']
+                    RequiresAdmin = [bool]$item['requiresAdmin']
+                    RequiresReboot = [bool]$item['requiresReboot']
+                    RequiresLogoff = [bool]$item['requiresLogoff']
+                    DependsOn     = @($item['dependsOn'] | Where-Object { $_ })
+                    Index         = $index
+                    Provider      = $rawAction['provider']
+                    Action        = $null
+                    Description   = $null
+                    Status        = 'todo'
+                    Detail        = $null
+                }
+                # Information personnelle non renseignée (ex. nom pour Git) : l'action est ignorée plutôt qu'appliquée à vide.
+                $missing = @(Get-OSSetupActionVariableName -Action $rawAction | Where-Object { $Context['MissingVariables'] -and $Context.MissingVariables.Contains($_) } |
+                        ForEach-Object { $Context.MissingVariables[$_] } | Select-Object -Unique)
+                if ($missing) {
+                    $step.Status = 'skipped'
+                    $step.Description = if ($rawAction['description']) { $rawAction['description'] } else { $rawAction['provider'] }
+                    $step.Detail = "non renseigné : $($missing -join ', ')"
+                    $step
+                    continue
+                }
+                try {
+                    $provider = Get-OSSetupProvider -Name $rawAction['provider']
+                    $step.Action = Expand-OSSetupAction -Action $rawAction -Variables $Context.Variables
+                    $step.Description = if ($step.Action['description']) { $step.Action['description'] } else { & $provider.Describe $step.Action $Context }
+                    if (& $provider.Test $step.Action $Context) {
+                        $step.Status = 'ok'
+                    }
+                }
+                catch {
+                    $step.Status = 'error'
+                    $step.Detail = $_.Exception.Message
+                }
+                $step
             }
-            catch {
-                $step.Status = 'error'
-                $step.Detail = $_.Exception.Message
-            }
-            $step
         }
+    }
+    finally {
+        $Context.Remove('Planning')
     }
 }
 

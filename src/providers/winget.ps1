@@ -17,13 +17,15 @@ param()
         param($Action, $Context)
         # Application du Store : jugée par son paquet appx, car winget list rattache aussi un MSI au produit du Store.
         if ($Action['packageName']) { return Test-OSSetupAppxInstalled -Name $Action['packageName'] }
-        Test-OSSetupWingetInstalled -Id $Action['id'] -Source $(if ($Action['source']) { $Action['source'] } else { 'winget' })
+        # Pendant le plan, l'export (lu une fois) est consulté avant winget list, lent pour chaque paquet.
+        Test-OSSetupWingetInstalled -Id $Action['id'] -Source (Get-OSSetupWingetSource -Action $Action) -ExportFirst:([bool]$Context['Planning'])
     }
 
     Invoke   = {
         param($Action, $Context)
+        $source = Get-OSSetupWingetSource -Action $Action
         $arguments = @(
-            'install', '--id', $Action['id'], '--exact', '--source', $(if ($Action['source']) { $Action['source'] } else { 'winget' }), '--silent',
+            'install', '--id', $Action['id'], '--exact', '--source', $source, '--silent',
             '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity'
         )
         if ($Action['scope']) { $arguments += @('--scope', $Action['scope']) }
@@ -65,7 +67,6 @@ param()
         # en arrière-plan une dizaine de secondes) : attendre que le paquet soit détecté.
         # Le premier sondage relit l'export (paquet que seul l'export rattache) ; les suivants s'en tiennent à winget list,
         # l'export complet étant lourd. Il est relu une dernière fois si le paquet n'a pas été trouvé (cache à jour).
-        $source = if ($Action['source']) { $Action['source'] } else { 'winget' }
         $deadline = (Get-Date).AddSeconds(60)
         $found = $false
         $firstPoll = $true

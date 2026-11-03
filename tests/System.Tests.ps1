@@ -395,6 +395,13 @@ Describe 'Provider win32-uninstall : PowerShell qui exécute le setup' {
         Remove-Variable -Name OSSetupTestMsiPresent -Scope Global -ErrorAction SilentlyContinue
     }
 
+    It 'oublie l''export winget en cache après une désinstallation' {
+        Mock -ModuleName OSSetup Test-OSSetupUninstallEntryHostsSetup { $false }
+        Mock -ModuleName OSSetup Clear-OSSetupWingetExportCache
+        Invoke-TestUninstall | Out-Null
+        Should -Invoke -ModuleName OSSetup Clear-OSSetupWingetExportCache -Times 1 -Exactly
+    }
+
     It 'reporte la désinstallation à la fermeture du setup, sans lancer msiexec' {
         Mock -ModuleName OSSetup Test-OSSetupUninstallEntryHostsSetup { $true }
         $outcome = @(Invoke-TestUninstall)
@@ -658,6 +665,32 @@ Describe 'Test-OSSetupWingetInstalled' {
         InModuleScope OSSetup { Test-OSSetupWingetInstalled -Id '9MZ1SNWT0N5D' -Source msstore } | Should -BeFalse
         Should -Invoke -ModuleName OSSetup Get-OSSetupWingetExportId -Times 0
     }
+
+    It 'avec -ExportFirst, ne lance pas winget list pour un paquet de l''export, et le lance pour les autres' {
+        Mock -ModuleName OSSetup winget { $global:LASTEXITCODE = -1978335212 }
+        Mock -ModuleName OSSetup Get-OSSetupWingetExportId { @('Git.Git') }
+        InModuleScope OSSetup { Test-OSSetupWingetInstalled -Id 'Git.Git' -ExportFirst } | Should -BeTrue
+        Should -Invoke -ModuleName OSSetup winget -Times 0
+        InModuleScope OSSetup { Test-OSSetupWingetInstalled -Id 'Microsoft.VisualStudioCode' -ExportFirst } | Should -BeFalse
+        Should -Invoke -ModuleName OSSetup winget -Times 1 -Exactly
+        # L'export n'est pas consulté une seconde fois après winget list.
+        Should -Invoke -ModuleName OSSetup Get-OSSetupWingetExportId -Times 2 -Exactly
+    }
+
+    It 'avec -ExportFirst, garde winget list seul pour une autre source que winget' {
+        Mock -ModuleName OSSetup winget { $global:LASTEXITCODE = 0 }
+        Mock -ModuleName OSSetup Get-OSSetupWingetExportId { @('9MZ1SNWT0N5D') }
+        InModuleScope OSSetup { Test-OSSetupWingetInstalled -Id '9MZ1SNWT0N5D' -Source msstore -ExportFirst } | Should -BeTrue
+        Should -Invoke -ModuleName OSSetup Get-OSSetupWingetExportId -Times 0
+    }
+
+    It 'Clear-OSSetupWingetExportCache fait relire l''export' {
+        InModuleScope OSSetup {
+            $script:WingetExportId = @('Ancien.Paquet')
+            Clear-OSSetupWingetExportCache
+            Get-Variable -Name WingetExportId -Scope Script -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
+        }
+    }
 }
 
 Describe 'Provider winget : présence' {
@@ -696,6 +729,14 @@ Describe 'Provider winget : présence' {
         Mock -ModuleName OSSetup Test-OSSetupAppxInstalled { $false }
         Invoke-TestProviderTest -Name winget -Action @{ id = 'Git.Git' } | Should -BeTrue
         Should -Invoke -ModuleName OSSetup Test-OSSetupAppxInstalled -Times 0 -Exactly
+    }
+
+    It 'consulte l''export d''abord pendant le plan seulement' {
+        Mock -ModuleName OSSetup Test-OSSetupWingetInstalled { $true }
+        InModuleScope OSSetup { & (Get-OSSetupProvider -Name winget).Test @{ id = 'Git.Git' } @{ Planning = $true } } | Should -BeTrue
+        Should -Invoke -ModuleName OSSetup Test-OSSetupWingetInstalled -Times 1 -Exactly -ParameterFilter { $ExportFirst -and $Source -eq 'winget' }
+        Invoke-TestProviderTest -Name winget -Action @{ id = 'Git.Git' } | Should -BeTrue
+        Should -Invoke -ModuleName OSSetup Test-OSSetupWingetInstalled -Times 1 -Exactly -ParameterFilter { -not $ExportFirst }
     }
 }
 

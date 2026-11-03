@@ -68,6 +68,8 @@ param()
                 }
             }
         }
+        # L'export winget en cache peut encore lister le logiciel désinstallé : relu au besoin.
+        Clear-OSSetupWingetExportCache
         if ($restart) { @{ RebootRequired = $true } }
         if ($atClose.Count -gt 0) { @{ RunAtClose = $atClose.ToArray() } }
     }
