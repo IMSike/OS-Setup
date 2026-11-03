@@ -65,7 +65,7 @@ Les messages de commit et les titres de pull request suivent la [convention Angu
 
 Portées courantes : `catalog`, `engine`, `bootstrap`, `providers`, `profiles`, `dotfiles`, `vm`. Le sujet est à l'impératif, en minuscules, sans point final. Un commit = un changement cohérent ; éviter de mélanger catalogue et moteur.
 
-Les messages sont vérifiés par le hook `.githooks/commit-msg` et par le workflow [Commit messages](.github/workflows/commit-lint.yml).
+La première ligne fait 100 caractères au plus. Les messages sont vérifiés par le hook `.githooks/commit-msg` et par le workflow [Commit messages](.github/workflows/commit-lint.yml) : forme Angular, longueur, ni majuscule ni article (`the`, `a`, `an`, `one`) au début du sujet.
 
 ## Versions
 

@@ -32,12 +32,23 @@ jobs:
         run: |
           pattern='^(build|ci|docs|feat|fix|perf|refactor|revert|test)(\([a-z0-9._/-]+\))?!?: .+'
           failed=0
+          # Same rules as .githooks/commit-msg: keep both in step.
           check() {
-            if printf '%s' "$1" | grep -Eq "$pattern"; then
-              echo "ok   $1"
-            else
+            description=${1#*: }
+            if ! printf '%s' "$1" | grep -Eq "$pattern"; then
               echo "::error::Not an Angular commit message: $1"
               failed=1
+            elif [ "${#1}" -gt 100 ]; then
+              echo "::error::Longer than 100 characters (${#1}): $1"
+              failed=1
+            elif printf '%s' "$description" | grep -Eq '^[A-Z]'; then
+              echo "::error::Subject starts with a capital letter: $1"
+              failed=1
+            elif printf '%s' "$description" | grep -Eiq '^(the|a|an|one) '; then
+              echo "::error::Subject not in the imperative (starts with an article): $1"
+              failed=1
+            else
+              echo "ok   $1"
             fi
           }
           if [ "$EVENT" = "pull_request" ]; then

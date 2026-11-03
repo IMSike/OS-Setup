@@ -65,7 +65,7 @@ Commit messages and pull request titles follow the [Angular convention](https://
 
 Usual scopes: `catalog`, `engine`, `bootstrap`, `providers`, `profiles`, `dotfiles`, `vm`. The subject is in the imperative, lowercase, without a final period. One commit = one coherent change; avoid mixing catalog and engine changes.
 
-Messages are checked by the `.githooks/commit-msg` hook and by the [Commit messages](.github/workflows/commit-lint.yml) workflow.
+The whole first line is 100 characters at most. Messages are checked by the `.githooks/commit-msg` hook and by the [Commit messages](.github/workflows/commit-lint.yml) workflow: Angular form, length, no capital letter and no article (`the`, `a`, `an`, `one`) at the start of the subject.
 
 ## Versions
 
