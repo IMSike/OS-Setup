@@ -22,6 +22,32 @@
             }
         }
     }
+
+    function Get-ElevatedScriptEnvironmentUse {
+        # Scripts des actions logon-task (droits les plus élevés) qui lisent une variable d'environnement : « élément :
+        # détail ». Elle vient de l'environnement de l'utilisateur (HKCU\Environment), qu'il modifie sans élévation :
+        # un chemin écrit ou exécuté qui en dépend (docker.exe sous $env:ProgramFiles, journal sous $env:LOCALAPPDATA)
+        # serait détourné. Règle simple : aucune lecture ($env:X, GetEnvironmentVariable, ExpandEnvironmentVariables) ;
+        # dossiers connus par [Environment]::GetFolderPath ou SystemDirectory. Le script est retrouvé par l'action file
+        # du même élément qui le déploie (source sous dotfiles/).
+        param($Data, [string]$DotfilesRoot)
+        foreach ($item in $Data.Items.Values) {
+            foreach ($task in @($item['actions'] | Where-Object { $_ -and $_['provider'] -eq 'logon-task' })) {
+                $deploy = @($item['actions'] | Where-Object { $_ -and $_['provider'] -eq 'file' -and $_['source'] -and $_['target'] -eq $task['script'] })
+                if (-not $deploy) { "$($item['id']) : script non déployé par une action file ($($task['script']))"; continue }
+                $path = Join-Path -Path $DotfilesRoot -ChildPath $deploy[0]['source']
+                $tokens = $errors = $null
+                $ast = [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors)
+                $uses = $ast.FindAll({
+                        param($node)
+                        ($node -is [System.Management.Automation.Language.VariableExpressionAst] -and $node.VariablePath.DriveName -eq 'env') -or
+                        ($node -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -and
+                            "$($node.Member)" -in 'GetEnvironmentVariable', 'GetEnvironmentVariables', 'ExpandEnvironmentVariables')
+                    }, $true)
+                foreach ($use in $uses) { "$($item['id']) : $($deploy[0]['source']):$($use.Extent.StartLineNumber) $($use.Extent.Text)" }
+            }
+        }
+    }
 }
 
 Describe 'Données du dépôt' {
@@ -68,6 +94,35 @@ Describe 'Données du dépôt' {
         }
         $found = @(Get-UnsafeLogonTaskScript -Data $fake -Variables $variables)
         @($found | ForEach-Object { ($_ -split ' : ')[0] } | Sort-Object) | Should -Be @('data', 'env', 'escape', 'local', 'other3p', 'profile', 'root')
+    }
+
+    It 'les scripts des tâches logon-task, lancés avec les droits les plus élevés, ne lisent aucune variable d''environnement' {
+        $data = Import-OSSetupData -Root $repoRoot
+        $found = @(Get-ElevatedScriptEnvironmentUse -Data $data -DotfilesRoot (Join-Path -Path $repoRoot -ChildPath 'dotfiles'))
+        $found.Count | Should -Be 0 -Because "l'utilisateur modifie son environnement sans élévation : un chemin qui en dépend serait détourné, utiliser [Environment]::GetFolderPath ($($found -join ' ; '))"
+    }
+
+    It 'le contrôle des variables d''environnement des scripts élevés repère $env:, GetEnvironmentVariable, ExpandEnvironmentVariables et un script non déployé' {
+        $dotfiles = Join-Path -Path $TestDrive -ChildPath 'dotfiles'
+        New-Item -Path $dotfiles -ItemType Directory -Force | Out-Null
+        Set-Content -Path (Join-Path -Path $dotfiles -ChildPath 'bad.ps1') -Value @(
+            '$a = Join-Path $env:ProgramFiles ''x'''
+            '$b = [Environment]::GetEnvironmentVariable(''TEMP'')'
+            '$c = [Environment]::ExpandEnvironmentVariables(''%APPDATA%'')'
+        )
+        Set-Content -Path (Join-Path -Path $dotfiles -ChildPath 'good.ps1') -Value '$a = [Environment]::GetFolderPath(''ProgramFiles'')'
+        $task = { param($Name) @{ provider = 'logon-task'; script = "{{ProgramFiles}}\OS-Setup\$Name.ps1" } }
+        $file = { param($Name) @{ provider = 'file'; source = "$Name.ps1"; target = "{{ProgramFiles}}\OS-Setup\$Name.ps1" } }
+        $data = [pscustomobject]@{
+            Items = [ordered]@{
+                bad     = @{ id = 'bad'; actions = @((& $file 'bad'), (& $task 'bad')) }
+                good    = @{ id = 'good'; actions = @((& $file 'good'), (& $task 'good')) }
+                missing = @{ id = 'missing'; actions = @((& $task 'missing')) }
+            }
+        }
+        $found = @(Get-ElevatedScriptEnvironmentUse -Data $data -DotfilesRoot $dotfiles)
+        @($found | ForEach-Object { ($_ -split ' : ')[0] }) | Should -Be @('bad', 'bad', 'bad', 'missing')
+        $found[0] | Should -BeLike '*bad.ps1:1 $env:ProgramFiles'
     }
 
     It 'les fichiers de réponses d''exemple sont valides et cohérents' {

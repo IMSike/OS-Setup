@@ -24,6 +24,18 @@
       "description": "ancienne copie du script d'entretien, modifiable sans droits administrateur",
       "target": "{{LocalAppData}}\\OS-Setup\\docker-maintenance.ps1",
       "present": false
+    },
+    {
+      "provider": "file",
+      "description": "ancien journal de l'entretien (désormais dans le dossier du script, réservé aux administrateurs)",
+      "target": "{{LocalAppData}}\\OS-Setup\\docker-maintenance.log",
+      "present": false
+    },
+    {
+      "provider": "file",
+      "description": "ancien état de l'entretien (dates des derniers entretiens, désormais dans le dossier du script)",
+      "target": "{{LocalAppData}}\\OS-Setup\\docker-maintenance.json",
+      "present": false
     }
   ]
 }
