@@ -119,6 +119,8 @@ function Invoke-OSSetupUnelevatedCommand {
         de 4 h au moins (garde-fou contre une commande bloquée), ou à la fermeture de la session.
     .PARAMETER ProgressSeconds
         Intervalle entre deux lignes « toujours en cours (N min) ».
+    .PARAMETER PollSeconds
+        Intervalle entre deux lectures de l'état de la tâche et du fichier de code de sortie (2 s par défaut).
     .PARAMETER StartGraceSeconds
         Délai laissé à la tâche pour démarrer : passé ce délai, une tâche qui ne tourne plus sans avoir écrit son code de
         sortie est un échec.

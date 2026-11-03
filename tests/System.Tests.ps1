@@ -524,6 +524,19 @@ Describe 'Provider power' {
     }
 }
 
+Describe 'Set-OSSetupPowerValue' {
+    It 'règle la valeur puis réactive le mode, par Invoke-OSSetupNativeCommand' {
+        Mock -ModuleName OSSetup Invoke-OSSetupNativeCommand {}
+        InModuleScope OSSetup { Set-OSSetupPowerValue -Setting standby -Source dc -Seconds 900 }
+        Should -Invoke -ModuleName OSSetup Invoke-OSSetupNativeCommand -Times 1 -Exactly -ParameterFilter {
+            $FilePath -eq 'powercfg.exe' -and ($ArgumentList -join ' ') -eq '/setdcvalueindex SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 900'
+        }
+        Should -Invoke -ModuleName OSSetup Invoke-OSSetupNativeCommand -Times 1 -Exactly -ParameterFilter {
+            $FilePath -eq 'powercfg.exe' -and ($ArgumentList -join ' ') -eq '/setactive SCHEME_CURRENT'
+        }
+    }
+}
+
 Describe 'Show-OSSetupSummary : ouverture de session' {
     BeforeEach {
         Mock -ModuleName OSSetup Write-OSSetupLog {}

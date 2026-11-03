@@ -553,9 +553,7 @@ function Set-OSSetupPowerValue {
     )
     $subgroup, $alias = $script:PowerSettings[$Setting]
     if ($PSCmdlet.ShouldProcess("$Setting ($Source)", "Régler à $Seconds s")) {
-        & powercfg.exe "/set$($Source)valueindex" SCHEME_CURRENT $subgroup $alias $Seconds
-        if ($LASTEXITCODE -ne 0) { throw "powercfg /set$($Source)valueindex a échoué (code $LASTEXITCODE)." }
-        & powercfg.exe /setactive SCHEME_CURRENT
-        if ($LASTEXITCODE -ne 0) { throw "powercfg /setactive a échoué (code $LASTEXITCODE)." }
+        Invoke-OSSetupNativeCommand -FilePath powercfg.exe -ArgumentList "/set$($Source)valueindex", 'SCHEME_CURRENT', $subgroup, $alias, "$Seconds" -Label "powercfg /set$($Source)valueindex"
+        Invoke-OSSetupNativeCommand -FilePath powercfg.exe -ArgumentList '/setactive', 'SCHEME_CURRENT' -Label 'powercfg /setactive'
     }
 }
