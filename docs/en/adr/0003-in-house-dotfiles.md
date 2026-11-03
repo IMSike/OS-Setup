@@ -42,5 +42,5 @@ Before deployment, the engine runs the `migrate` steps declared by the items:
 ## Consequences
 
 - No additional software on the target machine.
-- The deployment code is in the engine (`file` provider) and tested (Pester): copy, template, JSON merge (`merge-json`, first use: Chrome installation preferences) and backup are done; the diff displayed before replacement remains to be written.
+- The deployment code is in the engine (`file` provider) and tested (Pester): copy, template, JSON merge (`merge-json`, first use: Chrome installation preferences) and backup.
 - Advanced needs (secrets, logic in templates) will have to be handled case by case; if their number grows, reassess a dedicated tool.

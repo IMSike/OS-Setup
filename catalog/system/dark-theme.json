@@ -4,7 +4,6 @@
   "name": "Thème : sombre (applications et système)",
   "category": "system",
   "platforms": ["windows"],
-  "notes": "À valider sur Windows non activé (page Personnalisation verrouillée).",
   "actions": [
     {
       "provider": "registry",
