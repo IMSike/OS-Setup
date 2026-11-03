@@ -31,7 +31,9 @@ $ErrorActionPreference = 'Stop'
 
 # Journal et état à côté du script : %ProgramFiles%\OS-Setup\docker une fois déployé.
 $stateRoot = $PSScriptRoot
-$statePath = Join-Path -Path $stateRoot -ChildPath 'docker-maintenance.json'
+# Un état par compte (identifiant de sécurité) : chaque compte a son propre disque virtuel de Docker.
+$userSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+$statePath = Join-Path -Path $stateRoot -ChildPath "docker-maintenance-$userSid.json"
 $logPath = Join-Path -Path $stateRoot -ChildPath 'docker-maintenance.log'
 $programFiles = [Environment]::GetFolderPath('ProgramFiles')
 $system32 = [Environment]::SystemDirectory
