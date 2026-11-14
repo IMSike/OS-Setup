@@ -5,6 +5,7 @@
   "category": "dev",
   "platforms": ["windows"],
   "dependsOn": ["claude-code"],
+  "checkedWarning": "Claude exécute toute commande et modifie les fichiers sans demander de confirmation, avec les droits du compte (suppression de fichiers, accès au réseau…).",
   "actions": [
     {
       "provider": "file",

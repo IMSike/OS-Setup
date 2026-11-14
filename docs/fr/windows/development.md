@@ -286,7 +286,7 @@ Fusion JSON (provider `file`, mode `merge-json`) dans `%USERPROFILE%\.claude\set
 
 Volontairement absents : `SHELL` (Claude Code trouve Git Bash seul), les crochets (rtk les écrit lui-même ; celui de herdr est installé et réécrit par herdr), les plugins (installés par leur propre élément, ex. `claude-dx`), les skills (pas encore pris en charge).
 
-`claude-bypass-permissions` : ✔ · menu « Claude Code : options » · `dotfiles/claude/bypass-permissions.json`
+`claude-bypass-permissions` : ✔ · menu « Claude Code : options » · avertissement si coché · `dotfiles/claude/bypass-permissions.json`
 
 - **Effet** : `permissions.defaultMode` = `bypassPermissions`, `skipDangerousModePermissionPrompt` et `skipAutoPermissionPrompt` = `true` : Claude exécute commandes et modifications **sans demander d'autorisation**, et sans l'avertissement de lancement de ce mode.
 - **Implications** : l'agent peut tout faire avec les droits du compte (supprimer des fichiers, lancer n'importe quelle commande, accéder au réseau). Choix du mainteneur, coché par défaut ; le décocher garde les demandes d'autorisation.

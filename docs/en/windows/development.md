@@ -286,7 +286,7 @@ JSON merge (`file` provider, `merge-json` mode) into `%USERPROFILE%\.claude\sett
 
 Deliberately absent: `SHELL` (Claude Code finds Git Bash on its own), hooks (rtk writes its own; herdr's is installed and rewritten by herdr), plugins (installed by their own item, e.g. `claude-dx`), skills (not covered yet).
 
-`claude-bypass-permissions`: ✔ · "Claude Code : options" (Claude Code: options) menu · `dotfiles/claude/bypass-permissions.json`
+`claude-bypass-permissions`: ✔ · "Claude Code : options" (Claude Code: options) menu · warning when checked · `dotfiles/claude/bypass-permissions.json`
 
 - **Effect**: `permissions.defaultMode` = `bypassPermissions`, `skipDangerousModePermissionPrompt` and `skipAutoPermissionPrompt` = `true`: Claude runs commands and makes changes **without asking for permission**, and without the launch warning of this mode.
 - **Implications**: the agent can do anything with the account's rights (delete files, run any command, access the network). Maintainer's choice, checked by default; unchecking it keeps the permission prompts.
