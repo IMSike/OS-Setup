@@ -110,7 +110,8 @@ function Invoke-OSSetupUnelevatedCommand {
         Une ligne « toujours en cours » est écrite toutes les ProgressSeconds. Passé le délai, la commande n'est pas
         arrêtée (une installation interrompue serait pire qu'une installation lente) : l'élément échoue comme « non
         terminé », la commande finit en arrière-plan, et sa tâche et son dossier sont supprimés à l'exécution suivante
-        (Clear-OSSetupUnelevatedLeftover, appelé au début de chaque exécution).
+        (Clear-OSSetupUnelevatedLeftover, appelé au début de chaque exécution du setup hors simulation, et avant chaque
+        commande).
     .PARAMETER Command
         Commande Windows PowerShell, écrite dans un script lancé par -File (aucun échappement à prévoir). Pas
         -EncodedCommand : l'enfant écrirait alors ses erreurs en CLIXML, illisibles une fois redirigées.

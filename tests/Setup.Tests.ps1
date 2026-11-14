@@ -176,6 +176,21 @@ Describe 'setup.ps1 : arguments transmis par pwsh -File' {
     }
 }
 
+Describe 'setup.ps1 : restes des exécutions précédentes' {
+    It 'supprime au début les restes des commandes sans droits administrateur, hors simulation seulement' {
+        (Invoke-TestSetup -Argument '-Profiles', 'base', '-AcceptDefaults', '-Yes', '-NoPause').Names |
+            Should -Contain 'Clear-OSSetupUnelevatedLeftover'
+        (Invoke-TestSetup -Argument '-Profiles', 'base', '-AcceptDefaults', '-WhatIf').Names |
+            Should -Not -Contain 'Clear-OSSetupUnelevatedLeftover'
+    }
+
+    It 'continue si leur suppression échoue' {
+        $result = Invoke-TestSetup -Argument '-Profiles', 'base', '-AcceptDefaults', '-Yes', '-NoPause' -Throws @{ 'Clear-OSSetupUnelevatedLeftover' = 'accès refusé' }
+        $result.ExitCode | Should -Be 0
+        $result.Names | Should -Contain 'Invoke-OSSetupPlan'
+    }
+}
+
 Describe 'setup.ps1 : code de sortie' {
     It 'sort avec son propre code quand il n''y a rien à faire, pas avec celui d''une commande native antérieure' {
         # Comme la relance en administrateur : « & setup.ps1 …; exit $LASTEXITCODE ».

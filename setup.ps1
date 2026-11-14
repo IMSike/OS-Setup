@@ -179,6 +179,13 @@ try {
 
     Assert-OSSetupInteractiveUser
 
+    # Restes (tâche, dossier temporaire) d'une commande sans droits administrateur qui avait dépassé son délai lors
+    # d'une exécution précédente. Un échec ne bloque pas le setup.
+    if ($IsWindows -and -not $WhatIfPreference) {
+        try { Clear-OSSetupUnelevatedLeftover -Confirm:$false }
+        catch { Write-OSSetupLog -Level Warning -Message "Restes d'une exécution précédente non supprimés : $($_.Exception.Message)" }
+    }
+
     $data = Import-OSSetupData -Root $root
     Write-OSSetupLog -Level Detail -Message "$($data.Items.Count) élément(s), $($data.Profiles.Count) profil(s) chargés et validés."
 
