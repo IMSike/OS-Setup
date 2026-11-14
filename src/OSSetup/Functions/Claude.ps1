@@ -8,17 +8,10 @@
     [OutputType([pscustomobject])]
     param()
     if (-not (Get-Command -Name claude -CommandType Application -ErrorAction SilentlyContinue)) { return }
-    # Claude Code écrit en UTF-8 ; sans ce réglage, PowerShell décode sa sortie avec la page de code OEM.
-    $previousEncoding = [Console]::OutputEncoding
-    try {
-        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-        $output = & claude plugin list --json 2>$null
-        $exitCode = $LASTEXITCODE
-    }
-    finally {
-        [Console]::OutputEncoding = $previousEncoding
-    }
-    if ($exitCode -ne 0) { return }
+    # Claude Code écrit en UTF-8. La liste (JSON) n'est pas journalisée ; la sortie d'erreur est écartée.
+    $result = Invoke-OSSetupNativeCommand -FilePath claude -ArgumentList 'plugin', 'list', '--json' -Utf8 -NoThrow -PassThru -LogFilter '.*'
+    if ($result.ExitCode -ne 0) { return }
+    $output = @($result.Output | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] })
     try {
         foreach ($plugin in @(($output -join "`n") | ConvertFrom-Json)) {
             [pscustomobject]@{ Id = [string]$plugin.id; Enabled = [bool]$plugin.enabled }

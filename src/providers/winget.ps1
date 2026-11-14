@@ -29,23 +29,10 @@ param()
         if ($Action['location']) { $arguments += @('--location', $Action['location']) }
         if ($Action['override']) { $arguments += @('--override', $Action['override']) }
 
-        # winget écrit en UTF-8 ; sans ce réglage, PowerShell décode sa sortie avec la page de code OEM (accents corrompus).
-        $previousEncoding = [Console]::OutputEncoding
-        try {
-            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-            $output = & winget @arguments 2>&1
-            $exitCode = $LASTEXITCODE
-        }
-        finally {
-            [Console]::OutputEncoding = $previousEncoding
-        }
-        foreach ($line in $output) {
-            $text = "$line".Trim()
-            # Les barres de progression de winget n'ont pas d'intérêt dans le journal.
-            if ($text -and $text -notmatch '^[\s\-\\|/█▒]+$|^\d+(\.\d+)? [KMG]?B / ') {
-                Write-OSSetupLog -Level Detail -Message "  $text"
-            }
-        }
+        # winget écrit en UTF-8. Les barres de progression n'ont pas d'intérêt dans le journal. Le code de sortie est
+        # interprété ci-dessous (certains codes non nuls sont des succès).
+        $exitCode = (Invoke-OSSetupNativeCommand -FilePath winget -ArgumentList $arguments -Utf8 -NoThrow -PassThru `
+                -LogFilter '^[\s\-\\|/█▒]+$|^\s*\d+(\.\d+)? [KMG]?B / ').ExitCode
         # 0x8A150109 : installé, redémarrage nécessaire pour terminer ; 3010 : code MSI équivalent.
         $rebootRequired = $exitCode -in -1978334967, 3010
         # 0x8A15002B : déjà installé, aucune mise à jour applicable.

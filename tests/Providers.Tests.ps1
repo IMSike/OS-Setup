@@ -62,4 +62,33 @@ Describe 'Provider winget : installation' {
         Should -Invoke -ModuleName OSSetup -CommandName Start-Process -Times 0 -Exactly
         Should -Invoke -ModuleName OSSetup -CommandName winget -Times 1 -Exactly
     }
+
+    It 'journalise la sortie de winget, lue en UTF-8, sans les barres de progression' {
+        Mock -ModuleName OSSetup -CommandName winget -MockWith {
+            $global:LASTEXITCODE = 0
+            if ([Console]::OutputEncoding.CodePage -eq 65001) { 'Trouvé Some App [Some.App]' } else { 'Trouv├® Some App [Some.App]' }
+            '  ██████▒▒▒▒  '
+            '  1.50 MB / 3.00 MB'
+            'Installé correctement'
+        }
+        $before = [Console]::OutputEncoding
+        try {
+            [Console]::OutputEncoding = [System.Text.Encoding]::GetEncoding(850)
+            InModuleScope OSSetup { & (Get-OSSetupProvider -Name 'winget').Invoke @{ id = 'Some.App'; scope = 'user' } @{} } | Should -BeNullOrEmpty
+            [Console]::OutputEncoding.CodePage | Should -Be 850
+        }
+        finally {
+            [Console]::OutputEncoding = $before
+        }
+        Should -Invoke -ModuleName OSSetup -CommandName winget -Times 1 -Exactly -ParameterFilter { ($args -join ' ') -like 'install --id Some.App --exact *--scope user' }
+        Should -Invoke -ModuleName OSSetup -CommandName Write-OSSetupLog -Times 2 -Exactly
+        Should -Invoke -ModuleName OSSetup -CommandName Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -eq '  Trouvé Some App [Some.App]' }
+    }
+
+    It 'traite 0x8A15002B (déjà installé) comme un succès et signale le redémarrage demandé (0x8A150109)' {
+        Mock -ModuleName OSSetup -CommandName winget -MockWith { $global:LASTEXITCODE = -1978335189 }
+        InModuleScope OSSetup { & (Get-OSSetupProvider -Name 'winget').Invoke @{ id = 'Some.App' } @{} } | Should -BeNullOrEmpty
+        Mock -ModuleName OSSetup -CommandName winget -MockWith { $global:LASTEXITCODE = -1978334967 }
+        (InModuleScope OSSetup { & (Get-OSSetupProvider -Name 'winget').Invoke @{ id = 'Some.App' } @{} }).RebootRequired | Should -BeTrue
+    }
 }
