@@ -91,8 +91,10 @@ $resumeRoot = Get-OSSetupResumeRoot
 $runStateRoot = Join-Path -Path $resumeRoot -ChildPath 'state'
 $dataRoot = $root
 $runState = $null
+# Raison d'arrêter avant de commencer (état illisible, aucune exécution en attente, journal impossible…). Pendant une
+# reprise, tout ce qui la concerne est alors retiré : sinon la même erreur se répéterait à chaque ouverture de session.
+$abandon = $null
 if ($Resume) {
-    $abandon = $null
     try {
         $runState = Read-OSSetupRunState -StateRoot $runStateRoot
         # Tâche d'une version antérieure (setup.ps1 du dépôt, état dans le dépôt) : la reprise continue, la tâche
@@ -112,37 +114,51 @@ if ($Resume) {
         if ($runState['dataRoot']) { $dataRoot = $runState['dataRoot'] }
         if (-not (Test-Path -LiteralPath $dataRoot -PathType Container)) { $abandon = "dossier du setup introuvable ($dataRoot)" }
     }
+    elseif (-not $abandon) {
+        # Sans état, la copie de la reprise n'a rien à reprendre ; elle n'est pas non plus un dépôt où journaliser.
+        $abandon = "aucune exécution en attente ($(Join-Path -Path $runStateRoot -ChildPath 'run.json') absent)"
+    }
     if (-not $abandon) {
         # Écritures élevées dans le dépôt de l'utilisateur : jamais au travers d'une jonction ou d'un lien.
         Enable-OSSetupDataGuard -Root $dataRoot
         try { Assert-OSSetupDataPath -Path $dataRoot }
         catch { $abandon = $_.Exception.Message.TrimEnd('.') }
     }
-    if ($abandon) {
-        # Rien où journaliser : la fenêtre de la reprise affiche la raison, puis tout ce qui concerne la reprise est retiré.
-        Write-Host -Object "Reprise du setup abandonnée : $abandon." -ForegroundColor Red
-        Unregister-OSSetupResumeTask
-        Remove-OSSetupResumeCode -ErrorAction SilentlyContinue
-        if (-not $NoPause) { Read-Host -Prompt 'Appuyez sur Entrée pour fermer cette fenêtre' | Out-Null }
-        exit 1
-    }
 }
 $stateRoot = Join-Path -Path $dataRoot -ChildPath 'state'
 # Une reprise poursuit le même journal que l'exécution d'origine.
 $runId = if ($runState) { $runState['runId'] } else { Get-Date -Format 'yyyyMMdd-HHmmss' }
-$logPath = Start-OSSetupLog -Directory (Join-Path -Path $dataRoot -ChildPath 'logs') -RunId $runId
-Write-OSSetupLog -Message "OS_Setup — journal : $logPath"
+if (-not $abandon) {
+    try {
+        $logPath = Start-OSSetupLog -Directory (Join-Path -Path $dataRoot -ChildPath 'logs') -RunId $runId
+    }
+    catch {
+        $abandon = "journal impossible à créer ($($_.Exception.Message.TrimEnd('.')))"
+    }
+}
+if ($abandon) {
+    # Rien où journaliser : la fenêtre affiche la raison. Reprise : tout ce qui la concerne est retiré.
+    if ($Resume) {
+        Write-Host -Object "Reprise du setup abandonnée : $abandon." -ForegroundColor Red
+        Unregister-OSSetupResumeTask
+        Remove-OSSetupResumeCode -ErrorAction SilentlyContinue
+    }
+    else {
+        Write-Host -Object "Setup interrompu : $abandon." -ForegroundColor Red
+    }
+    if (($Resume -or ($Relaunched -and -not $Yes)) -and -not $NoPause) {
+        Read-Host -Prompt 'Appuyez sur Entrée pour fermer cette fenêtre' | Out-Null
+    }
+    exit 1
+}
 
 $exitCode = 0
 # Vrai quand le setup s'arrête pour redémarrer (ou attend un redémarrage reporté) : l'exécution n'est pas terminée.
 $waitingForRestart = $false
 $logoff = $false
 try {
+    Write-OSSetupLog -Message "OS-Setup — journal : $logPath"
     if ($Resume) {
-        if (-not $runState) {
-            Unregister-OSSetupResumeTask
-            throw 'Reprise demandée, mais aucune exécution en attente (state/run.json absent).'
-        }
         $runState['pass']++
         Write-OSSetupLog -Message ''
         Write-OSSetupLog -Message "=== Reprise après redémarrage (passe $($runState['pass'])) ==="

@@ -30,7 +30,7 @@ Option C.
 - **Modules.** With `-Resume`, `setup.ps1` replaces `PSModulePath` before loading any module with a fixed list of administrators-only folders: `$PSHOME\Modules`, `%ProgramFiles%\PowerShell\Modules`, `%ProgramFiles%\WindowsPowerShell\Modules`, `System32\WindowsPowerShell\v1.0\Modules`.
 - **User data.** Logs, backups, answers and the last result stay in the repository: `run.json` records its folder (`dataRoot`). The resume pass writes there and reads nothing from it that decides what runs. The end-of-setup cleanup takes its script and the bootstrap trace from the copy.
 - **End-of-setup cleanup.** Its script and configuration go to `%ProgramFiles%\OS-Setup\cleanup` (administrators only) instead of `%TEMP%`.
-- **Previous versions.** A resume task created by a previous version (repository's `setup.ps1`, `run.json` in the repository) still works once: the state is moved to the copy, and the next task, if any, uses the copy. An unreadable state, or a repository that has disappeared, abandons the resume: task and copy are removed, and the reason is displayed.
+- **Previous versions.** A resume task created by a previous version (repository's `setup.ps1`, `run.json` in the repository) still works once: the state is moved to the copy, and the next task, if any, uses the copy. An unreadable or missing state, a repository that has disappeared, or a log that cannot be created abandons the resume before anything is run: task and copy are removed, and the reason is displayed.
 - **End.** The copy is removed when the setup finishes, after the cleanup script has been taken from it. `run.json` is written to a temporary file and then renamed, so an interruption never leaves a truncated state.
 ## Consequences
 

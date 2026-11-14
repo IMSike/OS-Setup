@@ -93,6 +93,36 @@
     }
 }
 
+Describe 'setup.ps1 : reprise abandonnée avant de commencer' {
+    It 'sans état à reprendre, retire la tâche et la copie sans journal ni nettoyage de fin' {
+        $result = Invoke-TestSetup -Argument '-Resume', '-NoPause' -Returns @{ 'Read-OSSetupRunState' = $null }
+        $result.ExitCode | Should -Be 1
+        $result.Names | Should -Contain 'Unregister-OSSetupResumeTask'
+        $result.Names | Should -Contain 'Remove-OSSetupResumeCode'
+        foreach ($name in 'Start-OSSetupLog', 'Invoke-OSSetupCleanup', 'Write-OSSetupRunResult', 'Import-OSSetupData') {
+            $result.Names | Should -Not -Contain $name
+        }
+    }
+
+    It 'quand le journal ne peut pas être créé, retire la tâche et la copie au lieu de recommencer à chaque session' {
+        $state = @{ runId = 'r1'; pass = 1; yes = $true; failed = $false; answers = @{ profiles = @('base') } }
+        $result = Invoke-TestSetup -Argument '-Resume', '-NoPause' -Returns @{ 'Read-OSSetupRunState' = $state } `
+            -Throws @{ 'Start-OSSetupLog' = 'Écriture refusée par sécurité : lien.' }
+        $result.ExitCode | Should -Be 1
+        $result.Names | Should -Contain 'Unregister-OSSetupResumeTask'
+        $result.Names | Should -Contain 'Remove-OSSetupResumeCode'
+        $result.Names | Should -Not -Contain 'Save-OSSetupRunState'
+        $result.Names | Should -Not -Contain 'Import-OSSetupData'
+    }
+
+    It 'hors reprise, s''arrête aussi proprement quand le journal ne peut pas être créé' {
+        $result = Invoke-TestSetup -Argument '-NoPause' -Throws @{ 'Start-OSSetupLog' = 'accès refusé' }
+        $result.ExitCode | Should -Be 1
+        $result.Names | Should -Not -Contain 'Import-OSSetupData'
+        $result.Names | Should -Not -Contain 'Unregister-OSSetupResumeTask'
+    }
+}
+
 Describe 'setup.ps1 : code de sortie' {
     It 'sort avec son propre code quand il n''y a rien à faire, pas avec celui d''une commande native antérieure' {
         # Comme la relance en administrateur : « & setup.ps1 …; exit $LASTEXITCODE ».
