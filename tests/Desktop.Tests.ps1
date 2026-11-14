@@ -148,6 +148,31 @@ Describe 'Get-OSSetupSessionExplorer' {
     }
 }
 
+Describe 'Start-OSSetupUnelevatedExplorer' {
+    It 'lance explorer.exe et schtasks.exe depuis les dossiers du système, pas depuis %WINDIR%' {
+        # New-ScheduledTaskAction et New-ScheduledTaskPrincipal ne créent que des objets en mémoire.
+        Mock -ModuleName OSSetup Register-ScheduledTask {}
+        Mock -ModuleName OSSetup Unregister-ScheduledTask {}
+        Mock -ModuleName OSSetup Start-Sleep {}
+        Mock -ModuleName OSSetup Invoke-OSSetupNativeCommand {}
+        $saved = $env:WINDIR
+        try {
+            $env:WINDIR = Join-Path -Path $TestDrive -ChildPath 'faux'
+            Start-OSSetupUnelevatedExplorer -Confirm:$false
+        }
+        finally {
+            $env:WINDIR = $saved
+        }
+        $explorer = Join-Path -Path (Split-Path -Path ([Environment]::SystemDirectory) -Parent) -ChildPath 'explorer.exe'
+        Should -Invoke -ModuleName OSSetup Register-ScheduledTask -Times 1 -Exactly -ParameterFilter { $Action[0].Execute -eq $explorer }
+        $schtasks = Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'schtasks.exe'
+        Should -Invoke -ModuleName OSSetup Invoke-OSSetupNativeCommand -Times 1 -Exactly -ParameterFilter {
+            $FilePath -eq $schtasks -and ($ArgumentList -join ' ') -eq '/run /tn OS-Setup - Explorateur'
+        }
+        Should -Invoke -ModuleName OSSetup Unregister-ScheduledTask -Times 1 -Exactly
+    }
+}
+
 Describe 'Provider shortcut' {
     It 'teste la présence ou l''absence du raccourci' {
         $path = Join-Path -Path $TestDrive -ChildPath 'App.lnk'

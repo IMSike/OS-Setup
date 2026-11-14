@@ -224,11 +224,16 @@ function Start-OSSetupUnelevatedExplorer {
     param()
     if (-not $PSCmdlet.ShouldProcess('Explorateur', 'Lancer sans droits administrateur')) { return }
     $taskName = 'OS-Setup - Explorateur'
-    $action = New-ScheduledTaskAction -Execute (Join-Path -Path $env:WINDIR -ChildPath 'explorer.exe')
+    # Dossiers de Windows lus auprès du système, pas dans %WINDIR% : l'utilisateur peut redéfinir cette variable
+    # (HKCU\Environment) sans droits administrateur, et schtasks.exe est lancé avec ceux du setup.
+    $systemDirectory = [Environment]::SystemDirectory
+    $explorer = Join-Path -Path (Split-Path -Path $systemDirectory -Parent) -ChildPath 'explorer.exe'
+    $action = New-ScheduledTaskAction -Execute $explorer
     $principal = New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited
     Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -Force | Out-Null
     try {
-        & (Join-Path -Path $env:WINDIR -ChildPath 'System32\schtasks.exe') /run /tn $taskName | Out-Null
+        # Un échec ici n'est pas fatal en soi : l'appelant vérifie ensuite que l'Explorateur tourne.
+        Invoke-OSSetupNativeCommand -FilePath (Join-Path -Path $systemDirectory -ChildPath 'schtasks.exe') -ArgumentList '/run', '/tn', $taskName -NoThrow
         Start-Sleep -Seconds 2
     }
     finally {
