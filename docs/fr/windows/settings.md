@@ -373,7 +373,7 @@ Réglages toujours appliqués par le profil `base` (`catalog/system/`).
 
 ### Explorateur : extensions de fichiers affichées — `explorer-show-extensions`
 
-✔ · préférence (HKCU) · session
+✔ · préférence (HKCU)
 
 - **Effet** : l'Explorateur affiche l'extension des fichiers (`facture.pdf.exe` au lieu de `facture.pdf`).
 - **Implications** : repère les fichiers déguisés ; attention à ne pas modifier l'extension en renommant.
@@ -382,7 +382,7 @@ Réglages toujours appliqués par le profil `base` (`catalog/system/`).
 
 ### Explorateur : fichiers cachés affichés — `explorer-show-hidden`
 
-✔ · préférence (HKCU) · session
+✔ · préférence (HKCU)
 
 - **Effet** : l'Explorateur affiche les fichiers et dossiers cachés (ex. `AppData`, `.git`), en grisé.
 - **Implications** : les fichiers système protégés restent masqués.
@@ -391,7 +391,7 @@ Réglages toujours appliqués par le profil `base` (`catalog/system/`).
 
 ### Thème : sombre (applications et système) — `dark-theme`
 
-✔ · préférence (HKCU) · session
+✔ · préférence (HKCU)
 
 - **Effet** : mode sombre pour les applications et pour Windows (barre des tâches, menu Démarrer).
 - **Implications** : la page *Couleurs* est verrouillée sur Windows non activé ; le réglage s'applique quand même.

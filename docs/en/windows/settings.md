@@ -373,7 +373,7 @@ Settings always applied by the `base` profile (`catalog/system/`).
 
 ### Explorer: file extensions shown — `explorer-show-extensions`
 
-✔ · preference (HKCU) · session
+✔ · preference (HKCU)
 
 - **Effect**: File Explorer shows file extensions (`invoice.pdf.exe` instead of `invoice.pdf`).
 - **Implications**: spots disguised files; take care not to change the extension when renaming.
@@ -382,7 +382,7 @@ Settings always applied by the `base` profile (`catalog/system/`).
 
 ### Explorer: hidden files shown — `explorer-show-hidden`
 
-✔ · preference (HKCU) · session
+✔ · preference (HKCU)
 
 - **Effect**: File Explorer shows hidden files and folders (e.g. `AppData`, `.git`), grayed out.
 - **Implications**: protected system files remain hidden.
@@ -391,7 +391,7 @@ Settings always applied by the `base` profile (`catalog/system/`).
 
 ### Theme: dark (apps and system) — `dark-theme`
 
-✔ · preference (HKCU) · session
+✔ · preference (HKCU)
 
 - **Effect**: dark mode for apps and for Windows (taskbar, Start menu).
 - **Implications**: the *Colors* page is locked on a Windows that is not activated; the setting still applies.
