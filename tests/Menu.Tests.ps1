@@ -208,6 +208,18 @@ Describe 'Save-OSSetupAnswerFile' {
         Save-OSSetupAnswerFile -Answers @{ profiles = @('dev'); choices = @{}; variables = @{} } -Path $path
         (Get-Content -LiteralPath $path -Raw | ConvertFrom-Json).profiles | Should -Be @('dev')
     }
+
+    It 'écrit un fichier relisible quand les réponses lues n''ont ni choix ni variables' {
+        $source = Join-Path -Path $TestDrive -ChildPath 'sans-choix.json'
+        $path = Join-Path -Path $TestDrive -ChildPath 'answers-last.json'
+        $root = Join-Path -Path $PSScriptRoot -ChildPath '..'
+        Set-Content -LiteralPath $source -Value '{ "profiles": ["base"] }'
+        Save-OSSetupAnswerFile -Answers (Read-OSSetupAnswerFile -Path $source -Root $root) -Path $path
+        $answers = Read-OSSetupAnswerFile -Path $path -Root $root
+        $answers['profiles'] | Should -Be @('base')
+        $answers['choices'].Count | Should -Be 0
+        $answers['variables'].Count | Should -Be 0
+    }
 }
 
 Describe 'Read-OSSetupAnswer' {

@@ -316,11 +316,13 @@ function Save-OSSetupAnswerFile {
         [Parameter(Mandatory)]
         [string]$Path
     )
+    # Choix et variables absents (fichier de réponses qui ne les donne pas) : objets vides, pas null, que le schéma
+    # refuserait à la relecture.
     $document = [ordered]@{
         '$schema'   = 'https://raw.githubusercontent.com/IMSike/OS-Setup/main/schemas/answers.schema.json'
         profiles    = $Answers['profiles']
-        choices     = $Answers['choices']
-        variables   = $Answers['variables']
+        choices     = $Answers['choices'] ?? [ordered]@{}
+        variables   = $Answers['variables'] ?? [ordered]@{}
     }
     if ($PSCmdlet.ShouldProcess($Path, 'Enregistrer le fichier de réponses')) {
         Assert-OSSetupDataPath -Path $Path
