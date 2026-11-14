@@ -123,6 +123,30 @@ Describe 'setup.ps1 : reprise abandonnée avant de commencer' {
     }
 }
 
+Describe 'setup.ps1 : redémarrage nécessaire' {
+    It 'prépare la reprise (copie, état, tâche) puis redémarre, sans terminer l''exécution' {
+        $result = Invoke-TestSetup -Argument '-Profiles', 'base', '-AcceptDefaults', '-Yes', '-NoPause' `
+            -Returns @{ 'Invoke-OSSetupPlan' = @(@{ Status = 'reboot'; RebootRequired = $true }) }
+        $result.ExitCode | Should -Be 0
+        $order = @($result.Names | Where-Object { $_ -in 'Copy-OSSetupResumeCode', 'Save-OSSetupRunState', 'Register-OSSetupResumeTask', 'Request-OSSetupRestart' })
+        $order | Should -Be @('Copy-OSSetupResumeCode', 'Save-OSSetupRunState', 'Register-OSSetupResumeTask', 'Request-OSSetupRestart')
+        $result.Names | Should -Not -Contain 'Write-OSSetupRunResult'
+        $result.Names | Should -Not -Contain 'Invoke-OSSetupCleanup'
+    }
+
+    It 'si la tâche de reprise ne peut pas être créée, termine l''exécution en échec et retire ce qui a été préparé' {
+        $result = Invoke-TestSetup -Argument '-Profiles', 'base', '-AcceptDefaults', '-Yes', '-NoPause' `
+            -Returns @{ 'Invoke-OSSetupPlan' = @(@{ Status = 'reboot'; RebootRequired = $true }) } `
+            -Throws @{ 'Register-OSSetupResumeTask' = 'accès refusé' }
+        $result.ExitCode | Should -Be 1
+        $result.Names | Should -Not -Contain 'Request-OSSetupRestart'
+        Get-TestCallArgument -Result $result -Name 'Write-OSSetupRunResult' | Should -Contain '1'
+        foreach ($name in 'Unregister-OSSetupResumeTask', 'Remove-OSSetupRunState', 'Remove-OSSetupResumeCode', 'Invoke-OSSetupCleanup') {
+            $result.Names | Should -Contain $name
+        }
+    }
+}
+
 Describe 'setup.ps1 : code de sortie' {
     It 'sort avec son propre code quand il n''y a rien à faire, pas avec celui d''une commande native antérieure' {
         # Comme la relance en administrateur : « & setup.ps1 …; exit $LASTEXITCODE ».

@@ -265,7 +265,6 @@ try {
         if ($results | Where-Object { $_.Status -eq 'failed' }) { $exitCode = 1 }
 
         if (-not $WhatIfPreference -and ($results | Where-Object { $_.RebootRequired })) {
-            $waitingForRestart = $true
             $nextState = @{
                 runId    = $runId
                 pass     = if ($runState) { $runState['pass'] } else { 1 }
@@ -278,6 +277,9 @@ try {
             Copy-OSSetupResumeCode -SourceRoot $root
             Save-OSSetupRunState -StateRoot $runStateRoot -State $nextState
             Register-OSSetupResumeTask -ResumeRoot $resumeRoot
+            # Seulement maintenant : si la copie, l'état ou la tâche échoue, l'exécution se termine en échec et le
+            # finally retire ce qui a déjà été créé, au lieu de laisser une reprise incomplète.
+            $waitingForRestart = $true
             Write-OSSetupLog -Message ''
             Write-OSSetupLog -Level Warning -Message 'Un redémarrage est nécessaire pour terminer. Le setup reprendra automatiquement à l''ouverture de session.'
             # Reporté : l'état et la tâche restent en place, la reprise aura lieu après le prochain redémarrage.
