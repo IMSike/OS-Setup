@@ -261,7 +261,7 @@ Deliberately absent: `css.validate`/`scss.validate` set to `false` (they would d
 | `playwright-chromium` | Chromium provided by Playwright, downloaded by `playwright-cli install-browser chromium` | ~720 MB (Chromium and its headless version) | — |
 | `playwright-firefox` | Firefox provided by Playwright (`install-browser firefox`) | ~350 MB | — |
 
-- **Implications**: the browsers provided by Playwright go into `%LOCALAPPDATA%\ms-playwright`; a CLI update may download a new revision (Playwright deletes revisions that are no longer used). Using the machine's Chrome or Edge avoids this disk space. Any browser can still be used occasionally: `playwright-cli open --browser=firefox`.
+- **Implications**: the browsers provided by Playwright go into `%LOCALAPPDATA%\ms-playwright`; a CLI update may download a new revision (Playwright deletes revisions that are no longer used). Using the machine's Chrome or Edge avoids this disk space; checking `playwright-chromium` or `playwright-firefox` displays its download size as a warning. Any browser can still be used occasionally: `playwright-cli open --browser=firefox`.
 - **Rollback**: delete `%USERPROFILE%\.playwright\cli.config.json` (Chrome by default); downloaded browsers: delete their folder in `%LOCALAPPDATA%\ms-playwright`.
 
 ### Claude Code settings — `claude-settings`, `claude-bypass-permissions`, `claude-dx`

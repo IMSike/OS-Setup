@@ -1,10 +1,11 @@
 {
   "$schema": "../../schemas/item.schema.json",
   "id": "remove-movies-tv",
-  "name": "Films et TV : lecteur vidéo par défaut",
+  "name": "Films et TV",
   "category": "remove",
   "platforms": ["windows"],
   "requiresAdmin": true,
+  "checkedWarning": "Plus de lecteur vidéo par défaut : les vidéos s'ouvrent ensuite avec le Lecteur Windows Media (conservé).",
   "actions": [
     {
       "provider": "appx",

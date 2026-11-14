@@ -1,10 +1,11 @@
 {
   "$schema": "../../schemas/item.schema.json",
   "id": "remove-groove",
-  "name": "Groove Musique : lecteur audio par défaut",
+  "name": "Groove Musique",
   "category": "remove",
   "platforms": ["windows"],
   "requiresAdmin": true,
+  "checkedWarning": "Plus de lecteur audio par défaut : les fichiers audio s'ouvrent ensuite avec le Lecteur Windows Media (conservé).",
   "actions": [
     {
       "provider": "appx",

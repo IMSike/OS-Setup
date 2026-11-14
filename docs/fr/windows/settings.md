@@ -148,7 +148,7 @@ Menu « Confidentialité et télémétrie » du profil `base` (`catalog/privacy/
 
 ### Reconnaissance vocale en ligne : désactivée — `online-speech-off`
 
-✔ · préférence (HKCU)
+✔ · préférence (HKCU) · avertissement si coché
 
 - **Effet** : la voix n'est plus envoyée aux serveurs de Microsoft pour être reconnue.
 - **Implications** : la dictée `Win+H` ne fonctionne plus (elle repose sur la reconnaissance en ligne sous Windows 10) ; la reconnaissance vocale hors ligne historique reste disponible.
@@ -211,16 +211,16 @@ Menu « Confidentialité et télémétrie » du profil `base` (`catalog/privacy/
 
 ### Messages push WAP (gestion à distance) : désactivés — `dmwappush-off`
 
-✔ · admin · service
+✔ · admin · service · avertissement si coché
 
 - **Effet** : désactive `dmwappushservice`, qui achemine des messages de gestion d'appareil et une partie de la télémétrie.
 - **Implications** : empêche l'inscription de la machine à une gestion d'entreprise (Intune / MDM). Sans effet pour un usage personnel.
 - **Valeur** : service `dmwappushservice`, démarrage *Désactivé*.
 - **Revenir en arrière** : `services.msc` > « Service de routage de messages Push… » > *Manuel*.
 
-### Suivi des applications lancées : désactivé (vide « Les plus utilisées ») — `app-launch-tracking-off`
+### Suivi des applications lancées : désactivé — `app-launch-tracking-off`
 
-○ · préférence (HKCU) · session
+○ · préférence (HKCU) · session · avertissement si coché
 
 - **Effet** : Windows ne mémorise plus les programmes lancés.
 - **Implications** : la liste « Les plus utilisées » du menu Démarrer est vide et son option grisée ; la recherche classe un peu moins bien vos applications.
@@ -229,7 +229,7 @@ Menu « Confidentialité et télémétrie » du profil `base` (`catalog/privacy/
 
 ### Localisation : désactivée — `location-off`
 
-✔ · admin · préférence (HKLM)
+✔ · admin · préférence (HKLM) · avertissement si coché
 
 - **Effet** : coupe le service de localisation pour **toute la machine**.
 - **Implications** : plus de réglage automatique du fuseau horaire, ni de météo locale, Cartes, « Localiser mon appareil », ni de position pour les applications qui passent par Windows (dont certains navigateurs).
@@ -238,7 +238,7 @@ Menu « Confidentialité et télémétrie » du profil `base` (`catalog/privacy/
 
 ### Rapport d'erreurs Windows : désactivé — `error-reporting-off`
 
-✔ · admin · préférence (HKLM)
+✔ · admin · préférence (HKLM) · avertissement si coché
 
 - **Effet** : les plantages ne sont plus signalés à Microsoft.
 - **Implications** : plus de solutions proposées après un plantage ; les éditeurs ne reçoivent plus les rapports de leurs logiciels via Windows. Restent en local : l'événement 1000 du journal Application et les vidages d'écran bleu ; pour déboguer, voir `crash-dumps-local` (options avancées).

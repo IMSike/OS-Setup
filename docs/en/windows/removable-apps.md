@@ -28,7 +28,7 @@ Warnings: an item whose removal erases local data says so when it is selected (`
 | `remove-cortana` | Cortana (`Microsoft.549981C3F5F10`) | None: discontinued, and unavailable in French. |
 | `remove-weather` | Weather (`Microsoft.BingWeather`) | No more weather app (the browser remains). |
 | `remove-bing` | Bing Search, News (`Microsoft.BingSearch`, `Microsoft.BingNews`) | None; absent from the base image, arrived through updates. |
-| `remove-get-help` | Get Help (`Microsoft.GetHelp`) | Windows's "Get help" links lead nowhere anymore. |
+| `remove-get-help` | Get Help (`Microsoft.GetHelp`) | **Warning**: Windows's "Get help" links lead nowhere anymore. |
 | `remove-tips` | Tips (`Microsoft.Getstarted`) | None. |
 | `remove-feedback-hub` | Feedback Hub (`Microsoft.WindowsFeedbackHub`) | No more way to send feedback to Microsoft (consistent with the privacy settings). |
 | `remove-maps` | Maps (`Microsoft.WindowsMaps`) | No more offline maps. |
@@ -36,7 +36,7 @@ Warnings: an item whose removal erases local data says so when it is selected (`
 | `remove-onenote-uwp` | OneNote for Windows 10 (`Microsoft.Office.OneNote`) | Discontinued version. **Warning**: unsynced notes are erased. Office's OneNote is not touched. |
 | `remove-solitaire` | Solitaire (`Microsoft.MicrosoftSolitaireCollection`) | None. |
 | `remove-3d-viewer` | 3D Viewer (`Microsoft.Microsoft3DViewer`) | 3D files no longer open directly. |
-| `remove-paint-3d` | Paint 3D (`Microsoft.MSPaint`) | Classic Paint (`mspaint.exe`) remains. |
+| `remove-paint-3d` | Paint 3D (`Microsoft.MSPaint`) | **Warning**: classic Paint (`mspaint.exe`) remains. |
 | `remove-mixed-reality` | Mixed Reality Portal (`Microsoft.MixedReality.Portal`) | Useless without a mixed reality headset. |
 | `remove-people` | People (`Microsoft.People`) | No more Windows address book (used by Mail, also removed). |
 | `remove-skype` | Skype (`Microsoft.SkypeApp`) | Service shut down by Microsoft. |
@@ -44,8 +44,8 @@ Warnings: an item whose removal erases local data says so when it is selected (`
 | `remove-your-phone` | Phone Link, cross-device experience (`Microsoft.YourPhone`, `MicrosoftWindows.CrossDevice`) | No more link with a phone (SMS, notifications, photos). |
 | `remove-mail-calendar` | Mail and Calendar (`microsoft.windowscommunicationsapps`) | Discontinued: no more sync since the end of 2024. **Warning**: local accounts and data are erased. |
 | `remove-new-outlook` | New Outlook for Windows (`Microsoft.OutlookForWindows`) | Replacement for Mail, installed by updates. Third-party accounts (Gmail, IMAP…) go through Microsoft's cloud. Office's ("classic") Outlook is not touched. |
-| `remove-groove` | Groove Music (`Microsoft.ZuneMusic`) | Default audio player: audio files then open with Windows Media Player (kept). |
-| `remove-movies-tv` | Movies & TV (`Microsoft.ZuneVideo`) | Default video player: same, Windows Media Player. |
+| `remove-groove` | Groove Music (`Microsoft.ZuneMusic`) | **Warning**: no more default audio player: audio files then open with Windows Media Player (kept). |
+| `remove-movies-tv` | Movies & TV (`Microsoft.ZuneVideo`) | **Warning**: no more default video player: videos then open with Windows Media Player (kept). |
 | `remove-dev-home` | Dev Home (`Microsoft.Windows.DevHome`) | Discontinued by Microsoft. |
 | `remove-onedrive` | OneDrive (classic software) | Uninstallation, then policy `HKLM\SOFTWARE\Policies\Microsoft\Windows\OneDrive` `DisableFileSyncNGSC` = 1: OneDrive is not reinstalled for new accounts and disappears from Explorer. **Warning**: files already synced stay in the OneDrive folder; those that were online-only are no longer accessible from Explorer (still on onedrive.com). To reinstall: delete the policy, then `winget install Microsoft.OneDrive`. |
 

@@ -1,10 +1,11 @@
 {
   "$schema": "../../schemas/item.schema.json",
   "id": "remove-paint-3d",
-  "name": "Paint 3D : le Paint classique reste",
+  "name": "Paint 3D",
   "category": "remove",
   "platforms": ["windows"],
   "requiresAdmin": true,
+  "checkedWarning": "Paint 3D disparaît ; le Paint classique (mspaint.exe) reste.",
   "actions": [
     {
       "provider": "appx",

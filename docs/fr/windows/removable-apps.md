@@ -28,7 +28,7 @@ Avertissements : un élément dont la suppression efface des données locales le
 | `remove-cortana` | Cortana (`Microsoft.549981C3F5F10`) | Aucune : abandonnée, et indisponible en français. |
 | `remove-weather` | Météo (`Microsoft.BingWeather`) | Plus d'application météo (le navigateur reste). |
 | `remove-bing` | Recherche Bing, Actualités (`Microsoft.BingSearch`, `Microsoft.BingNews`) | Aucune ; absentes de l'image de base, arrivées par les mises à jour. |
-| `remove-get-help` | Obtenir de l'aide (`Microsoft.GetHelp`) | Les liens « Obtenir de l'aide » de Windows ne mènent plus nulle part. |
+| `remove-get-help` | Obtenir de l'aide (`Microsoft.GetHelp`) | **Avertissement** : les liens « Obtenir de l'aide » de Windows ne mènent plus nulle part. |
 | `remove-tips` | Astuces (`Microsoft.Getstarted`) | Aucune. |
 | `remove-feedback-hub` | Hub de commentaires (`Microsoft.WindowsFeedbackHub`) | Plus de retour possible vers Microsoft (cohérent avec la confidentialité). |
 | `remove-maps` | Cartes (`Microsoft.WindowsMaps`) | Plus de cartes hors ligne. |
@@ -36,7 +36,7 @@ Avertissements : un élément dont la suppression efface des données locales le
 | `remove-onenote-uwp` | OneNote pour Windows 10 (`Microsoft.Office.OneNote`) | Version abandonnée. **Avertissement** : notes non synchronisées effacées. Le OneNote d'Office n'est pas touché. |
 | `remove-solitaire` | Solitaire (`Microsoft.MicrosoftSolitaireCollection`) | Aucune. |
 | `remove-3d-viewer` | Visionneuse 3D (`Microsoft.Microsoft3DViewer`) | Plus d'ouverture directe des fichiers 3D. |
-| `remove-paint-3d` | Paint 3D (`Microsoft.MSPaint`) | Le Paint classique (`mspaint.exe`) reste. |
+| `remove-paint-3d` | Paint 3D (`Microsoft.MSPaint`) | **Avertissement** : le Paint classique (`mspaint.exe`) reste. |
 | `remove-mixed-reality` | Portail de réalité mixte (`Microsoft.MixedReality.Portal`) | Inutile sans casque de réalité mixte. |
 | `remove-people` | Contacts (`Microsoft.People`) | Plus de carnet d'adresses Windows (utilisé par Courrier, supprimé aussi). |
 | `remove-skype` | Skype (`Microsoft.SkypeApp`) | Service arrêté par Microsoft. |
@@ -44,8 +44,8 @@ Avertissements : un élément dont la suppression efface des données locales le
 | `remove-your-phone` | Mobile connecté, expérience multi-appareils (`Microsoft.YourPhone`, `MicrosoftWindows.CrossDevice`) | Plus de liaison avec un téléphone (SMS, notifications, photos). |
 | `remove-mail-calendar` | Courrier et Calendrier (`microsoft.windowscommunicationsapps`) | Abandonnés : plus de synchronisation depuis fin 2024. **Avertissement** : comptes et données locales effacés. |
 | `remove-new-outlook` | Nouvel Outlook pour Windows (`Microsoft.OutlookForWindows`) | Remplaçant de Courrier, installé par les mises à jour. Les comptes tiers (Gmail, IMAP…) y passent par le cloud de Microsoft. L'Outlook d'Office (« classique ») n'est pas touché. |
-| `remove-groove` | Groove Musique (`Microsoft.ZuneMusic`) | Lecteur audio par défaut : les fichiers audio s'ouvrent ensuite avec le Lecteur Windows Media (conservé). |
-| `remove-movies-tv` | Films et TV (`Microsoft.ZuneVideo`) | Lecteur vidéo par défaut : idem, Lecteur Windows Media. |
+| `remove-groove` | Groove Musique (`Microsoft.ZuneMusic`) | **Avertissement** : plus de lecteur audio par défaut : les fichiers audio s'ouvrent ensuite avec le Lecteur Windows Media (conservé). |
+| `remove-movies-tv` | Films et TV (`Microsoft.ZuneVideo`) | **Avertissement** : plus de lecteur vidéo par défaut : les vidéos s'ouvrent ensuite avec le Lecteur Windows Media (conservé). |
 | `remove-dev-home` | Dev Home (`Microsoft.Windows.DevHome`) | Abandonné par Microsoft. |
 | `remove-onedrive` | OneDrive (logiciel classique) | Désinstallation, puis stratégie `HKLM\SOFTWARE\Policies\Microsoft\Windows\OneDrive` `DisableFileSyncNGSC` = 1 : OneDrive ne se réinstalle pas pour les nouveaux comptes et disparaît de l'Explorateur. **Avertissement** : les fichiers déjà synchronisés restent dans le dossier OneDrive ; ceux qui n'étaient qu'en ligne ne sont plus accessibles depuis l'Explorateur (toujours sur onedrive.com). Réinstaller : supprimer la stratégie, puis `winget install Microsoft.OneDrive`. |
 

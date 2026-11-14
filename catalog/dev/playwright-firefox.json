@@ -1,9 +1,10 @@
 {
   "$schema": "../../schemas/item.schema.json",
   "id": "playwright-firefox",
-  "name": "Firefox : fourni par Playwright (environ 350 Mo)",
+  "name": "Firefox : fourni par Playwright",
   "category": "dev",
   "platforms": ["windows"],
+  "checkedWarning": "Téléchargement d'environ 350 Mo dans %LOCALAPPDATA%\\ms-playwright.",
   "dependsOn": ["playwright-cli"],
   "actions": [
     { "provider": "playwright-cli", "browser": "firefox" },

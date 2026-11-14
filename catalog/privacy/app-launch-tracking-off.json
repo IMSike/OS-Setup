@@ -1,10 +1,11 @@
 {
   "$schema": "../../schemas/item.schema.json",
   "id": "app-launch-tracking-off",
-  "name": "Suivi des applications lancées : désactivé (vide « Les plus utilisées »)",
+  "name": "Suivi des applications lancées : désactivé",
   "category": "privacy",
   "platforms": ["windows"],
   "requiresLogoff": true,
+  "checkedWarning": "La liste « Les plus utilisées » du menu Démarrer est vide et son option grisée ; la recherche classe un peu moins bien vos applications.",
   "actions": [
     {
       "provider": "registry",

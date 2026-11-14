@@ -261,7 +261,7 @@ Menu « Navigateur de Playwright CLI » (choix unique) · fichier `%USERPROFILE%
 | `playwright-chromium` | Chromium fourni par Playwright, téléchargé par `playwright-cli install-browser chromium` | ~720 Mo (Chromium et sa version sans interface) | — |
 | `playwright-firefox` | Firefox fourni par Playwright (`install-browser firefox`) | ~350 Mo | — |
 
-- **Implications** : les navigateurs fournis par Playwright vont dans `%LOCALAPPDATA%\ms-playwright` ; une mise à jour de la CLI peut en télécharger une nouvelle révision (Playwright supprime les révisions qui ne servent plus). Utiliser Chrome ou Edge de la machine évite cet espace disque. N'importe quel navigateur reste utilisable ponctuellement : `playwright-cli open --browser=firefox`.
+- **Implications** : les navigateurs fournis par Playwright vont dans `%LOCALAPPDATA%\ms-playwright` ; une mise à jour de la CLI peut en télécharger une nouvelle révision (Playwright supprime les révisions qui ne servent plus). Utiliser Chrome ou Edge de la machine évite cet espace disque ; cocher `playwright-chromium` ou `playwright-firefox` affiche sa taille de téléchargement en avertissement. N'importe quel navigateur reste utilisable ponctuellement : `playwright-cli open --browser=firefox`.
 - **Revenir en arrière** : supprimer `%USERPROFILE%\.playwright\cli.config.json` (Chrome par défaut) ; navigateurs téléchargés : supprimer leur dossier dans `%LOCALAPPDATA%\ms-playwright`.
 
 ### Réglages de Claude Code — `claude-settings`, `claude-bypass-permissions`, `claude-dx`

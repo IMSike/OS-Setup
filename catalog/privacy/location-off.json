@@ -5,7 +5,7 @@
   "category": "privacy",
   "platforms": ["windows"],
   "requiresAdmin": true,
-  "notes": "Désactive aussi Localiser mon appareil et la météo locale.",
+  "checkedWarning": "Pour toute la machine : plus de fuseau horaire automatique, de météo locale, de Cartes ni de « Localiser mon appareil », ni de position pour les applications qui passent par Windows (dont certains navigateurs).",
   "actions": [
     {
       "provider": "registry",

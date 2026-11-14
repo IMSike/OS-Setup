@@ -5,6 +5,7 @@
   "category": "remove",
   "platforms": ["windows"],
   "requiresAdmin": true,
+  "checkedWarning": "Les liens « Obtenir de l'aide » de Windows ne mènent plus nulle part.",
   "actions": [
     {
       "provider": "appx",

@@ -1,9 +1,10 @@
 {
   "$schema": "../../schemas/item.schema.json",
   "id": "playwright-chromium",
-  "name": "Chromium : fourni par Playwright (environ 720 Mo)",
+  "name": "Chromium : fourni par Playwright",
   "category": "dev",
   "platforms": ["windows"],
+  "checkedWarning": "Téléchargement d'environ 720 Mo (Chromium et sa version sans interface) dans %LOCALAPPDATA%\\ms-playwright.",
   "dependsOn": ["playwright-cli"],
   "actions": [
     { "provider": "playwright-cli", "browser": "chromium" },

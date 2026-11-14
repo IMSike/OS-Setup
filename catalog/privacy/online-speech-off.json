@@ -4,6 +4,7 @@
   "name": "Reconnaissance vocale en ligne : désactivée",
   "category": "privacy",
   "platforms": ["windows"],
+  "checkedWarning": "La dictée Win+H ne fonctionne plus (elle repose sur la reconnaissance en ligne sous Windows 10) ; la reconnaissance vocale hors ligne historique reste disponible.",
   "actions": [
     {
       "provider": "registry",

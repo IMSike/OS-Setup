@@ -5,7 +5,7 @@
   "category": "privacy",
   "platforms": ["windows"],
   "requiresAdmin": true,
-  "notes": "Peut servir à la gestion des appareils (MDM) en entreprise.",
+  "checkedWarning": "Empêche l'inscription de la machine à une gestion d'entreprise (Intune / MDM) ; sans effet pour un usage personnel.",
   "actions": [
     {
       "provider": "service",

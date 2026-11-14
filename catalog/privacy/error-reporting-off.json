@@ -5,7 +5,7 @@
   "category": "privacy",
   "platforms": ["windows"],
   "requiresAdmin": true,
-  "notes": "Perte d'aide au diagnostic des plantages.",
+  "checkedWarning": "Plus de solutions proposées après un plantage ; les éditeurs ne reçoivent plus les rapports de leurs logiciels via Windows.",
   "actions": [
     {
       "provider": "registry",

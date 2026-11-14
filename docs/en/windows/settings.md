@@ -148,7 +148,7 @@ The lock applies to the **interface**: registry values can still be changed by s
 
 ### Online speech recognition: disabled — `online-speech-off`
 
-✔ · preference (HKCU)
+✔ · preference (HKCU) · warning when checked
 
 - **Effect**: speech is no longer sent to Microsoft servers for recognition.
 - **Implications**: `Win+H` dictation no longer works (it relies on online recognition under Windows 10); the legacy offline speech recognition remains available.
@@ -211,16 +211,16 @@ The lock applies to the **interface**: registry values can still be changed by s
 
 ### WAP push messages (remote management): disabled — `dmwappush-off`
 
-✔ · admin · service
+✔ · admin · service · warning when checked
 
 - **Effect**: disables `dmwappushservice`, which routes device management messages and part of the telemetry.
 - **Implications**: prevents the machine from being enrolled in corporate management (Intune / MDM). No effect for personal use.
 - **Value**: service `dmwappushservice`, startup type *Disabled*.
 - **Rollback**: `services.msc` > "Device Management Wireless Application Protocol (WAP) Push message Routing Service" > *Manual*.
 
-### Launched-app tracking: disabled (empties "Most used") — `app-launch-tracking-off`
+### Launched-app tracking: disabled — `app-launch-tracking-off`
 
-○ · preference (HKCU) · session
+○ · preference (HKCU) · session · warning when checked
 
 - **Effect**: Windows no longer remembers the programs you launch.
 - **Implications**: the "Most used" list of the Start menu is empty and its option grayed out; search ranks your apps slightly less well.
@@ -229,7 +229,7 @@ The lock applies to the **interface**: registry values can still be changed by s
 
 ### Location: disabled — `location-off`
 
-✔ · admin · preference (HKLM)
+✔ · admin · preference (HKLM) · warning when checked
 
 - **Effect**: turns off the location service for the **whole machine**.
 - **Implications**: no more automatic time zone setting, local weather, Maps, "Find my device", or position for apps that go through Windows (including some browsers).
@@ -238,7 +238,7 @@ The lock applies to the **interface**: registry values can still be changed by s
 
 ### Windows Error Reporting: disabled — `error-reporting-off`
 
-✔ · admin · preference (HKLM)
+✔ · admin · preference (HKLM) · warning when checked
 
 - **Effect**: crashes are no longer reported to Microsoft.
 - **Implications**: no more solutions offered after a crash; vendors no longer receive reports for their software through Windows. Kept locally: event 1000 in the Application log and blue screen dumps; for debugging, see `crash-dumps-local` (advanced options).
