@@ -1,11 +1,13 @@
 ﻿BeforeAll {
     Import-Module -Name (Join-Path -Path $PSScriptRoot -ChildPath '..\src\OSSetup\OSSetup.psd1') -Force
     $repoRoot = (Resolve-Path -Path (Join-Path -Path $PSScriptRoot -ChildPath '..')).Path
+    # Dossier temporaire du profil, où le nettoyage accepte de supprimer le script du bootstrap.
+    $profileTemp = Join-Path -Path ([Environment]::GetFolderPath('UserProfile')) -ChildPath 'AppData\Local\Temp'
 
     function New-TestClone {
         # Faux dépôt laissé par le bootstrap : journal, réponses, sauvegardes, bootstrap.json, src/cleanup.ps1.
         param([bool]$OwnsClone, [string[]]$InstalledTool = @(), [string]$RunId = 'r1',
-            [string]$BootstrapScript = (Join-Path -Path ([IO.Path]::GetTempPath()) -ChildPath 'bootstrap.ps1'))
+            [string]$BootstrapScript = (Join-Path -Path $profileTemp -ChildPath 'bootstrap.ps1'))
         $root = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid())
         New-Item -Path "$root\logs", "$root\state\backups\$RunId", "$root\src" -ItemType Directory -Force | Out-Null
         Set-Content -Path "$root\logs\setup-$RunId.log" -Value 'journal'
@@ -48,24 +50,35 @@ Describe 'Get-OSSetupSelectedWingetId' {
 }
 
 Describe 'Test-OSSetupRemovableBootstrapScript' {
-    It 'accepte un .ps1 posé dans %TEMP%' {
-        Test-OSSetupRemovableBootstrapScript -Path (Join-Path -Path ([IO.Path]::GetTempPath()) -ChildPath 'bootstrap.ps1') | Should -BeTrue
-    }
-
-    It 'accepte un .ps1 posé dans Téléchargements' {
-        Mock -ModuleName OSSetup Get-ItemPropertyValue { 'C:\Users\test\Downloads' }
-        Test-OSSetupRemovableBootstrapScript -Path 'C:\Users\test\Downloads\bootstrap.ps1' | Should -BeTrue
+    It 'accepte un .ps1 posé dans <Case>' -ForEach @(
+        @{ Case = 'le dossier temporaire du profil'; Path = 'C:\Users\test\AppData\Local\Temp\bootstrap.ps1' }
+        @{ Case = 'Téléchargements'; Path = 'C:\Users\test\Downloads\bootstrap.ps1' }
+    ) {
+        Test-OSSetupRemovableBootstrapScript -Path $Path -UserProfile 'C:\Users\test' | Should -BeTrue
     }
 
     It 'refuse <Case>' -ForEach @(
         @{ Case = 'un autre dossier'; Path = 'C:\Windows\System32\bootstrap.ps1' }
-        @{ Case = 'un sous-dossier de %TEMP%'; Path = (Join-Path -Path ([IO.Path]::GetTempPath()) -ChildPath 'x\bootstrap.ps1') }
-        @{ Case = 'un fichier autre que .ps1'; Path = (Join-Path -Path ([IO.Path]::GetTempPath()) -ChildPath 'bootstrap.exe') }
-        @{ Case = 'une remontée hors de %TEMP%'; Path = (Join-Path -Path ([IO.Path]::GetTempPath()) -ChildPath '..\bootstrap.ps1') }
+        @{ Case = 'un sous-dossier de %TEMP%'; Path = 'C:\Users\test\AppData\Local\Temp\x\bootstrap.ps1' }
+        @{ Case = 'un fichier autre que .ps1'; Path = 'C:\Users\test\AppData\Local\Temp\bootstrap.exe' }
+        @{ Case = 'une remontée hors de %TEMP%'; Path = 'C:\Users\test\AppData\Local\Temp\..\bootstrap.ps1' }
         @{ Case = 'un chemin relatif'; Path = 'bootstrap.ps1' }
         @{ Case = 'un chemin vide'; Path = '' }
     ) {
-        Test-OSSetupRemovableBootstrapScript -Path $Path | Should -BeFalse
+        Test-OSSetupRemovableBootstrapScript -Path $Path -UserProfile 'C:\Users\test' | Should -BeFalse
+    }
+
+    It 'ne suit ni la variable TMP ni les dossiers de l''Explorateur, modifiables sans élévation' {
+        # Dossier protégé désigné par une variable TMP et un dossier Téléchargements redirigés.
+        $previous = $env:TMP
+        try {
+            $env:TMP = 'C:\Windows\System32'
+            Mock -ModuleName OSSetup Get-ItemPropertyValue { 'C:\Windows\System32' }
+            Test-OSSetupRemovableBootstrapScript -Path 'C:\Windows\System32\bootstrap.ps1' -UserProfile 'C:\Users\test' | Should -BeFalse
+        }
+        finally {
+            $env:TMP = $previous
+        }
     }
 }
 
@@ -108,7 +121,7 @@ Describe 'Invoke-OSSetupCleanup' {
         Copy-Item -Path "$root\state\bootstrap.json" -Destination "$code\state\bootstrap.json"
         # Trace du dépôt modifiée après la copie : elle ne doit pas être suivie.
         $frozenScript = (Get-Content -Path "$code\state\bootstrap.json" -Raw | ConvertFrom-Json).bootstrapScript
-        @{ ownsClone = $true; bootstrapScript = (Join-Path -Path ([IO.Path]::GetTempPath()) -ChildPath 'autre.ps1'); installedTools = @('Autre.Outil') } |
+        @{ ownsClone = $true; bootstrapScript = (Join-Path -Path $profileTemp -ChildPath 'autre.ps1'); installedTools = @('Autre.Outil') } |
             ConvertTo-Json | Set-Content -Path "$root\state\bootstrap.json"
         Invoke-OSSetupCleanup -Root $root -CodeRoot $code -RunId $runId -SelectedWingetId @() -Yes
         Get-Content -Path $global:OSSetupTestCleanupArgs[-3].Trim('"') -Raw | Should -Match 'copie de la reprise'
@@ -140,7 +153,7 @@ Describe 'Invoke-OSSetupCleanup' {
         $root = New-TestClone -OwnsClone $true -InstalledTool 'Git.Git' -RunId $runId
         Invoke-OSSetupCleanup -Root $root -RunId $runId -SelectedWingetId 'Git.Git' -Yes
         $config = Get-LaunchedConfig
-        $config.remove | Should -Be @($root, (Join-Path -Path ([IO.Path]::GetTempPath()) -ChildPath 'bootstrap.ps1'))
+        $config.remove | Should -Be @($root, (Join-Path -Path $profileTemp -ChildPath 'bootstrap.ps1'))
         $config.uninstall | Should -BeNullOrEmpty
         $config.waitPid | Should -Be $PID
         Test-Path -Path (Join-Path -Path $historyRoot -ChildPath "$runId\setup-$runId.log") | Should -BeTrue

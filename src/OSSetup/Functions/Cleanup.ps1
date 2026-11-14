@@ -26,25 +26,32 @@ function Test-OSSetupRemovableBootstrapScript {
     <#
     .SYNOPSIS
         Vrai si le script du bootstrap noté dans state/bootstrap.json peut être supprimé par le nettoyage de fin : un
-        fichier .ps1 posé directement dans le %TEMP% de l'utilisateur ou dans son dossier Téléchargements.
+        fichier .ps1 posé directement dans le dossier temporaire de l'utilisateur (%USERPROFILE%\AppData\Local\Temp)
+        ou dans son dossier Téléchargements (%USERPROFILE%\Downloads).
     .DESCRIPTION
         bootstrap.json est dans la copie du dépôt, modifiable sans élévation, et le nettoyage de fin s'exécute en
         administrateur : sans ce contrôle, un programme de la session pourrait y inscrire n'importe quel chemin à
         supprimer. Le bootstrap se télécharge dans %TEMP% (procédure documentée) ou dans Téléchargements.
+        Les deux dossiers sont déduits du seul dossier du profil, que l'utilisateur ne peut pas déplacer sans
+        élévation : pas de la variable TMP ni des dossiers de l'Explorateur (HKCU\...\Shell Folders, lus aussi par
+        l'API des dossiers connus), qu'un programme de la session pourrait faire pointer vers un dossier protégé. Un
+        dossier temporaire ou Téléchargements déplacé ailleurs n'est donc pas reconnu : le script y est conservé.
+    .PARAMETER UserProfile
+        Dossier du profil de l'utilisateur (par défaut celui du compte qui exécute le setup).
     #>
     [CmdletBinding()]
     [OutputType([bool])]
     param(
         [Parameter(Mandatory)]
         [AllowEmptyString()]
-        [string]$Path
+        [string]$Path,
+
+        [string]$UserProfile = [Environment]::GetFolderPath('UserProfile')
     )
     if (-not $Path -or -not [IO.Path]::IsPathRooted($Path) -or [IO.Path]::GetExtension($Path) -ne '.ps1') { return $false }
+    if (-not $UserProfile) { return $false }
     $parent = try { [IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($Path)).TrimEnd('\') } catch { return $false }
-    $downloads = Get-ItemPropertyValue -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders' `
-        -Name '{374DE290-123F-4565-9164-39C4925E467B}' -ErrorAction SilentlyContinue
-    if (-not $downloads) { $downloads = Join-Path -Path ([Environment]::GetFolderPath('UserProfile')) -ChildPath 'Downloads' }
-    foreach ($allowed in @([IO.Path]::GetTempPath(), $downloads)) {
+    foreach ($allowed in @([IO.Path]::Combine($UserProfile, 'AppData', 'Local', 'Temp'), [IO.Path]::Combine($UserProfile, 'Downloads'))) {
         $allowedPath = [IO.Path]::GetFullPath($allowed).TrimEnd('\')
         if ($parent.Equals($allowedPath, [StringComparison]::OrdinalIgnoreCase)) { return $true }
     }
