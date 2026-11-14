@@ -2,11 +2,86 @@
     # Fonctions du bootstrap extraites du script (le script lui-même n'est pas exécuté).
     $path = Join-Path -Path $PSScriptRoot -ChildPath '..\bootstrap.ps1'
     $ast = [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$null)
-    foreach ($name in 'Write-Step') {
-        $definition = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }, $true)
-        . ([scriptblock]::Create($definition.Extent.Text))
-    }
+    $definition = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Write-Step' }, $true)
+    . ([scriptblock]::Create($definition.Extent.Text))
     $script:bootstrapText = $ast.Extent.Text
+}
+
+Describe 'bootstrap.ps1 : copie du dépôt et trace pour le nettoyage de fin' {
+    BeforeAll {
+        foreach ($name in 'Initialize-BootstrapRepository', 'Save-BootstrapInfo') {
+            $definition = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }, $true)
+            . ([scriptblock]::Create($definition.Extent.Text))
+        }
+        function Read-TestBootstrapInfo([string]$Root) {
+            Get-Content -LiteralPath (Join-Path -Path $Root -ChildPath 'state\bootstrap.json') -Raw | ConvertFrom-Json
+        }
+    }
+
+    BeforeEach {
+        $work = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid().ToString('N'))
+        $destination = Join-Path -Path $work -ChildPath 'OS-Setup'
+        $global:OSSetupTestGit = [System.Collections.Generic.List[string]]::new()
+        # Aucun git réel : clone simulé (dossier .git créé), autres commandes notées.
+        Mock git {
+            $global:OSSetupTestGit.Add("$args")
+            if ($args[0] -eq 'clone') { New-Item -Path (Join-Path -Path $args[-1] -ChildPath '.git') -ItemType Directory -Force | Out-Null }
+            $global:LASTEXITCODE = 0
+        }
+        Mock Write-Host {}
+    }
+
+    AfterEach {
+        Remove-Variable -Name OSSetupTestGit -Scope Global -ErrorAction SilentlyContinue
+    }
+
+    It 'note comme lui appartenant la copie qu''il vient de cloner' {
+        $repository = Initialize-BootstrapRepository -RepoUrl 'https://example.invalid/r.git' -Branch 'main' -Destination $destination -ScriptRoot ''
+        $repository.Cloned | Should -BeTrue
+        $global:OSSetupTestGit[0] | Should -BeLike 'clone --branch main *'
+        Save-BootstrapInfo -RepoRoot $repository.Root -OwnsClone $repository.Cloned -ScriptPath ''
+        (Read-TestBootstrapInfo -Root $destination).ownsClone | Should -BeTrue
+    }
+
+    It 'ne s''approprie pas un clone de développement placé dans la destination' {
+        # Clone de développement dans %USERPROFILE%\OS-Setup, bootstrap lancé depuis ce clone ou téléchargé.
+        New-Item -Path "$destination\.git" -ItemType Directory -Force | Out-Null
+        Set-Content -LiteralPath "$destination\setup.ps1" -Value '# setup'
+        foreach ($scriptRoot in $destination, '') {
+            $repository = Initialize-BootstrapRepository -RepoUrl 'https://example.invalid/r.git' -Branch 'main' -Destination $destination -ScriptRoot $scriptRoot
+            $repository.Root | Should -Be $destination
+            $repository.Cloned | Should -BeFalse
+            Save-BootstrapInfo -RepoRoot $repository.Root -OwnsClone $repository.Cloned -ScriptPath ''
+            (Read-TestBootstrapInfo -Root $destination).ownsClone | Should -BeFalse
+        }
+    }
+
+    It 'garde la copie clonée par un bootstrap précédent, et ses outils installés' {
+        New-Item -Path "$destination\state" -ItemType Directory -Force | Out-Null
+        @{ ownsClone = $true; bootstrapScript = $null; installedTools = @('Git.Git') } | ConvertTo-Json |
+            Set-Content -LiteralPath "$destination\state\bootstrap.json"
+        Save-BootstrapInfo -RepoRoot $destination -OwnsClone $false -InstalledTool 'Microsoft.PowerShell' -ScriptPath ''
+        $info = Read-TestBootstrapInfo -Root $destination
+        $info.ownsClone | Should -BeTrue
+        @($info.installedTools) | Sort-Object | Should -Be @('Git.Git', 'Microsoft.PowerShell')
+    }
+
+    It 'note le script du bootstrap seulement s''il est hors du dépôt, y compris dans un dossier voisin au nom proche' {
+        $repoRoot = Join-Path -Path $work -ChildPath 'OS-Setup'
+        Save-BootstrapInfo -RepoRoot $repoRoot -OwnsClone $true -ScriptPath "$repoRoot\bootstrap.ps1"
+        (Read-TestBootstrapInfo -Root $repoRoot).bootstrapScript | Should -BeNullOrEmpty
+        Save-BootstrapInfo -RepoRoot $repoRoot -OwnsClone $true -ScriptPath "$work\OS-Setup-outils\bootstrap.ps1"
+        (Read-TestBootstrapInfo -Root $repoRoot).bootstrapScript | Should -Be "$work\OS-Setup-outils\bootstrap.ps1"
+    }
+
+    It 'écrit la trace dans un dépôt dont le chemin contient des crochets' {
+        $repoRoot = Join-Path -Path $work -ChildPath 'dépôt [1]'
+        Save-BootstrapInfo -RepoRoot $repoRoot -OwnsClone $true -ScriptPath ''
+        Save-BootstrapInfo -RepoRoot $repoRoot -OwnsClone $false -InstalledTool 'Git.Git' -ScriptPath ''
+        $info = Read-TestBootstrapInfo -Root $repoRoot
+        $info.ownsClone | Should -BeTrue
+        @($info.installedTools) | Should -Be @('Git.Git')
+    }
 }
 
 Describe 'bootstrap.ps1 -WhatIf : simulation' {

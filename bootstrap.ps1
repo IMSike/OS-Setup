@@ -208,27 +208,73 @@ function Install-WingetPackage {
     $script:InstalledTools += $Id
 }
 
+function Initialize-BootstrapRepository {
+    <#
+    Copie du dépôt utilisée par le setup. Lancé depuis un clone (setup.ps1 à côté du script) : ce clone, tel quel.
+    Sinon : clone dans Destination, ou mise à jour de la copie qui s'y trouve déjà.
+    Retourne @{ Root = <dossier>; Cloned = <vrai si ce bootstrap vient de cloner> }.
+    #>
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory)][string]$RepoUrl,
+        [Parameter(Mandatory)][string]$Branch,
+        [Parameter(Mandatory)][string]$Destination,
+        # Dossier du script : une copie du dépôt s'il contient setup.ps1.
+        [AllowEmptyString()]
+        [string]$ScriptRoot
+    )
+    if ($ScriptRoot -and (Test-Path -LiteralPath (Join-Path -Path $ScriptRoot -ChildPath 'setup.ps1'))) {
+        return @{ Root = $ScriptRoot; Cloned = $false }
+    }
+    if (Test-Path -LiteralPath (Join-Path -Path $Destination -ChildPath '.git')) {
+        Write-Step "Mise à jour du dépôt dans $Destination"
+        & git -C $Destination pull --ff-only
+        if ($LASTEXITCODE -ne 0) { throw 'Échec de la mise à jour du dépôt.' }
+        return @{ Root = $Destination; Cloned = $false }
+    }
+    Write-Step "Clonage de $RepoUrl dans $Destination"
+    & git clone --branch $Branch $RepoUrl $Destination
+    if ($LASTEXITCODE -ne 0) { throw 'Échec du clonage du dépôt.' }
+    @{ Root = $Destination; Cloned = $true }
+}
+
 function Save-BootstrapInfo {
-    # Informe le setup de ce que le bootstrap a laissé sur la machine, pour le nettoyage de fin :
-    # copie du dépôt créée par lui (supprimable), script du bootstrap hors dépôt, outils installés.
+    <#
+    Informe le setup de ce que le bootstrap a laissé sur la machine, pour le nettoyage de fin : copie du dépôt créée
+    par lui (supprimable), script du bootstrap hors dépôt, outils installés.
+    Seule une copie clonée par le bootstrap (cette fois, ou lors d'un lancement précédent d'après le bootstrap.json
+    déjà présent) lui appartient : jamais un clone de développement, même placé dans -Destination.
+    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$RepoRoot,
+        # Vrai si ce bootstrap vient de cloner RepoRoot.
         [Parameter(Mandatory)][bool]$OwnsClone,
-        [string[]]$InstalledTool = @()
+        [string[]]$InstalledTool = @(),
+        # Script du bootstrap : noté pour être supprimé avec la copie s'il est hors du dépôt.
+        [AllowEmptyString()]
+        [string]$ScriptPath = $PSCommandPath
     )
     $stateRoot = Join-Path -Path $RepoRoot -ChildPath 'state'
     $path = Join-Path -Path $stateRoot -ChildPath 'bootstrap.json'
     $tools = @($InstalledTool)
-    if (Test-Path -Path $path) {
+    $owns = $OwnsClone
+    if (Test-Path -LiteralPath $path) {
+        $previous = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
         # Un bootstrap relancé ne réinstalle rien : on garde la trace des outils installés la première fois.
-        $previous = Get-Content -Path $path -Raw -Encoding UTF8 | ConvertFrom-Json
-        $tools = @($tools + @($previous.installedTools) | Where-Object { $_ } | Select-Object -Unique)
+        $previousTools = $previous.PSObject.Properties['installedTools']
+        if ($previousTools) { $tools = @($tools + @($previousTools.Value) | Where-Object { $_ } | Select-Object -Unique) }
+        # Copie clonée par un bootstrap précédent : elle lui appartient toujours.
+        $previousOwns = $previous.PSObject.Properties['ownsClone']
+        if ($previousOwns -and $previousOwns.Value -eq $true) { $owns = $true }
     }
-    $script = if ($PSCommandPath -and -not $PSCommandPath.StartsWith($RepoRoot, [StringComparison]::OrdinalIgnoreCase)) { $PSCommandPath } else { $null }
+    # Séparateur final : « C:\OS-Setup-outils\bootstrap.ps1 » n'est pas dans le dépôt « C:\OS-Setup ».
+    $repoPrefix = [IO.Path]::GetFullPath($RepoRoot).TrimEnd('\') + '\'
+    $bootstrapScript = if ($ScriptPath -and -not $ScriptPath.StartsWith($repoPrefix, [StringComparison]::OrdinalIgnoreCase)) { $ScriptPath } else { $null }
     New-Item -Path $stateRoot -ItemType Directory -Force | Out-Null
-    [ordered]@{ ownsClone = $OwnsClone; bootstrapScript = $script; installedTools = $tools } |
-        ConvertTo-Json | Set-Content -Path $path -Encoding UTF8
+    [ordered]@{ ownsClone = $owns; bootstrapScript = $bootstrapScript; installedTools = $tools } |
+        ConvertTo-Json | Set-Content -LiteralPath $path -Encoding UTF8
 }
 
 function Test-WhatIfArgument {
@@ -362,27 +408,11 @@ try {
     Install-WingetPackage -Id 'Microsoft.PowerShell' -Command 'pwsh' -InstallerType 'wix'
 
     # Lancé depuis un clone : on l'utilise tel quel. Sinon : clone ou mise à jour dans $Destination.
-    if ($PSScriptRoot -and (Test-Path -Path (Join-Path -Path $PSScriptRoot -ChildPath 'setup.ps1'))) {
-        $repoRoot = $PSScriptRoot
-    }
-    else {
-        $repoRoot = $Destination
-        if (Test-Path -Path (Join-Path -Path $repoRoot -ChildPath '.git')) {
-            Write-Step "Mise à jour du dépôt dans $repoRoot"
-            & git -C $repoRoot pull --ff-only
-        }
-        else {
-            Write-Step "Clonage de $RepoUrl dans $repoRoot"
-            & git clone --branch $Branch $RepoUrl $repoRoot
-        }
-        if ($LASTEXITCODE -ne 0) {
-            throw 'Échec de la récupération du dépôt.'
-        }
-    }
-    # Seule la copie gérée par le bootstrap ($Destination) peut être supprimée en fin de setup :
-    # jamais un clone de développement lancé directement.
-    $ownsClone = $repoRoot.TrimEnd('\') -ieq $Destination.TrimEnd('\')
-    Save-BootstrapInfo -RepoRoot $repoRoot -OwnsClone $ownsClone -InstalledTool $script:InstalledTools
+    $repository = Initialize-BootstrapRepository -RepoUrl $RepoUrl -Branch $Branch -Destination $Destination -ScriptRoot $PSScriptRoot
+    $repoRoot = $repository.Root
+    # Seule une copie clonée par le bootstrap peut être supprimée en fin de setup : jamais un clone de développement,
+    # qu'il soit lancé directement ou placé dans $Destination.
+    Save-BootstrapInfo -RepoRoot $repoRoot -OwnsClone $repository.Cloned -InstalledTool $script:InstalledTools
 
     Write-Host -Object ''
     Write-Host -Object 'Étape 2/2 — Vos choix, puis le plan à valider avant toute modification.' -ForegroundColor Cyan
