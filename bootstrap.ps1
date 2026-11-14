@@ -96,13 +96,20 @@ function Assert-InteractiveUser {
 }
 
 function Update-SessionPath {
-    # Recharge PATH depuis le registre pour voir les outils installés pendant la session.
+    # Recharge PATH depuis le registre (Machine puis User) pour voir les outils installés pendant la session, en
+    # conservant les entrées propres à la session, sans doublon (casse et barre oblique finale ignorées). Même règle
+    # que Update-OSSetupSessionPath (src\OSSetup\Functions\Path.ps1), à garder alignée.
     [CmdletBinding()]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'Ne modifie que le PATH du processus courant.')]
     param()
-    $machine = [Environment]::GetEnvironmentVariable('Path', 'Machine')
-    $user = [Environment]::GetEnvironmentVariable('Path', 'User')
-    $env:Path = "$machine;$user"
+    $seen = New-Object -TypeName 'System.Collections.Generic.HashSet[string]' -ArgumentList ([StringComparer]::OrdinalIgnoreCase)
+    $entries = foreach ($value in [Environment]::GetEnvironmentVariable('Path', 'Machine'), [Environment]::GetEnvironmentVariable('Path', 'User'), $env:Path) {
+        foreach ($entry in "$value".Split(';')) {
+            $entry = $entry.Trim()
+            if ($entry -and $seen.Add($entry.TrimEnd('\'))) { $entry }
+        }
+    }
+    $env:Path = @($entries) -join ';'
 }
 
 function Wait-Winget {

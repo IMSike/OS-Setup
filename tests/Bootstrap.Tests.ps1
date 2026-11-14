@@ -7,6 +7,30 @@
     $script:bootstrapText = $ast.Extent.Text
 }
 
+Describe 'bootstrap.ps1 : PATH de la session' {
+    BeforeAll {
+        $definition = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Update-SessionPath' }, $true)
+        . ([scriptblock]::Create($definition.Extent.Text))
+    }
+
+    It 'recharge le PATH du registre en gardant les entrées propres à la session, sans doublon' {
+        $previous = $env:Path
+        $machineFirst = @([Environment]::GetEnvironmentVariable('Path', 'Machine').Split(';') | Where-Object { $_.Trim() })[0]
+        try {
+            # Seul le PATH du processus est modifié ; le registre est seulement lu.
+            $env:Path = "C:\session-seulement;$($machineFirst.ToUpperInvariant())\"
+            Update-SessionPath
+            $entries = @($env:Path.Split(';'))
+            $entries | Should -Contain 'C:\session-seulement'
+            @($entries | Where-Object { $_.TrimEnd('\') -eq $machineFirst.TrimEnd('\') }).Count | Should -Be 1
+            $entries[0] | Should -Be $machineFirst.Trim()
+        }
+        finally {
+            $env:Path = $previous
+        }
+    }
+}
+
 Describe 'bootstrap.ps1 : copie du dépôt et trace pour le nettoyage de fin' {
     BeforeAll {
         foreach ($name in 'Initialize-BootstrapRepository', 'Save-BootstrapInfo') {
