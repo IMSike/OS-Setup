@@ -99,7 +99,37 @@ function Get-OSSetupTaskbarPinName {
     [OutputType([string])]
     param()
     $folder = Join-Path -Path ([Environment]::GetFolderPath('ApplicationData')) -ChildPath 'Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar'
-    Get-ChildItem -Path $folder -Filter '*.lnk' -ErrorAction SilentlyContinue | ForEach-Object { $_.BaseName }
+    Get-ChildItem -LiteralPath $folder -Filter '*.lnk' -ErrorAction SilentlyContinue | ForEach-Object { $_.BaseName }
+}
+
+function Wait-OSSetupTaskbarPin {
+    <#
+    .SYNOPSIS
+        Attend que les raccourcis donnés soient épinglés à la barre des tâches (relue au démarrage de l'Explorateur).
+        Retourne les noms toujours absents au bout du délai (rien si tous sont là).
+    .DESCRIPTION
+        Seules les épingles de raccourcis .lnk sont visibles dans le dossier lu (Get-OSSetupTaskbarPinName) : celles
+        des applications du Store ne doivent pas être passées ici, elles ne seraient jamais trouvées.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [string[]]$Name,
+
+        [int]$TimeoutSeconds = 30
+    )
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ($true) {
+        $pinned = @(Get-OSSetupTaskbarPinName)
+        $missing = @($Name | Where-Object { $_ -notin $pinned })
+        if ($missing.Count -eq 0 -or (Get-Date) -ge $deadline) {
+            foreach ($pin in $missing) { [string]$pin }
+            return
+        }
+        Start-Sleep -Seconds 2
+    }
 }
 
 function Restart-OSSetupExplorer {
@@ -198,7 +228,8 @@ function Set-OSSetupDesktopLayout {
     <#
     .SYNOPSIS
         Applique la disposition : stratégie verrouillée, redémarrage de l'Explorateur, puis déverrouillage et
-        retrait de la stratégie (l'utilisateur garde la main). Enregistre l'empreinte de la disposition appliquée.
+        retrait de la stratégie (l'utilisateur garde la main). Enregistre l'empreinte de la disposition appliquée,
+        seulement si les épingles attendues sont bien là : sinon, erreur, et la disposition sera réappliquée.
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -209,26 +240,36 @@ function Set-OSSetupDesktopLayout {
     if (-not $PSCmdlet.ShouldProcess('barre des tâches et menu Démarrer', 'Appliquer la disposition')) { return }
     $file = Join-Path -Path ([Environment]::GetFolderPath('LocalApplicationData')) -ChildPath 'OS-Setup\StartLayout.xml'
     New-Item -Path (Split-Path -Path $file -Parent) -ItemType Directory -Force | Out-Null
-    Set-Content -Path $file -Value $xml -Encoding utf8
+    Set-Content -LiteralPath $file -Value $xml -Encoding utf8
     # Jamais New-Item -Force sur une clé existante : il la recrée vide (d'autres réglages y sont rangés).
     if (-not (Test-Path -Path $script:LayoutPolicyKey)) { New-Item -Path $script:LayoutPolicyKey -Force | Out-Null }
     try {
         Set-ItemProperty -Path $script:LayoutPolicyKey -Name StartLayoutFile -Type ExpandString -Value $file
         Set-ItemProperty -Path $script:LayoutPolicyKey -Name LockedStartLayout -Type DWord -Value 1
         Restart-OSSetupExplorer -Confirm:$false
-        # La barre des tâches est relue au démarrage de l'Explorateur : on attend que les épingles soient là.
-        $expected = @($Layout.Pins | ForEach-Object { $_.Name })
-        $deadline = (Get-Date).AddSeconds(30)
-        while ($expected -and (Get-Date) -lt $deadline -and @($expected | Where-Object { $_ -notin (Get-OSSetupTaskbarPinName) }).Count -gt 0) {
-            Start-Sleep -Seconds 2
+        # La barre des tâches est relue au démarrage de l'Explorateur : on attend que les épingles soient là. Seules
+        # celles des raccourcis .lnk sont visibles dans le dossier lu ; celles des applications du Store n'y figurent pas.
+        $expected = @($Layout.Pins | Where-Object { $_.Link } | ForEach-Object { $_.Name })
+        if ($expected.Count -gt 0) {
+            $missing = @(Wait-OSSetupTaskbarPin -Name $expected -TimeoutSeconds 30)
+            if ($missing.Count -gt 0) {
+                throw "Disposition non appliquée : épingle(s) absente(s) de la barre des tâches après 30 s ($($missing -join ', ')). Elle sera réappliquée au prochain lancement."
+            }
         }
     }
     finally {
-        # Déverrouillage : la disposition reste, l'utilisateur peut de nouveau la modifier.
-        Set-ItemProperty -Path $script:LayoutPolicyKey -Name LockedStartLayout -Type DWord -Value 0
-        Restart-OSSetupExplorer -Confirm:$false
-        Remove-ItemProperty -Path $script:LayoutPolicyKey -Name StartLayoutFile, LockedStartLayout -ErrorAction SilentlyContinue
-        Remove-Item -Path $file -Force -ErrorAction SilentlyContinue
+        # Le retrait de la stratégie et du fichier est garanti, même si le déverrouillage ou le redémarrage échoue :
+        # sinon la disposition resterait imposée (verrouillée) à chaque ouverture de session.
+        try {
+            # Déverrouillage, pris en compte au redémarrage de l'Explorateur : la disposition reste, l'utilisateur
+            # peut de nouveau la modifier.
+            Set-ItemProperty -Path $script:LayoutPolicyKey -Name LockedStartLayout -Type DWord -Value 0
+            Restart-OSSetupExplorer -Confirm:$false
+        }
+        finally {
+            Remove-ItemProperty -Path $script:LayoutPolicyKey -Name StartLayoutFile, LockedStartLayout -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue
+        }
     }
     if (-not (Test-Path -Path $script:LayoutMarkerKey)) { New-Item -Path $script:LayoutMarkerKey -Force | Out-Null }
     Set-ItemProperty -Path $script:LayoutMarkerKey -Name DesktopLayout -Type String -Value (Get-OSSetupLayoutHash -Xml $xml)

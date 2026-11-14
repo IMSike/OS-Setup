@@ -69,6 +69,74 @@ Describe 'Disposition de la barre des tâches et du menu Démarrer' {
     }
 }
 
+Describe 'Set-OSSetupDesktopLayout' {
+    BeforeEach {
+        # Toutes les écritures (fichier, registre) sont simulées, sans filtre : rien n'atteint le système.
+        Mock -ModuleName OSSetup New-Item {}
+        Mock -ModuleName OSSetup Set-Content {}
+        Mock -ModuleName OSSetup Test-Path { $true }
+        Mock -ModuleName OSSetup Set-ItemProperty {}
+        Mock -ModuleName OSSetup Remove-ItemProperty {}
+        Mock -ModuleName OSSetup Remove-Item {}
+        Mock -ModuleName OSSetup Restart-OSSetupExplorer {}
+        $layout = Get-OSSetupDesktopLayout -Context (New-DesktopContext -ItemIds 'pin-a', 'pin-uwa')
+    }
+
+    AfterEach {
+        Remove-Variable -Name OSSetupTestRestartCount -Scope Global -ErrorAction SilentlyContinue
+    }
+
+    It 'n''attend que les épingles de raccourcis, puis enregistre l''empreinte et retire la stratégie' {
+        Mock -ModuleName OSSetup Wait-OSSetupTaskbarPin {}
+        Set-OSSetupDesktopLayout -Layout $layout -Confirm:$false
+        Should -Invoke -ModuleName OSSetup Wait-OSSetupTaskbarPin -Times 1 -Exactly -ParameterFilter { ($Name -join '|') -eq 'App A' }
+        Should -Invoke -ModuleName OSSetup Set-ItemProperty -Times 1 -Exactly -ParameterFilter { $Name -eq 'DesktopLayout' }
+        Should -Invoke -ModuleName OSSetup Remove-ItemProperty -Times 1 -Exactly
+        Should -Invoke -ModuleName OSSetup Remove-Item -Times 1 -Exactly
+    }
+
+    It 'n''attend rien quand seules des applications du Store sont épinglées' {
+        Mock -ModuleName OSSetup Wait-OSSetupTaskbarPin {}
+        Set-OSSetupDesktopLayout -Layout (Get-OSSetupDesktopLayout -Context (New-DesktopContext -ItemIds 'pin-uwa')) -Confirm:$false
+        Should -Invoke -ModuleName OSSetup Wait-OSSetupTaskbarPin -Times 0 -Exactly
+        Should -Invoke -ModuleName OSSetup Set-ItemProperty -Times 1 -Exactly -ParameterFilter { $Name -eq 'DesktopLayout' }
+    }
+
+    It 'échoue sans enregistrer l''empreinte quand une épingle n''est pas apparue, et retire la stratégie' {
+        Mock -ModuleName OSSetup Wait-OSSetupTaskbarPin { 'App A' }
+        { Set-OSSetupDesktopLayout -Layout $layout -Confirm:$false } | Should -Throw '*App A*'
+        Should -Invoke -ModuleName OSSetup Set-ItemProperty -Times 0 -Exactly -ParameterFilter { $Name -eq 'DesktopLayout' }
+        Should -Invoke -ModuleName OSSetup Remove-ItemProperty -Times 1 -Exactly
+        Should -Invoke -ModuleName OSSetup Remove-Item -Times 1 -Exactly
+    }
+
+    It 'retire la stratégie et le fichier même si le second redémarrage de l''Explorateur échoue' {
+        Mock -ModuleName OSSetup Wait-OSSetupTaskbarPin {}
+        $global:OSSetupTestRestartCount = 0
+        Mock -ModuleName OSSetup Restart-OSSetupExplorer {
+            $global:OSSetupTestRestartCount++
+            if ($global:OSSetupTestRestartCount -eq 2) { throw 'Explorateur bloqué' }
+        }
+        { Set-OSSetupDesktopLayout -Layout $layout -Confirm:$false } | Should -Throw '*Explorateur bloqué*'
+        Should -Invoke -ModuleName OSSetup Remove-ItemProperty -Times 1 -Exactly -ParameterFilter { 'StartLayoutFile' -in $Name -and 'LockedStartLayout' -in $Name }
+        Should -Invoke -ModuleName OSSetup Remove-Item -Times 1 -Exactly
+        Should -Invoke -ModuleName OSSetup Set-ItemProperty -Times 0 -Exactly -ParameterFilter { $Name -eq 'DesktopLayout' }
+    }
+}
+
+Describe 'Wait-OSSetupTaskbarPin' {
+    It 'retourne les épingles toujours absentes au bout du délai' {
+        Mock -ModuleName OSSetup Get-OSSetupTaskbarPinName { 'App A' }
+        Mock -ModuleName OSSetup Start-Sleep {}
+        Wait-OSSetupTaskbarPin -Name 'App A', 'Brave' -TimeoutSeconds 0 | Should -Be 'Brave'
+    }
+
+    It 'ne retourne rien quand toutes les épingles sont là' {
+        Mock -ModuleName OSSetup Get-OSSetupTaskbarPinName { 'Brave'; 'App A' }
+        Wait-OSSetupTaskbarPin -Name 'App A', 'Brave' -TimeoutSeconds 0 | Should -BeNullOrEmpty
+    }
+}
+
 Describe 'Provider shortcut' {
     It 'teste la présence ou l''absence du raccourci' {
         $path = Join-Path -Path $TestDrive -ChildPath 'App.lnk'

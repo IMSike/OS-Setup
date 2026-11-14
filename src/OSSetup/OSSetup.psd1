@@ -38,6 +38,7 @@
         'Set-OSSetupTaskbarAutoHide'
         'Start-OSSetupUnelevatedExplorer'
         'Wait-OSSetupExplorer'
+        'Wait-OSSetupTaskbarPin'
         # Disk.ps1
         'Get-OSSetupDiskBoundedSize'
         'Get-OSSetupDockerBuildCacheLimit'
