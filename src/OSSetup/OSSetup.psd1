@@ -155,6 +155,10 @@
         'Split-OSSetupTaskPath'
         'Stop-OSSetupStoreUpdate'
         'Wait-OSSetupUninstallEntryRemoval'
+        'Get-OSSetupInstalledAppxPackage'
+        'Get-OSSetupProvisionedPackage'
+        'Get-OSSetupWindowsCapabilityList'
+        'Get-OSSetupWindowsCapabilityMatch'
         # Variables.ps1
         'Expand-OSSetupAction'
         'Expand-OSSetupString'

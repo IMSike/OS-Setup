@@ -7,8 +7,9 @@ $script:PowerSettings = @{
     display   = @('SUB_VIDEO', 'VIDEOIDLE')
 }
 
-# Listes d'état longues à lire, lues une fois par passe, effacées avant et après chaque action exécutée : tâches
-# planifiées (une lecture de toutes les tâches coûte autant qu'une lecture par nom).
+# Listes d'état longues à lire, lues une fois par passe (plan, puis exécution), effacées avant et après chaque action
+# exécutée : tâches planifiées (une lecture de toutes les tâches coûte autant qu'une lecture par nom), applications du
+# Store installées et provisionnées (module Appx, via Windows PowerShell 5.1 sous PowerShell 7), capacités Windows (DISM).
 $script:StateCache = @{}
 
 function Import-OSSetupAppxModule {
@@ -49,14 +50,77 @@ function Get-OSSetupAppxPresence {
         [Parameter(Mandatory)]
         [string]$Name
     )
-    Import-OSSetupAppxModule
     $elevated = Test-OSSetupElevated
-    $installed = @(if ($elevated) { Get-AppxPackage -Name $Name -AllUsers } else { Get-AppxPackage -Name $Name }) |
-        ForEach-Object { [string]$_.PackageFullName } | Select-Object -Unique
+    # Même correspondance que Get-AppxPackage -Name (caractères génériques acceptés).
+    $installed = @(Get-OSSetupInstalledAppxPackage -AllUsers:$elevated | Where-Object { $_.Name -like $Name } |
+            ForEach-Object { $_.PackageFullName } | Select-Object -Unique)
     $provisioned = @(if ($elevated) {
-            Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -eq $Name } | ForEach-Object { [string]$_.PackageName }
+            Get-OSSetupProvisionedPackage | Where-Object { $_.DisplayName -eq $Name } | ForEach-Object { $_.PackageName }
         })
     [pscustomobject]@{ Installed = @($installed); Provisioned = @($provisioned) }
+}
+
+function Get-OSSetupInstalledAppxPackage {
+    <#
+    .SYNOPSIS
+        Applications du Store installées (Name, PackageFullName), pour tous les comptes avec -AllUsers (lecture admin),
+        sinon pour le compte courant. Liste lue une fois par passe (cache vidé par Clear-OSSetupStateCache).
+    #>
+    [CmdletBinding()]
+    param(
+        [switch]$AllUsers
+    )
+    $key = if ($AllUsers) { 'AppxPackages:AllUsers' } else { 'AppxPackages:User' }
+    if (-not $script:StateCache.ContainsKey($key)) {
+        Import-OSSetupAppxModule
+        $script:StateCache[$key] = @(@(if ($AllUsers) { Get-AppxPackage -AllUsers } else { Get-AppxPackage }) |
+                ForEach-Object { [pscustomobject]@{ Name = [string]$_.Name; PackageFullName = [string]$_.PackageFullName } })
+    }
+    $script:StateCache[$key]
+}
+
+function Get-OSSetupProvisionedPackage {
+    <#
+    .SYNOPSIS
+        Paquets provisionnés (DisplayName, PackageName), installés d'office pour les nouveaux comptes. Lecture admin
+        uniquement. Liste lue une fois par passe (cache vidé par Clear-OSSetupStateCache).
+    #>
+    [CmdletBinding()]
+    param()
+    if (-not $script:StateCache.ContainsKey('ProvisionedPackages')) {
+        Import-OSSetupAppxModule
+        $script:StateCache['ProvisionedPackages'] = @(Get-AppxProvisionedPackage -Online |
+                ForEach-Object { [pscustomobject]@{ DisplayName = [string]$_.DisplayName; PackageName = [string]$_.PackageName } })
+    }
+    $script:StateCache['ProvisionedPackages']
+}
+
+function Get-OSSetupWindowsCapabilityList {
+    <#
+    .SYNOPSIS
+        Capacités Windows (Name, State). Lecture admin uniquement. Liste lue une fois par passe (cache vidé par
+        Clear-OSSetupStateCache).
+    #>
+    [CmdletBinding()]
+    param()
+    if (-not $script:StateCache.ContainsKey('WindowsCapabilities')) {
+        $script:StateCache['WindowsCapabilities'] = @(Get-WindowsCapability -Online |
+                ForEach-Object { [pscustomobject]@{ Name = [string]$_.Name; State = [string]$_.State } })
+    }
+    $script:StateCache['WindowsCapabilities']
+}
+
+function Get-OSSetupWindowsCapabilityMatch {
+    <#
+    .SYNOPSIS
+        Capacités Windows dont le nom, sans version, correspond (« Browser.InternetExplorer », « Hello.Face.* »).
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Name
+    )
+    Get-OSSetupWindowsCapabilityList | Where-Object { $_.Name -like "$Name~*" }
 }
 
 function Get-OSSetupStoreCancelScript {
@@ -316,8 +380,8 @@ function Disable-OSSetupStartupEntry {
 function Clear-OSSetupStateCache {
     <#
     .SYNOPSIS
-        Oublie les listes d'état lues (tâches planifiées) : appelé au début de chaque passe et autour de chaque action
-        exécutée, pour que les vérifications relisent l'état réel.
+        Oublie les listes d'état lues (tâches planifiées, applications du Store, capacités Windows) : appelé au début
+        de chaque passe et autour de chaque action exécutée, pour que les vérifications relisent l'état réel.
     #>
     [CmdletBinding()]
     param()

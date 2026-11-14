@@ -299,6 +299,10 @@ Describe 'Provider windows-feature' {
 }
 
 Describe 'Provider windows-capability' {
+    BeforeEach {
+        InModuleScope OSSetup { Clear-OSSetupStateCache }
+    }
+
     It 'compare l''état des capacités dont le nom commence par le nom donné' {
         Mock -ModuleName OSSetup Test-OSSetupElevated { $true }
         Mock -ModuleName OSSetup Get-WindowsCapability {
@@ -326,6 +330,133 @@ Describe 'Provider windows-capability' {
     It 'reste à faire sans droits administrateur (lecture impossible)' {
         Mock -ModuleName OSSetup Test-OSSetupElevated { $false }
         Invoke-TestProviderTest -Name windows-capability -Action @{ name = 'Browser.InternetExplorer' } | Should -BeFalse
+    }
+}
+
+Describe 'Listes des applications du Store et des capacités Windows, lues une fois par passe' {
+    BeforeAll {
+        # Pester ne simule qu'une commande existante : sous PowerShell 7, le module Appx ne se charge pas nativement
+        # (il passerait par Windows PowerShell 5.1) ; des fonctions vides le remplacent le temps des tests.
+        $script:appxStub = -not (Get-Command -Name Get-AppxPackage -ErrorAction SilentlyContinue)
+        if ($script:appxStub) {
+            function global:Get-AppxPackage { param([string]$Name, [switch]$AllUsers) }
+            function global:Remove-AppxPackage { param([string]$Package, [switch]$AllUsers) }
+        }
+    }
+
+    AfterAll {
+        if ($script:appxStub) {
+            Remove-Item -Path Function:\Get-AppxPackage, Function:\Remove-AppxPackage -ErrorAction SilentlyContinue
+        }
+    }
+
+    BeforeEach {
+        InModuleScope OSSetup { Clear-OSSetupStateCache }
+        Mock -ModuleName OSSetup Import-OSSetupAppxModule {}
+        Mock -ModuleName OSSetup Write-OSSetupLog {}
+        Mock -ModuleName OSSetup Test-OSSetupElevated { $true }
+    }
+
+    AfterEach {
+        Remove-Variable -Name OSSetupTestRemoved -Scope Global -ErrorAction SilentlyContinue
+        InModuleScope OSSetup { Clear-OSSetupStateCache }
+    }
+
+    It 'lit une seule fois les applications installées et provisionnées pour plusieurs applications' {
+        Mock -ModuleName OSSetup Get-AppxPackage {
+            [pscustomobject]@{ Name = 'Microsoft.BingWeather'; PackageFullName = 'Microsoft.BingWeather_1_x64__8wekyb3d8bbwe' }
+            [pscustomobject]@{ Name = 'Microsoft.BingWeather'; PackageFullName = 'Microsoft.BingWeather_1_x64__8wekyb3d8bbwe' }
+            [pscustomobject]@{ Name = 'Microsoft.ZuneMusic'; PackageFullName = 'Microsoft.ZuneMusic_2_x64__8wekyb3d8bbwe' }
+        }
+        Mock -ModuleName OSSetup Get-AppxProvisionedPackage {
+            [pscustomobject]@{ DisplayName = 'Microsoft.BingWeather'; PackageName = 'Microsoft.BingWeather_1_neutral_~_8wekyb3d8bbwe' }
+        }
+        $weather = Get-OSSetupAppxPresence -Name 'Microsoft.BingWeather'
+        $weather.Installed | Should -Be @('Microsoft.BingWeather_1_x64__8wekyb3d8bbwe')
+        $weather.Provisioned | Should -Be @('Microsoft.BingWeather_1_neutral_~_8wekyb3d8bbwe')
+        $music = Get-OSSetupAppxPresence -Name 'Microsoft.ZuneMusic'
+        $music.Installed | Should -Be @('Microsoft.ZuneMusic_2_x64__8wekyb3d8bbwe')
+        @($music.Provisioned).Count | Should -Be 0
+        @((Get-OSSetupAppxPresence -Name 'microsoft.windowscommunicationsapps').Installed).Count | Should -Be 0
+        Should -Invoke -ModuleName OSSetup Get-AppxPackage -Times 1 -Exactly -ParameterFilter { $AllUsers }
+        Should -Invoke -ModuleName OSSetup Get-AppxProvisionedPackage -Times 1 -Exactly
+    }
+
+    It 'sans droits administrateur, lit les applications du compte courant et pas les paquets provisionnés' {
+        Mock -ModuleName OSSetup Test-OSSetupElevated { $false }
+        Mock -ModuleName OSSetup Get-AppxPackage { [pscustomobject]@{ Name = 'Microsoft.BingWeather'; PackageFullName = 'Microsoft.BingWeather_1' } }
+        Mock -ModuleName OSSetup Get-AppxProvisionedPackage {}
+        (Get-OSSetupAppxPresence -Name 'Microsoft.BingWeather').Installed | Should -Be @('Microsoft.BingWeather_1')
+        Should -Invoke -ModuleName OSSetup Get-AppxPackage -Times 1 -Exactly -ParameterFilter { -not $AllUsers }
+        Should -Invoke -ModuleName OSSetup Get-AppxProvisionedPackage -Times 0 -Exactly
+    }
+
+    It 'le plan lit la liste des capacités une seule fois pour plusieurs actions' {
+        Mock -ModuleName OSSetup Get-WindowsCapability {
+            [pscustomobject]@{ Name = 'Browser.InternetExplorer~~~~0.0.11.0'; State = 'Installed' }
+            [pscustomobject]@{ Name = 'App.StepsRecorder~~~~0.0.1.0'; State = 'NotPresent' }
+        }
+        $data = [pscustomobject]@{
+            Items = @{
+                legacy = [ordered]@{ id = 'legacy'; name = 'Legacy'; actions = @(
+                        [ordered]@{ provider = 'windows-capability'; name = 'Browser.InternetExplorer' }
+                        [ordered]@{ provider = 'windows-capability'; name = 'App.StepsRecorder' }
+                    )
+                }
+            }
+        }
+        $plan = @(Get-OSSetupPlan -Data $data -ItemId 'legacy' -Context @{ Variables = [ordered]@{} })
+        $plan.Status | Should -Be @('todo', 'ok')
+        Should -Invoke -ModuleName OSSetup Get-WindowsCapability -Times 1 -Exactly
+    }
+
+    It 'relit la liste des capacités après une action exécutée, pour l''action puis pour le contrôle' {
+        $global:OSSetupTestRemoved = $false
+        Mock -ModuleName OSSetup Get-WindowsCapability {
+            $state = if ($global:OSSetupTestRemoved) { 'NotPresent' } else { 'Installed' }
+            [pscustomobject]@{ Name = 'Browser.InternetExplorer~~~~0.0.11.0'; State = $state }
+        }
+        Mock -ModuleName OSSetup Remove-WindowsCapability { $global:OSSetupTestRemoved = $true; [pscustomobject]@{ RestartNeeded = $false } }
+        $data = [pscustomobject]@{
+            Items = @{
+                legacy = [ordered]@{ id = 'legacy'; name = 'Legacy'; actions = @([ordered]@{ provider = 'windows-capability'; name = 'Browser.InternetExplorer' }) }
+            }
+        }
+        $context = @{ Variables = [ordered]@{} }
+        $plan = @(Get-OSSetupPlan -Data $data -ItemId 'legacy' -Context $context)
+        $results = @(Invoke-OSSetupPlan -Plan $plan -Context $context)
+        $results.Status | Should -Be 'done'
+        # Plan, action, contrôle.
+        Should -Invoke -ModuleName OSSetup Get-WindowsCapability -Times 3 -Exactly
+        Should -Invoke -ModuleName OSSetup Remove-WindowsCapability -Times 1 -Exactly
+    }
+
+    It 'relit les applications du Store après une suppression, pour l''action puis pour le contrôle' {
+        $global:OSSetupTestRemoved = $false
+        Mock -ModuleName OSSetup Stop-OSSetupStoreUpdate {}
+        Mock -ModuleName OSSetup Get-AppxPackage {
+            if (-not $global:OSSetupTestRemoved) { [pscustomobject]@{ Name = 'Microsoft.BingWeather'; PackageFullName = 'Microsoft.BingWeather_1' } }
+        }
+        Mock -ModuleName OSSetup Get-AppxProvisionedPackage {}
+        Mock -ModuleName OSSetup Remove-AppxPackage { $global:OSSetupTestRemoved = $true }
+        $data = [pscustomobject]@{
+            Items = @{
+                weather = [ordered]@{ id = 'weather'; name = 'Météo'; actions = @(
+                        [ordered]@{ provider = 'appx'; name = 'Microsoft.BingWeather' }
+                        [ordered]@{ provider = 'appx'; name = 'Microsoft.ZuneMusic' }
+                    )
+                }
+            }
+        }
+        $context = @{ Variables = [ordered]@{} }
+        $plan = @(Get-OSSetupPlan -Data $data -ItemId 'weather' -Context $context)
+        $plan.Status | Should -Be @('todo', 'ok')
+        Should -Invoke -ModuleName OSSetup Get-AppxPackage -Times 1 -Exactly
+        $results = @(Invoke-OSSetupPlan -Plan $plan -Context $context)
+        $results.Status | Should -Be @('done', 'ok')
+        # Plan, action, contrôle ; la seconde action (revérifiée après la première) relit la liste du contrôle.
+        Should -Invoke -ModuleName OSSetup Get-AppxPackage -Times 3 -Exactly
+        Should -Invoke -ModuleName OSSetup Remove-AppxPackage -Times 1 -Exactly -ParameterFilter { $Package -eq 'Microsoft.BingWeather_1' }
     }
 }
 
