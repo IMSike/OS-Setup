@@ -94,6 +94,7 @@ Describe 'Resolve-OSSetupItemList' {
     It 'ignore les éléments d''une autre plateforme' {
         $data = New-TestData
         $data.Profiles['base']['items'] = @('a', 'lin')
+        Mock -ModuleName OSSetup Write-OSSetupLog {}
         Resolve-OSSetupItemList -Data $data -Answers @{ profiles = @('base') } -Facts $windows | Should -Be @('a', 'x')
     }
 
@@ -142,7 +143,7 @@ Describe 'Get-OSSetupChoiceWarning' {
 
 Describe 'Get-OSSetupAvailableOption' {
     It 'masque une option dont la dépendance est proposée mais non choisie' {
-        # 'b' dépend de 'x', option du choix « pick » (défaut : x).
+        # 'y' dépend de 'x', option du choix « pick » (défaut : x).
         $data = New-TestData
         $data.Items['y']['dependsOn'] = @('x')
         $choice = $data.Profiles['dev']['choices'][0]

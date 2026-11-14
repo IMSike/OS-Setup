@@ -88,7 +88,6 @@ Describe 'Données du dépôt' {
     }
 
     It 'les scripts des tâches logon-task, lancés avec les droits les plus élevés, ne lisent aucune variable d''environnement' {
-        $data = Import-OSSetupData -Root $repoRoot
         $found = @(Get-ElevatedScriptEnvironmentUse -Data $data -DotfilesRoot (Join-Path -Path $repoRoot -ChildPath 'dotfiles'))
         $found.Count | Should -Be 0 -Because "l'utilisateur modifie son environnement sans élévation : un chemin qui en dépend serait détourné, utiliser [Environment]::GetFolderPath ($($found -join ' ; '))"
     }
@@ -231,18 +230,6 @@ Describe 'Faits' {
     It 'Get-OSSetupFact retourne tous les faits' {
         $facts = Get-OSSetupFact
         @($facts.Keys) | Should -Be (Get-OSSetupFactName)
-    }
-
-    It 'Get-OSSetupFact traduit les réponses WMI en faits' -Skip:(-not $IsWindows) {
-        $facts = Get-OSSetupFact
-        $facts['OSName'] | Should -Be 'windows-10'
-        $facts['OSBuild'] | Should -Be 19045
-        $facts['Edition'] | Should -Be 'Professional'
-        $facts['Activated'] | Should -BeTrue
-        $facts['Manufacturer'] | Should -Be 'dell'
-        $facts['CpuVendor'] | Should -Be 'intel'
-        $facts['VirtualizationEnabled'] | Should -BeTrue
-        $facts['GpuVendor'] | Should -Be @('intel', 'nvidia')
     }
 
     It 'Get-OSSetupFact traduit les réponses WMI en faits' -Skip:(-not $IsWindows) {

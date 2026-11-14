@@ -18,6 +18,7 @@ Describe 'Provider file' {
         }
         $action = [ordered]@{ provider = 'file'; source = 'config.txt'; target = $target; mode = 'template' }
         $provider = InModuleScope OSSetup { Get-OSSetupProvider -Name 'file' }
+        Mock -ModuleName OSSetup Write-OSSetupLog
     }
 
     It 'signale un fichier absent comme non conforme' {
@@ -101,6 +102,7 @@ Describe 'Provider file : fusion JSON (merge-json)' {
         $context = @{ DotfilesRoot = $dotfiles; BackupRoot = Join-Path -Path $dotfiles -ChildPath 'backups'; Variables = @{} }
         $action = [ordered]@{ provider = 'file'; source = 'prefs.json'; target = $target; mode = 'merge-json' }
         $provider = InModuleScope OSSetup { Get-OSSetupProvider -Name 'file' }
+        Mock -ModuleName OSSetup Write-OSSetupLog
     }
 
     It 'conserve les clés de la machine et ajoute celles du dépôt' {
