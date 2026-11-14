@@ -6,7 +6,7 @@ Behaviors observed during development, and how the engine handles them. Read bef
 
 | Symptom | Cause and handling |
 |---|---|
-| `0x8A150019` "requires administrator privileges" | The package requires a winget that is **already elevated** (the installer does not elevate itself). The provider relaunches winget in elevated mode (`Start-Process -Verb RunAs`). |
+| `0x8A150019` "requires administrator privileges" | The package requires a winget that is **already elevated** (the installer does not elevate itself). The setup always runs elevated outside `-WhatIf` (single UAC prompt), so winget inherits the rights; the code only appears when winget is run by hand from a non-elevated console. |
 | `0x8A150113` on a `--scope machine` installation | **MSIX** package: machine-wide installation is not supported on Windows 10. Force another installer (`installerType`, e.g. `wix` for PowerShell 7) or switch to `scope: user`. |
 | `0x8A15002B` | Already installed, no applicable update: treated as a success. |
 | Package not detected right after a successful installation | Installer that finishes in the background (Squirrel: Discord). The provider waits up to 60 s for `winget list` to find it. |

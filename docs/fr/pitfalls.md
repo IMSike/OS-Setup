@@ -6,7 +6,7 @@ Comportements constatés pendant le développement, et leur traitement dans le m
 
 | Symptôme | Cause et traitement |
 |---|---|
-| `0x8A150019` « nécessite des privilèges d'administrateur » | Le paquet exige un winget **déjà élevé** (l'installeur ne s'élève pas seul). Le provider relance winget en mode élevé (`Start-Process -Verb RunAs`). |
+| `0x8A150019` « nécessite des privilèges d'administrateur » | Le paquet exige un winget **déjà élevé** (l'installeur ne s'élève pas seul). Le setup s'exécute toujours élevé hors `-WhatIf` (une seule invite UAC) : winget hérite des droits ; le code n'apparaît que si winget est lancé à la main depuis une console non élevée. |
 | `0x8A150113` sur une installation `--scope machine` | Paquet **MSIX** : installation pour toute la machine non prise en charge sous Windows 10. Forcer un autre installeur (`installerType`, ex. `wix` pour PowerShell 7) ou passer en `scope: user`. |
 | `0x8A15002B` | Déjà installé, aucune mise à jour applicable : traité comme un succès. |
 | Paquet non détecté juste après une installation réussie | Installeur qui termine en arrière-plan (Squirrel : Discord). Le provider attend jusqu'à 60 s que `winget list` le trouve. |

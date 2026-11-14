@@ -33,3 +33,33 @@ Describe 'Provider logon-task : erreurs des cmdlets du Planificateur' {
         }
     }
 }
+
+Describe 'Provider winget : installation' {
+    BeforeAll {
+        # Pester ne simule qu'une commande existante : une fonction vide remplace winget là où il manque (ex. runner CI).
+        $script:wingetStub = -not (Get-Command -Name winget -ErrorAction SilentlyContinue)
+        if ($script:wingetStub) {
+            function global:winget { }
+        }
+    }
+
+    AfterAll {
+        if ($script:wingetStub) { Remove-Item -Path Function:\winget -ErrorAction SilentlyContinue }
+    }
+
+    BeforeEach {
+        Mock -ModuleName OSSetup -CommandName Write-OSSetupLog
+        Mock -ModuleName OSSetup -CommandName Update-OSSetupSessionPath
+        Mock -ModuleName OSSetup -CommandName Start-Sleep
+        Mock -ModuleName OSSetup -CommandName Start-Process
+        Mock -ModuleName OSSetup -CommandName Test-OSSetupElevated -MockWith { $false }
+        Mock -ModuleName OSSetup -CommandName Test-OSSetupWingetInstalled -MockWith { $true }
+    }
+
+    It 'échoue sur 0x8A150019 (droits requis) sans relancer winget ni demander d''autre élévation' {
+        Mock -ModuleName OSSetup -CommandName winget -MockWith { $global:LASTEXITCODE = -1978335207 }
+        { InModuleScope OSSetup { & (Get-OSSetupProvider -Name 'winget').Invoke @{ id = 'Some.App' } @{} } } | Should -Throw '*0x8A150019*'
+        Should -Invoke -ModuleName OSSetup -CommandName Start-Process -Times 0 -Exactly
+        Should -Invoke -ModuleName OSSetup -CommandName winget -Times 1 -Exactly
+    }
+}

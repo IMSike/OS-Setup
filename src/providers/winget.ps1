@@ -39,13 +39,6 @@ param()
         finally {
             [Console]::OutputEncoding = $previousEncoding
         }
-        # 0x8A150019 : le paquet exige que winget lui-même soit lancé en administrateur (ex. MSI de PowerShell).
-        if ($exitCode -eq -1978335207 -and -not (Test-OSSetupElevated)) {
-            Write-OSSetupLog -Level Detail -Message '  droits administrateur requis : relance de winget en mode élevé.'
-            $quoted = foreach ($argument in $arguments) { if ($argument -match '\s') { "`"$argument`"" } else { $argument } }
-            $process = Start-Process -FilePath 'winget' -ArgumentList $quoted -Verb RunAs -Wait -PassThru
-            $exitCode = $process.ExitCode
-        }
         foreach ($line in $output) {
             $text = "$line".Trim()
             # Les barres de progression de winget n'ont pas d'intérêt dans le journal.
