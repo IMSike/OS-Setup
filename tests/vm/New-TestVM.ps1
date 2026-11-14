@@ -19,8 +19,9 @@
 param(
     [string]$Name = 'OSSetup-Win10',
 
-    # install.esd, install.wim ou ISO d'installation. Copié dans le cache au premier usage, ensuite inutile.
-    [string]$ImagePath = 'D:\sources\install.esd',
+    # install.esd, install.wim ou ISO d'installation. Copié dans le cache au premier usage, ensuite inutile
+    # (obligatoire tant que le cache de la VM est vide).
+    [string]$ImagePath,
 
     # Champ « Edition » de DISM (Professional = Windows 10 ou 11 Pro).
     [string]$Edition = 'Professional',
@@ -62,6 +63,7 @@ elseif (Test-Path -Path (Split-Path -Path $vhdPath -Parent)) {
 $cachedImage = @(Get-ChildItem -Path (Join-Path -Path $imageCache -ChildPath $Name) -Include 'install.esd', 'install.wim' -Recurse -ErrorAction SilentlyContinue) |
     Select-Object -First 1 -ExpandProperty FullName
 if (-not $cachedImage) {
+    if (-not $ImagePath) { throw "Aucune image en cache pour '$Name' : indiquer -ImagePath (install.esd, install.wim ou ISO)." }
     if (-not (Test-Path -Path $ImagePath)) { throw "Image introuvable : $ImagePath" }
     New-Item -Path (Join-Path -Path $imageCache -ChildPath $Name) -ItemType Directory -Force | Out-Null
     $iso = $null
