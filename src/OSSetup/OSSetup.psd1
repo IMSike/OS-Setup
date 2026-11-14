@@ -107,6 +107,8 @@
         'Read-OSSetupConfirmation'
         'Read-OSSetupWizardStep'
         'Save-OSSetupAnswerFile'
+        # Registry.ps1
+        'ConvertTo-OSSetupRegistryNumber'
         # Resolve.ps1
         'Get-OSSetupAvailableOption'
         'Get-OSSetupChoice'

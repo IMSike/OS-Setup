@@ -34,6 +34,71 @@ Describe 'Provider logon-task : erreurs des cmdlets du Planificateur' {
     }
 }
 
+Describe 'Provider registry' {
+    # TestRegistry: clé jetable de Pester (sous HKCU:\Software\Pester), supprimée à la fin du bloc.
+    BeforeEach {
+        $key = "TestRegistry:\$([guid]::NewGuid())"
+        New-Item -Path $key | Out-Null
+        $provider = InModuleScope OSSetup { Get-OSSetupProvider -Name 'registry' }
+    }
+
+    It 'n''est pas conforme quand la valeur a la bonne donnée mais un autre type, et la remplace' {
+        New-ItemProperty -Path $key -Name 'Flag' -PropertyType String -Value '0' | Out-Null
+        $action = @{ path = $key; name = 'Flag'; type = 'DWord'; value = 0 }
+        & $provider.Test $action @{} | Should -BeFalse
+        & $provider.Invoke $action @{}
+        (Get-Item -Path $key).GetValueKind('Flag') | Should -Be 'DWord'
+        & $provider.Test $action @{} | Should -BeTrue
+    }
+
+    It 'écrit et reconnaît un DWord au-delà de 0x7FFFFFFF, sous forme signée ou non' {
+        $action = @{ path = $key; name = 'Big'; type = 'DWord'; value = 4294967295 }
+        & $provider.Test $action @{} | Should -BeFalse
+        & $provider.Invoke $action @{}
+        (Get-Item -Path $key).GetValue('Big') | Should -Be -1
+        & $provider.Test $action @{} | Should -BeTrue
+        & $provider.Test @{ path = $key; name = 'Big'; type = 'DWord'; value = -1 } @{} | Should -BeTrue
+        & $provider.Test @{ path = $key; name = 'Big'; type = 'DWord'; value = 4294967294 } @{} | Should -BeFalse
+    }
+
+    It 'compare les QWord non signés' {
+        $action = @{ path = $key; name = 'Q'; type = 'QWord'; value = [decimal]::Parse('18446744073709551615') }
+        & $provider.Invoke $action @{}
+        (Get-Item -Path $key).GetValue('Q') | Should -Be ([long]-1)
+        & $provider.Test $action @{} | Should -BeTrue
+    }
+
+    It 'compare toujours les chaînes à la casse près' {
+        New-ItemProperty -Path $key -Name 'Text' -PropertyType String -Value 'Abc' | Out-Null
+        & $provider.Test @{ path = $key; name = 'Text'; type = 'String'; value = 'Abc' } @{} | Should -BeTrue
+        & $provider.Test @{ path = $key; name = 'Text'; type = 'String'; value = 'abc' } @{} | Should -BeFalse
+        & $provider.Test @{ path = $key; name = 'Text'; type = 'ExpandString'; value = 'Abc' } @{} | Should -BeFalse
+    }
+}
+
+Describe 'ConvertTo-OSSetupRegistryNumber' {
+    It 'convertit <Value> (<Type>) en <Signed> signé et <Unsigned> non signé' -ForEach @(
+        @{ Value = 0; Type = 'DWord'; Signed = 0; Unsigned = 0 }
+        @{ Value = 4294967295; Type = 'DWord'; Signed = -1; Unsigned = 4294967295 }
+        @{ Value = -1; Type = 'DWord'; Signed = -1; Unsigned = 4294967295 }
+        @{ Value = 2147483648; Type = 'DWord'; Signed = -2147483648; Unsigned = 2147483648 }
+        @{ Value = -1; Type = 'QWord'; Signed = -1; Unsigned = [uint64]::MaxValue }
+    ) {
+        InModuleScope OSSetup -Parameters $_ {
+            param($Value, $Type, $Signed, $Unsigned)
+            ConvertTo-OSSetupRegistryNumber -Value $Value -Type $Type | Should -Be $Signed
+            ConvertTo-OSSetupRegistryNumber -Value $Value -Type $Type -Unsigned | Should -Be $Unsigned
+        }
+    }
+
+    It 'refuse une valeur hors limites ou non entière' {
+        InModuleScope OSSetup {
+            { ConvertTo-OSSetupRegistryNumber -Value 4294967296 -Type DWord } | Should -Throw '*hors limites*'
+            { ConvertTo-OSSetupRegistryNumber -Value 1.5 -Type DWord } | Should -Throw '*hors limites*'
+        }
+    }
+}
+
 Describe 'Provider winget : installation' {
     BeforeAll {
         # Pester ne simule qu'une commande existante : une fonction vide remplace winget là où il manque (ex. runner CI).
