@@ -64,9 +64,11 @@ function Get-OSSetupSelectedWingetId {
         Identifiants winget installés par les éléments retenus (profils et choix).
     #>
     [CmdletBinding()]
+    [OutputType([string])]
     param(
+        # Catalogue chargé par Import-OSSetupData.
         [Parameter(Mandatory)]
-        $Data,
+        [pscustomobject]$Data,
 
         [Parameter(Mandatory)]
         [AllowEmptyCollection()]
@@ -169,7 +171,10 @@ function Invoke-OSSetupCleanup {
 
         # Dossier où le script et sa configuration attendent la fermeture du setup : réservé aux administrateurs, car
         # ils sont exécutés avec les droits administrateur (commandes de désinstallation, chemins à supprimer).
-        [string]$WorkRoot = [IO.Path]::Combine([Environment]::GetFolderPath('ProgramFiles'), 'OS-Setup', 'cleanup')
+        [string]$WorkRoot = [IO.Path]::Combine([Environment]::GetFolderPath('ProgramFiles'), 'OS-Setup', 'cleanup'),
+
+        # Dossier de l'historique conservé (un sous-dossier par exécution).
+        [string]$HistoryRoot = (Join-Path -Path ([Environment]::GetFolderPath('LocalApplicationData')) -ChildPath 'OS-Setup')
     )
     $info = Read-OSSetupBootstrapInfo -Root $CodeRoot
 
@@ -191,8 +196,7 @@ function Invoke-OSSetupCleanup {
             (Read-OSSetupMenu -State $state).Values[0]
         }
         if ($choice -eq 'history') {
-            $historyRoot = Join-Path -Path ([Environment]::GetFolderPath('LocalApplicationData')) -ChildPath 'OS-Setup'
-            $logPath = Join-Path -Path $historyRoot -ChildPath "$RunId\setup-$RunId.log"
+            $logPath = Join-Path -Path $HistoryRoot -ChildPath "$RunId\setup-$RunId.log"
             Write-OSSetupLog -Message "√ Historique conservé : $(Split-Path -Path $logPath -Parent)"
         }
         if ($choice -ne 'keep') {
@@ -212,7 +216,7 @@ function Invoke-OSSetupCleanup {
     }
     # Copie en dernier : le journal conservé contient aussi les lignes ci-dessus.
     if ($logPath) {
-        [void](Save-OSSetupHistory -Root $Root -RunId $RunId -HistoryRoot (Split-Path -Path (Split-Path -Path $logPath -Parent) -Parent))
+        [void](Save-OSSetupHistory -Root $Root -RunId $RunId -HistoryRoot $HistoryRoot)
     }
     if ($uninstall.Count -eq 0 -and $remove.Count -eq 0 -and -not $Logoff) { return }
 

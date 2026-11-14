@@ -98,22 +98,23 @@ Describe 'Invoke-OSSetupCleanup' {
         $global:OSSetupTestCleanupArgs = $null
         Mock -ModuleName OSSetup Write-OSSetupLog {}
         Mock -ModuleName OSSetup Start-Process { $global:OSSetupTestCleanupArgs = $ArgumentList }
-        $historyRoot = Join-Path -Path ([Environment]::GetFolderPath('LocalApplicationData')) -ChildPath 'OS-Setup'
-        # Jamais Program Files pendant les tests : le script et sa configuration vont dans TestDrive.
+        # Jamais Program Files ni %LOCALAPPDATA% pendant les tests : script, configuration et historique vont dans
+        # TestDrive.
         $PSDefaultParameterValues['Invoke-OSSetupCleanup:WorkRoot'] = Join-Path -Path $TestDrive -ChildPath 'cleanup-work'
+        $historyRoot = Join-Path -Path $TestDrive -ChildPath 'history'
+        $PSDefaultParameterValues['Invoke-OSSetupCleanup:HistoryRoot'] = $historyRoot
     }
 
     AfterEach {
-        if ($global:OSSetupTestCleanupArgs) {
-            $config = Get-LaunchedConfig
-            Remove-Item -LiteralPath $global:OSSetupTestCleanupArgs[-1].Trim('"'), $global:OSSetupTestCleanupArgs[-3].Trim('"') -Force -ErrorAction SilentlyContinue
-            # Seul un historique créé par le test (dossier de l'exécution sous %LOCALAPPDATA%\OS-Setup) est supprimé.
-            if ($config.logPath -and $config.logPath.StartsWith($historyRoot)) {
-                Remove-Item -LiteralPath (Split-Path -Path $config.logPath -Parent) -Recurse -Force -ErrorAction SilentlyContinue
-            }
-        }
         Remove-Variable -Name OSSetupTestCleanupArgs -Scope Global -ErrorAction SilentlyContinue
         $PSDefaultParameterValues.Remove('Invoke-OSSetupCleanup:WorkRoot')
+        $PSDefaultParameterValues.Remove('Invoke-OSSetupCleanup:HistoryRoot')
+    }
+
+    It 'conserve l''historique par défaut dans %LOCALAPPDATA%\OS-Setup' {
+        $command = Get-Command -Name Invoke-OSSetupCleanup
+        $default = $command.ScriptBlock.Ast.Body.ParamBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq 'HistoryRoot' }
+        $default.DefaultValue.Extent.Text | Should -Match "GetFolderPath\('LocalApplicationData'\)\) -ChildPath 'OS-Setup'"
     }
 
     It 'prépare le script et sa configuration dans le dossier réservé aux administrateurs, pas dans %TEMP%' {

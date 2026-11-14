@@ -191,6 +191,21 @@ Describe 'setup.ps1 : restes des exécutions précédentes' {
     }
 }
 
+Describe 'setup.ps1 : outils du bootstrap gardés au nettoyage de fin' {
+    It 'calcule les paquets des éléments retenus une fois ces éléments connus' {
+        $result = Invoke-TestSetup -Argument '-Profiles', 'base', '-AcceptDefaults', '-Yes', '-NoPause'
+        $result.Names | Should -Contain 'Get-OSSetupSelectedWingetId'
+        $result.Names | Should -Contain 'Invoke-OSSetupCleanup'
+    }
+
+    It 'sur un échec avant la résolution des éléments, ne calcule rien (aucun outil désinstallé)' {
+        $result = Invoke-TestSetup -Argument '-Profiles', 'base', '-AcceptDefaults', '-Yes', '-NoPause' -Throws @{ 'Get-OSSetupFact' = 'panne' }
+        $result.ExitCode | Should -Be 1
+        $result.Names | Should -Not -Contain 'Get-OSSetupSelectedWingetId'
+        $result.Names | Should -Contain 'Invoke-OSSetupCleanup'
+    }
+}
+
 Describe 'setup.ps1 : code de sortie' {
     It 'sort avec son propre code quand il n''y a rien à faire, pas avec celui d''une commande native antérieure' {
         # Comme la relance en administrateur : « & setup.ps1 …; exit $LASTEXITCODE ».

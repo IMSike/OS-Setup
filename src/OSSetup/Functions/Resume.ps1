@@ -102,6 +102,7 @@ function Read-OSSetupRunState {
         Retourne l'exécution à reprendre, ou $null s'il n'y en a pas.
     #>
     [CmdletBinding()]
+    [OutputType([hashtable])]
     param(
         [Parameter(Mandatory)]
         [string]$StateRoot

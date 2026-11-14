@@ -161,6 +161,9 @@ $exitCode = 0
 # Vrai quand le setup s'arrête pour redémarrer (ou attend un redémarrage reporté) : l'exécution n'est pas terminée.
 $waitingForRestart = $false
 $logoff = $false
+# Catalogue et éléments retenus : $null tant qu'ils ne sont pas connus (lus par le nettoyage de fin).
+$data = $null
+$itemIds = $null
 try {
     Write-OSSetupLog -Message "OS-Setup — journal : $logPath"
     if ($Resume) {
@@ -334,7 +337,7 @@ finally {
             # Outils du bootstrap à garder : ceux que les éléments retenus installent. Liste inconnue (échec avant
             # la résolution) : $null, aucun outil n'est désinstallé.
             $selectedWingetIds = $null
-            if ((Get-Variable -Name itemIds -ErrorAction SilentlyContinue) -and (Get-Variable -Name data -ErrorAction SilentlyContinue)) {
+            if ($null -ne $itemIds -and $null -ne $data) {
                 $selectedWingetIds = [string[]]@(Get-OSSetupSelectedWingetId -Data $data -ItemId $itemIds)
             }
             try {

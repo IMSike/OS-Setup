@@ -2,6 +2,7 @@
 
 function Start-OSSetupLog {
     [CmdletBinding()]
+    [OutputType([string])]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'Le journal est toujours écrit, y compris en -WhatIf.')]
     param(
         [Parameter(Mandatory)]
@@ -11,10 +12,11 @@ function Start-OSSetupLog {
         [string]$RunId
     )
     # Le journal est toujours écrit, y compris en -WhatIf.
-    Assert-OSSetupDataPath -Path (Join-Path -Path $Directory -ChildPath "setup-$RunId.log")
+    $path = Join-Path -Path $Directory -ChildPath "setup-$RunId.log"
+    Assert-OSSetupDataPath -Path $path
     New-Item -Path $Directory -ItemType Directory -Force -WhatIf:$false | Out-Null
-    $script:LogPath = Join-Path -Path $Directory -ChildPath "setup-$RunId.log"
-    $script:LogPath
+    $script:LogPath = $path
+    $path
 }
 
 function Write-OSSetupLog {
