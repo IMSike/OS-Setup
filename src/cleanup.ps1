@@ -45,14 +45,19 @@ function Test-CleanupLink {
     # -Leaf, contrôle aussi l'élément lui-même (y compris lien physique). Le nettoyage s'exécute en administrateur
     # et ses chemins sont dans le dépôt de l'utilisateur : un lien placé par un programme lancé sous son compte
     # redirigerait l'écriture ou la suppression vers un dossier protégé (ADR 0005).
+    # Même règle que Assert-OSSetupDataPath (src\OSSetup\Functions\Resume.ps1), à garder alignée : ce script tourne
+    # sous Windows PowerShell 5.1 sans le module.
     [CmdletBinding()]
     [OutputType([bool])]
     param([Parameter(Mandatory)][string]$Path, [switch]$Leaf)
     $current = [IO.Path]::GetFullPath($Path)
     if (-not $Leaf) { $current = [IO.Path]::GetDirectoryName($current) }
+    # Lien physique : seulement pour l'élément lui-même (un dossier n'en a pas).
+    $linkTypes = if ($Leaf) { 'Junction', 'SymbolicLink', 'HardLink' } else { 'Junction', 'SymbolicLink' }
     while ($current) {
         $entry = Get-Item -LiteralPath $current -Force -ErrorAction SilentlyContinue
-        if ($entry -and $entry.LinkType -in 'Junction', 'SymbolicLink', 'HardLink') { return $true }
+        if ($entry -and $entry.LinkType -in $linkTypes) { return $true }
+        $linkTypes = 'Junction', 'SymbolicLink'
         $current = [IO.Path]::GetDirectoryName($current)
     }
     $false

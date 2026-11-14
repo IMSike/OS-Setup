@@ -185,6 +185,7 @@ function Assert-OSSetupDataPath {
         dossier protégé. Tout le chemin est contrôlé, jusqu'à la racine du disque, juste avant chaque écriture ; reste
         l'intervalle entre le contrôle et l'écriture. Les autres points d'analyse (fichiers OneDrive à la demande)
         sont acceptés. Sans effet hors reprise : le code du premier passage vient de toute façon du dépôt.
+        Même règle que Test-CleanupLink (src\cleanup.ps1, sans le module), à garder alignée.
     #>
     [CmdletBinding()]
     param(
