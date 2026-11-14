@@ -25,7 +25,8 @@ param()
         param($Action, $Context)
         $status = @(& rtk telemetry status 2>$null)
         if ($status | Where-Object { $_ -match 'consent:\s+never asked' }) {
-            & rtk telemetry disable *> $null
+            # Refus non enregistré : la question bloquerait rtk init, l'élément échoue avec la cause.
+            Invoke-OSSetupNativeCommand -FilePath rtk -ArgumentList 'telemetry', 'disable' -NoInput -Utf8 -Label 'rtk telemetry disable'
             Write-OSSetupLog -Level Detail -Message '  statistiques d''usage de rtk refusées (rtk telemetry enable pour les accepter)'
         }
         # Entrée vide : aucune question ne peut bloquer le setup.

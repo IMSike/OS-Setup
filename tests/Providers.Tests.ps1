@@ -100,6 +100,58 @@ Describe 'Schéma : aucune propriété que le provider ne lit pas' {
     }
 }
 
+Describe 'Providers d''outils : outil absent' {
+    It '<Provider> : non conforme sans erreur, valeur d''origine lisible' -ForEach @(
+        @{ Provider = 'fnm-node'; Tool = 'fnm'; Action = @{} }
+        @{ Provider = 'npm-global'; Tool = 'npm'; Action = @{ package = 'typescript' } }
+        @{ Provider = 'rtk-init'; Tool = 'rtk'; Action = @{} }
+    ) {
+        InModuleScope OSSetup -Parameters @{ Provider = $Provider; Tool = $Tool; Action = $Action } {
+            param($Provider, $Tool, $Action)
+            # Une fonction du même nom (ex. simulation) ne compte pas : seule une application installée fait foi.
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq $Tool -and $CommandType -eq 'Application' }
+            $provider = Get-OSSetupProvider -Name $Provider
+            & $provider.Test $Action @{} | Should -BeFalse
+            if ($provider.ContainsKey('Read')) { { & $provider.Read $Action @{} } | Should -Not -Throw }
+        }
+    }
+}
+
+Describe 'Provider rtk-init : refus des statistiques' {
+    BeforeAll {
+        $script:rtkStub = -not (Get-Command -Name rtk -ErrorAction SilentlyContinue)
+        if ($script:rtkStub) {
+            function global:rtk { }
+        }
+    }
+
+    AfterAll {
+        if ($script:rtkStub) { Remove-Item -Path Function:\rtk -ErrorAction SilentlyContinue }
+    }
+
+    It 'échoue avec la cause quand rtk telemetry disable échoue, sans lancer rtk init' {
+        Mock -ModuleName OSSetup -CommandName Write-OSSetupLog
+        Mock -ModuleName OSSetup -CommandName rtk -MockWith {
+            if ($args -contains 'status') { $global:LASTEXITCODE = 0; return 'consent: never asked' }
+            $global:LASTEXITCODE = 2
+        }
+        { InModuleScope OSSetup { & (Get-OSSetupProvider -Name 'rtk-init').Invoke @{} @{} } } | Should -Throw '*rtk telemetry disable*2*'
+        Should -Invoke -ModuleName OSSetup -CommandName rtk -Times 0 -Exactly -ParameterFilter { $args -contains 'init' }
+    }
+}
+
+Describe 'Provider windows-update : description' {
+    It 'nomme la catégorie de l''action' {
+        InModuleScope OSSetup {
+            $provider = Get-OSSetupProvider -Name 'windows-update'
+            Mock -CommandName Find-OSSetupWindowsUpdate
+            & $provider.Describe @{ category = 'drivers' } @{} | Should -Be 'Windows Update (pilotes) : rien à installer'
+            Mock -CommandName Find-OSSetupWindowsUpdate -MockWith { [pscustomobject]@{ Title = 'Pilote A' }; [pscustomobject]@{ Title = 'Pilote B' } }
+            & $provider.Describe @{ category = 'drivers' } @{} | Should -Be 'Windows Update (pilotes) : installer 2 mise(s) à jour : Pilote A ; Pilote B'
+        }
+    }
+}
+
 Describe 'Provider herdr-plugin' {
     BeforeAll {
         # Pester ne simule qu'une commande existante : une fonction vide remplace herdr là où il manque (ex. runner CI).

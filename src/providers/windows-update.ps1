@@ -1,4 +1,4 @@
-﻿# Provider windows-update : installe ce que Windows Update propose pour une catégorie (pour l'instant : pilotes),
+﻿# Provider windows-update : installe ce que Windows Update propose pour une catégorie (pour l'instant : drivers),
 # par l'API intégrée (objet COM), sans module tiers. Conforme quand Windows Update ne propose plus rien.
 # Un redémarrage demandé par Windows est signalé au moteur (reprise automatique).
 
@@ -10,10 +10,13 @@ param()
 
     Describe = {
         param($Action, $Context)
+        # Libellé de la catégorie (une nouvelle catégorie ajoute le sien) ; à défaut, son nom.
+        $label = @{ drivers = 'pilotes' }[$Action['category']]
+        if (-not $label) { $label = $Action['category'] }
         # La recherche est mémorisée : elle sert aussi au test qui suit.
         $titles = @(Find-OSSetupWindowsUpdate -Category $Action['category'] | ForEach-Object { [string]$_.Title })
-        if ($titles.Count -eq 0) { return 'pilotes proposés par Windows Update : aucun' }
-        "installer $($titles.Count) pilote(s) proposé(s) par Windows Update : $($titles -join ' ; ')"
+        if ($titles.Count -eq 0) { return "Windows Update ($label) : rien à installer" }
+        "Windows Update ($label) : installer $($titles.Count) mise(s) à jour : $($titles -join ' ; ')"
     }
 
     Test     = {

@@ -5,7 +5,8 @@ foreach ($file in Get-ChildItem -Path (Join-Path -Path $PSScriptRoot -ChildPath 
     . $file.FullName
 }
 
-# Chaque fichier de providers/ retourne une table { Name; Test; Invoke; Describe }.
+# Chaque fichier de providers/ retourne une table { Name; Test; Invoke; Describe; Read }, Read facultatif (état
+# d'origine enregistré avant modification).
 $script:Providers = @{}
 $providerRoot = Join-Path -Path $PSScriptRoot -ChildPath '..\providers'
 foreach ($file in Get-ChildItem -Path $providerRoot -Filter '*.ps1' | Sort-Object -Property Name) {

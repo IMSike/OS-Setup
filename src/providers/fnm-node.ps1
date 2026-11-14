@@ -22,6 +22,7 @@ param()
 
     Read     = {
         param($Action, $Context)
+        if (-not (Get-Command -Name fnm -CommandType Application -ErrorAction SilentlyContinue)) { return [ordered]@{ installed = @() } }
         $versions = @(& fnm list 2>$null)
         [ordered]@{ installed = $versions }
     }

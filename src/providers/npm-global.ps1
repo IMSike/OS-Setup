@@ -15,7 +15,7 @@ param()
 
     Test     = {
         param($Action, $Context)
-        if (-not (Get-Command -Name npm -ErrorAction SilentlyContinue)) { return $false }
+        if (-not (Get-Command -Name npm -CommandType Application -ErrorAction SilentlyContinue)) { return $false }
         & npm ls --global $Action['package'] --depth=0 *> $null
         $LASTEXITCODE -eq 0
     }
