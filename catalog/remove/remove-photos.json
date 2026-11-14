@@ -5,7 +5,7 @@
   "category": "remove",
   "platforms": ["windows"],
   "requiresAdmin": true,
-  "checkedWarning": "Plus de visionneuse d'images par défaut : les images s'ouvriront avec Paint, ou une visionneuse installée par un profil.",
+  "checkedWarning": "Plus de visionneuse d'images par défaut : les images s'ouvriront avec Paint.",
   "actions": [
     {
       "provider": "appx",

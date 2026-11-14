@@ -59,7 +59,7 @@ Warnings: an item whose removal erases local data says so when it is selected (`
 | `remove-sound-recorder` | Voice Recorder (`Microsoft.WindowsSoundRecorder`) | Recordings already made stay in Documents. |
 | `remove-calculator` | Calculator (`Microsoft.WindowsCalculator`) | No more calculator. |
 | `remove-screen-sketch` | Snip & Sketch (`Microsoft.ScreenSketch`) | **Warning**: `Win+Shift+S` no longer opens the annotation tool. The Snipping Tool remains. |
-| `remove-photos` | Photos (`Microsoft.Windows.Photos`) | **Warning**: no more default image viewer (Paint, or a viewer installed by a profile). |
+| `remove-photos` | Photos (`Microsoft.Windows.Photos`) | **Warning**: no more default image viewer: images open with Paint. |
 
 ## Xbox (menu "Xbox à supprimer", Xbox to remove, nothing selected)
 

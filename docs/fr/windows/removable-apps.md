@@ -59,7 +59,7 @@ Avertissements : un élément dont la suppression efface des données locales le
 | `remove-sound-recorder` | Enregistreur vocal (`Microsoft.WindowsSoundRecorder`) | Les enregistrements déjà faits restent dans Documents. |
 | `remove-calculator` | Calculatrice (`Microsoft.WindowsCalculator`) | Plus de calculatrice. |
 | `remove-screen-sketch` | Capture d'écran et croquis (`Microsoft.ScreenSketch`) | **Avertissement** : `Win+Maj+S` n'ouvre plus l'outil d'annotation. L'Outil Capture reste. |
-| `remove-photos` | Photos (`Microsoft.Windows.Photos`) | **Avertissement** : plus de visionneuse d'images par défaut (Paint, ou une visionneuse installée par un profil). |
+| `remove-photos` | Photos (`Microsoft.Windows.Photos`) | **Avertissement** : plus de visionneuse d'images par défaut : les images s'ouvrent avec Paint. |
 
 ## Xbox (menu « Xbox à supprimer », rien de coché)
 
