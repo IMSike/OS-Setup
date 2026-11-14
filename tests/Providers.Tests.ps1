@@ -99,6 +99,26 @@ Describe 'ConvertTo-OSSetupRegistryNumber' {
     }
 }
 
+Describe 'Provider shortcut : suppression' {
+    It 'sauvegarde le raccourci avant de le supprimer' {
+        $root = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid())
+        $path = Join-Path -Path $root -ChildPath 'Bureau\App.lnk'
+        New-Item -Path (Split-Path -Path $path -Parent) -ItemType Directory -Force | Out-Null
+        Set-Content -Path $path -Value 'lnk' -NoNewline
+        $context = @{ BackupRoot = Join-Path -Path $root -ChildPath 'backups' }
+        Mock -ModuleName OSSetup -CommandName Write-OSSetupLog
+        InModuleScope OSSetup -Parameters @{ Path = $path; Context = $context } {
+            param($Path, $Context)
+            & (Get-OSSetupProvider -Name 'shortcut').Invoke @{ path = $Path; present = $false } $Context
+        }
+        $path | Should -Not -Exist
+        $backups = @(Get-ChildItem -Path $context.BackupRoot -Recurse -File)
+        $backups.Count | Should -Be 1
+        $backups[0].Name | Should -Be 'App.lnk'
+        Get-Content -Path $backups[0].FullName -Raw | Should -Be 'lnk'
+    }
+}
+
 Describe 'Provider winget : installation' {
     BeforeAll {
         # Pester ne simule qu'une commande existante : une fonction vide remplace winget là où il manque (ex. runner CI).
