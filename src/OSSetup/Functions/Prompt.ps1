@@ -316,6 +316,6 @@ function Save-OSSetupAnswerFile {
     if ($PSCmdlet.ShouldProcess($Path, 'Enregistrer le fichier de réponses')) {
         Assert-OSSetupDataPath -Path $Path
         New-Item -Path (Split-Path -Path $Path -Parent) -ItemType Directory -Force -WhatIf:$false | Out-Null
-        $document | ConvertTo-Json -Depth 5 | Set-Content -Path $Path -Encoding utf8NoBOM -WhatIf:$false
+        $document | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $Path -Encoding utf8NoBOM -WhatIf:$false
     }
 }

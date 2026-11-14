@@ -202,6 +202,14 @@ Describe 'Read-OSSetupMenuText' {
     }
 }
 
+Describe 'Save-OSSetupAnswerFile' {
+    It 'écrit à un chemin qui contient des crochets (chemin littéral)' {
+        $path = Join-Path -Path $TestDrive -ChildPath 'Réponses [poste]\dev.json'
+        Save-OSSetupAnswerFile -Answers @{ profiles = @('dev'); choices = @{}; variables = @{} } -Path $path
+        (Get-Content -LiteralPath $path -Raw | ConvertFrom-Json).profiles | Should -Be @('dev')
+    }
+}
+
 Describe 'Read-OSSetupAnswer' {
     BeforeEach {
         Mock -ModuleName OSSetup Write-OSSetupLog {}

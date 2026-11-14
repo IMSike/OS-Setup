@@ -178,7 +178,8 @@ function Get-OSSetupUninstallEntry {
     )
     foreach ($root in $roots) {
         Get-ChildItem -Path $root -ErrorAction SilentlyContinue | ForEach-Object {
-            $entry = Get-ItemProperty -Path $_.PSPath
+            # Chemin littéral : un nom de sous-clé peut contenir [ ] (sinon interprétés comme caractères génériques).
+            $entry = Get-ItemProperty -LiteralPath $_.PSPath
             if ($entry.PSObject.Properties['DisplayName'] -and $entry.DisplayName -like $DisplayName) { $entry }
         }
     }

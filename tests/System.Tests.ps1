@@ -172,6 +172,17 @@ Describe 'ConvertTo-OSSetupUninstallCommand' {
     }
 }
 
+Describe 'Get-OSSetupUninstallEntry' {
+    It 'lit une entrée dont le nom de clé contient des crochets (chemin littéral)' {
+        $key = 'Microsoft.PowerShell.Core\Registry::HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall\App[1]'
+        Mock -ModuleName OSSetup Get-ChildItem { [pscustomobject]@{ PSPath = $key } }
+        # Une lecture par -Path (motif) ne correspond pas à la simulation, et la clé n'existe pas réellement.
+        Mock -ModuleName OSSetup Get-ItemProperty { [pscustomobject]@{ DisplayName = 'App' } } -ParameterFilter { $LiteralPath -eq $key }
+        @(Get-OSSetupUninstallEntry -DisplayName 'App' -ErrorAction SilentlyContinue).Count | Should -Be 3
+        Should -Invoke -ModuleName OSSetup Get-ItemProperty -Times 3 -Exactly -ParameterFilter { $LiteralPath -eq $key }
+    }
+}
+
 Describe 'Wait-OSSetupUninstallEntryRemoval' {
     It 'confirme une désinstallation terminée malgré un code de retour trompeur' {
         Mock -ModuleName OSSetup Get-OSSetupUninstallEntry {}
