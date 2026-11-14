@@ -315,6 +315,26 @@ Describe 'Variables' {
         { Expand-OSSetupString -Text '{{Nope}}' -Variables @{} } | Should -Throw '*Nope*'
     }
 
+    It 'expanse et repère les variables dans les tableaux et objets d''une action' {
+        $action = '{ "provider": "registry", "value": ["{{A}}\\x", "y", ["{{B}}"], []], "options": { "Path": "{{A}}", "path": ["{{B}}"], "n": 3 }, "one": ["{{A}}"], "type": "MultiString" }' |
+            ConvertFrom-Json -AsHashtable
+        @(Get-OSSetupActionVariableName -Action $action | Sort-Object -Unique) | Should -Be @('A', 'B')
+
+        $expanded = Expand-OSSetupAction -Action $action -Variables @{ A = 'C:\a'; B = 'b' }
+        $expanded['value'].Count | Should -Be 4
+        $expanded['value'][0] | Should -Be 'C:\a\x'
+        $expanded['value'][1] | Should -Be 'y'
+        , $expanded['value'][2] | Should -Be @('b')
+        $expanded['value'][3].Count | Should -Be 0
+        $expanded['options']['Path'] | Should -Be 'C:\a'
+        , $expanded['options']['path'] | Should -Be @('b')
+        $expanded['options']['n'] | Should -Be 3
+        , $expanded['one'] | Should -BeOfType [array]
+        $expanded['one'] | Should -Be @('C:\a')
+        # L'action d'origine n'est pas modifiée.
+        $action['value'][0] | Should -Be '{{A}}\x'
+    }
+
     It 'résout défauts de profil, surcharges et références imbriquées' {
         Mock -ModuleName OSSetup -CommandName Get-OSSetupBuiltinVariable -MockWith { [ordered]@{ Base = 'C:\Users\test' } }
         $values = Resolve-OSSetupVariable -Data (New-TestData) -Answers @{ profiles = @('dev') }

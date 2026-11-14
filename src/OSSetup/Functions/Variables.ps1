@@ -83,17 +83,27 @@ function Get-OSSetupMissingVariable {
 function Get-OSSetupActionVariableName {
     <#
     .SYNOPSIS
-        Noms des variables {{Nom}} utilisées par les valeurs texte d'une action.
+        Noms des variables {{Nom}} utilisées par les valeurs texte d'une action, y compris dans ses tableaux et objets
+        (ex. valeur MultiString d'un réglage du registre).
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
         [System.Collections.IDictionary]$Action
     )
-    foreach ($value in $Action.Values) {
-        if ($value -isnot [string]) { continue }
-        foreach ($match in [regex]::Matches($value, '\{\{([A-Za-z][A-Za-z0-9]*)\}\}')) { $match.Groups[1].Value }
+    $collect = {
+        param($Value)
+        if ($Value -is [string]) {
+            foreach ($match in [regex]::Matches($Value, '\{\{([A-Za-z][A-Za-z0-9]*)\}\}')) { $match.Groups[1].Value }
+        }
+        elseif ($Value -is [System.Collections.IDictionary]) {
+            foreach ($nested in $Value.Values) { & $collect $nested }
+        }
+        elseif ($Value -is [System.Collections.IEnumerable]) {
+            foreach ($nested in $Value) { & $collect $nested }
+        }
     }
+    & $collect $Action
 }
 
 function Expand-OSSetupString {
@@ -169,9 +179,11 @@ function Resolve-OSSetupVariable {
 function Expand-OSSetupAction {
     <#
     .SYNOPSIS
-        Retourne une copie de l'action dont toutes les valeurs texte ont été expansées.
+        Retourne une copie de l'action dont toutes les valeurs texte ont été expansées, y compris dans ses tableaux
+        et objets (ex. valeur MultiString d'un réglage du registre).
     #>
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', 'Variables', Justification = 'Utilisé par le bloc de script récursif $expand.')]
     [OutputType([System.Collections.Specialized.OrderedDictionary])]
     param(
         [Parameter(Mandatory)]
@@ -180,10 +192,26 @@ function Expand-OSSetupAction {
         [Parameter(Mandatory)]
         [System.Collections.IDictionary]$Variables
     )
+    $expand = {
+        param($Value)
+        if ($Value -is [string]) {
+            return Expand-OSSetupString -Text $Value -Variables $Variables
+        }
+        if ($Value -is [System.Collections.IDictionary]) {
+            # Clés d'un objet JSON : comparées à l'octet près.
+            $nested = [System.Collections.Specialized.OrderedDictionary]::new([System.StringComparer]::Ordinal)
+            foreach ($key in $Value.Keys) { $nested[$key] = & $expand $Value[$key] }
+            return $nested
+        }
+        if ($Value -is [System.Collections.IList]) {
+            # Virgule unaire : un tableau (même vide ou à un élément) reste un tableau.
+            return , @(foreach ($element in $Value) { & $expand $element })
+        }
+        $Value
+    }
     $copy = [ordered]@{}
     foreach ($key in $Action.Keys) {
-        $value = $Action[$key]
-        $copy[$key] = if ($value -is [string]) { Expand-OSSetupString -Text $value -Variables $Variables } else { $value }
+        $copy[$key] = & $expand $Action[$key]
     }
     $copy
 }
