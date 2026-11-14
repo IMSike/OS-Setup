@@ -317,3 +317,20 @@ Describe 'Provider claude-plugin' {
         }
     }
 }
+
+Describe 'Réglages de herdr' {
+    It 'config-explorer.toml reprend config.toml à l''identique, plus les raccourcis du plugin' {
+        # Les deux fichiers sont copiés tels quels (l'un ou l'autre selon le plugin) : un réglage changé dans l'un
+        # doit l'être dans l'autre. Commentaires d'en-tête exclus de la comparaison.
+        $herdr = Join-Path -Path $PSScriptRoot -ChildPath '..\dotfiles\herdr'
+        $read = {
+            param([string]$Name)
+            @(Get-Content -LiteralPath (Join-Path -Path $herdr -ChildPath $Name) -Encoding utf8 | Where-Object { $_ -notmatch '^\s*#' })
+        }
+        $base = & $read 'config.toml'
+        $explorer = & $read 'config-explorer.toml'
+        $keys = [Array]::IndexOf($explorer, '[[keys.command]]')
+        $keys | Should -BeGreaterThan 0
+        ($explorer[0..($keys - 1)] -join "`n").Trim() | Should -Be (($base -join "`n").Trim())
+    }
+}
