@@ -175,6 +175,8 @@ Describe 'Plafonds selon le disque' {
         Mock -ModuleName OSSetup -CommandName Get-OSSetupSystemDisk -MockWith { [pscustomobject]@{ Drive = 'C:'; SizeGB = 119; FreeGB = 32.4 } }
         Write-OSSetupDiskSpaceWarning
         Should -Invoke -ModuleName OSSetup -CommandName Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Level -eq 'Warning' }
+        # Affiché quel que soit le profil : il ne cite pas d'outils qui n'ont peut-être pas été choisis.
+        Should -Invoke -ModuleName OSSetup -CommandName Write-OSSetupLog -Times 0 -Exactly -ParameterFilter { $Message -match 'Docker|WSL|Playwright' }
         Mock -ModuleName OSSetup -CommandName Get-OSSetupSystemDisk -MockWith { [pscustomobject]@{ Drive = 'C:'; SizeGB = 476; FreeGB = 210 } }
         Write-OSSetupDiskSpaceWarning
         Should -Invoke -ModuleName OSSetup -CommandName Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Level -eq 'Warning' }

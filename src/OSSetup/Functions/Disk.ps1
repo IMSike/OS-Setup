@@ -85,8 +85,9 @@ function Get-OSSetupLogonTaskArgument {
 function Write-OSSetupDiskSpaceWarning {
     <#
     .SYNOPSIS
-        Avertit quand le disque système a peu d'espace libre : Docker, WSL et les navigateurs de Playwright peuvent le
-        remplir. Avertissement seulement, rien n'est bloqué.
+        Avertit quand le disque système a peu d'espace libre : les logiciels choisis et leurs données (images de
+        conteneurs, distributions Linux, navigateurs de test…) peuvent le remplir. Avertissement seulement, rien n'est
+        bloqué. Message neutre : il est affiché quel que soit le profil.
     #>
     [CmdletBinding()]
     param(
@@ -94,6 +95,6 @@ function Write-OSSetupDiskSpaceWarning {
     )
     $disk = Get-OSSetupSystemDisk
     if ($disk.FreeGB -lt $MinFreeGB) {
-        Write-OSSetupLog -Level Warning -Message ('Espace libre sur {0} : {1:N1} Go (moins de {2} Go). Docker, WSL et les navigateurs de Playwright peuvent remplir le disque : libérer de la place avant, ou ne pas les choisir.' -f $disk.Drive, $disk.FreeGB, $MinFreeGB)
+        Write-OSSetupLog -Level Warning -Message ('Espace libre sur {0} : {1:N1} Go (moins de {2} Go). Les logiciels choisis et leurs données peuvent remplir le disque : libérer de la place avant d''appliquer, ou alléger la sélection.' -f $disk.Drive, $disk.FreeGB, $MinFreeGB)
     }
 }
