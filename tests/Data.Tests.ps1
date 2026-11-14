@@ -293,6 +293,33 @@ Describe 'Import-OSSetupData' {
     }
 }
 
+Describe 'Schéma des éléments' {
+    BeforeAll {
+        $schema = Join-Path -Path $repoRoot -ChildPath 'schemas\item.schema.json'
+        $test = {
+            param($Action)
+            $json = ConvertTo-Json -Depth 5 -InputObject ([ordered]@{ id = 'x'; name = 'X'; category = 'test'; platforms = @('windows'); actions = @($Action) })
+            Test-Json -Json $json -SchemaFile $schema -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'shortcut : from obligatoire pour créer, interdit pour supprimer' {
+        & $test @{ provider = 'shortcut'; path = 'C:\a.lnk'; from = 'C:\b.lnk' } | Should -BeTrue
+        & $test @{ provider = 'shortcut'; path = 'C:\a.lnk'; from = 'C:\b.lnk'; present = $true } | Should -BeTrue
+        & $test @{ provider = 'shortcut'; path = 'C:\a.lnk'; present = $false } | Should -BeTrue
+        & $test @{ provider = 'shortcut'; path = 'C:\a.lnk' } | Should -BeFalse
+        & $test @{ provider = 'shortcut'; path = 'C:\a.lnk'; present = $true } | Should -BeFalse
+        & $test @{ provider = 'shortcut'; path = 'C:\a.lnk'; present = $false; from = 'C:\b.lnk' } | Should -BeFalse
+        & $test @{ provider = 'shortcut'; path = 'C:\a.lnk'; target = 'C:\app.exe' } | Should -BeFalse
+    }
+
+    It 'appx : nom accepté par Stop-OSSetupStoreUpdate' {
+        & $test @{ provider = 'appx'; name = 'Microsoft.Xbox.TCUI' } | Should -BeTrue
+        & $test @{ provider = 'appx'; name = 'Microsoft.*' } | Should -BeFalse
+        & $test @{ provider = 'appx'; name = "a'; b" } | Should -BeFalse
+    }
+}
+
 Describe 'Format-OSSetupSchemaError' {
     BeforeAll {
         $newError = { param([string]$Message) [System.Management.Automation.ErrorRecord]::new([Exception]::new($Message), 'x', 'InvalidData', $null) }

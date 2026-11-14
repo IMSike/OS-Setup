@@ -399,15 +399,17 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["provider", "path"],
+      "oneOf": [
+        { "required": ["from"], "properties": { "present": { "const": true } } },
+        { "required": ["present"], "properties": { "present": { "const": false } }, "not": { "required": ["from"] } }
+      ],
       "properties": {
         "provider": { "const": "shortcut" },
         "description": { "type": "string" },
         "path": { "description": "Chemin du raccourci (variables autorisées, ex. {{Desktop}}\\Vivaldi.lnk).", "type": "string", "pattern": "\\.lnk$" },
-        "present": { "description": "false : supprimer le raccourci (par défaut : le créer).", "type": "boolean", "default": true },
-        "from": { "description": "Raccourci existant à copier (ex. celui du menu Démarrer).", "type": "string" },
-        "target": { "description": "Cible du raccourci à créer, à défaut de from.", "type": "string" },
-        "unlessSelected": { "description": "Identifiant d'un élément : si celui-ci est retenu, l'action est sans objet (ex. ne pas supprimer le raccourci d'un installeur quand l'utilisateur a demandé ce raccourci).", "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
-        "arguments": { "type": "string" }
+        "present": { "description": "false : supprimer le raccourci, sans from (par défaut : le créer).", "type": "boolean", "default": true },
+        "from": { "description": "Raccourci existant à copier (ex. celui du menu Démarrer), obligatoire pour créer le raccourci.", "type": "string", "minLength": 1 },
+        "unlessSelected": { "description": "Identifiant d'un élément : si celui-ci est retenu, l'action est sans objet (ex. ne pas supprimer le raccourci d'un installeur quand l'utilisateur a demandé ce raccourci).", "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" }
       }
     },
     "appxAction": {
@@ -417,7 +419,7 @@
       "properties": {
         "provider": { "const": "appx" },
         "description": { "type": "string" },
-        "name": { "description": "Nom du paquet de l'application du Store (Get-AppxPackage -Name), supprimée pour tous les comptes et déprovisionnée. Admin requis.", "type": "string", "minLength": 1 }
+        "name": { "description": "Nom du paquet de l'application du Store (Get-AppxPackage -Name), supprimée pour tous les comptes et déprovisionnée. Admin requis. Lettres, chiffres, points, tirets et soulignés, comme l'exige Stop-OSSetupStoreUpdate.", "type": "string", "pattern": "^[\\w.-]+$" }
       }
     },
     "windowsCapabilityAction": {
