@@ -217,6 +217,10 @@ Describe 'Get-OSSetupPlan : unlessSelected' {
 }
 
 Describe 'Get-OSSetupPlan : contexte de plan' {
+    AfterEach {
+        Remove-Variable -Name OSSetupTestPlanning -Scope Global -ErrorAction SilentlyContinue
+    }
+
     It 'signale le plan aux tests de présence (Planning), puis le retire du contexte' {
         $data = [pscustomobject]@{
             Items = @{
@@ -232,6 +236,5 @@ Describe 'Get-OSSetupPlan : contexte de plan' {
         @(Get-OSSetupPlan -Data $data -ItemId 'app' -Context $context)[0].Status | Should -Be 'ok'
         $global:OSSetupTestPlanning | Should -BeTrue
         $context.ContainsKey('Planning') | Should -BeFalse
-        Remove-Variable -Name OSSetupTestPlanning -Scope Global
     }
 }
