@@ -85,6 +85,54 @@ Describe 'Provider logon-task : conformité' {
             (& (Get-OSSetupProvider -Name 'logon-task').Read $Action @{})['exists'] | Should -BeFalse
         }
     }
+
+    It 'n''est pas conforme quand la tâche lance un autre script, ou des arguments modifiés' {
+        InModuleScope OSSetup -Parameters @{ Action = $logonAction } {
+            param($Action)
+            $powershell = Get-OSSetupWindowsPowerShellPath
+            foreach ($arguments in @(
+                    (Get-OSSetupLogonTaskArgument -Script 'C:\Program Files\OS-Setup\autre.ps1')
+                    '-NoProfile -ExecutionPolicy Bypass -File "C:\Program Files\OS-Setup\test.ps1"'
+                )) {
+                $task = [pscustomobject]@{
+                    State     = 'Ready'
+                    Actions   = @([pscustomobject]@{ Execute = $powershell; Arguments = $arguments })
+                    Principal = [pscustomobject]@{ RunLevel = 'Highest' }
+                }
+                Mock -CommandName Get-OSSetupScheduledTask -MockWith { $task }
+                & (Get-OSSetupProvider -Name 'logon-task').Test $Action @{} | Should -BeFalse
+            }
+        }
+    }
+}
+
+Describe 'Get-OSSetupLogonTaskArgument' {
+    It 'lance le script sans profil, sans fenêtre ni question, chemin à espaces entre guillemets en dernier' {
+        $arguments = InModuleScope OSSetup { Get-OSSetupLogonTaskArgument -Script 'C:\Program Files\OS-Setup\docker\entretien.ps1' }
+        $arguments | Should -BeLike '*-File "C:\Program Files\OS-Setup\docker\entretien.ps1"'
+        foreach ($switch in '-NoProfile', '-NonInteractive', '-WindowStyle Hidden', '-ExecutionPolicy Bypass') {
+            $arguments | Should -BeLike "*$switch *"
+        }
+    }
+}
+
+Describe 'Provider logon-task : enregistrement' {
+    It 'crée une tâche à l''ouverture de session du compte, droits les plus élevés, qui lance le script par Windows PowerShell' {
+        # Seul l'enregistrement est simulé : les objets de la tâche (en mémoire, sans effet) sont les vrais.
+        Mock -ModuleName OSSetup Register-ScheduledTask {}
+        InModuleScope OSSetup {
+            & (Get-OSSetupProvider -Name 'logon-task').Invoke @{ name = 'OS-Setup - test'; script = 'C:\Program Files\OS-Setup\test.ps1'; taskDescription = 'T.' } @{}
+        }
+        $user = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+        $powershell = InModuleScope OSSetup { Get-OSSetupWindowsPowerShellPath }
+        $arguments = InModuleScope OSSetup { Get-OSSetupLogonTaskArgument -Script 'C:\Program Files\OS-Setup\test.ps1' }
+        Should -Invoke -ModuleName OSSetup Register-ScheduledTask -Times 1 -Exactly -ParameterFilter {
+            $TaskName -eq 'OS-Setup - test' -and $Force -and
+            @($Action).Count -eq 1 -and $Action.Execute -eq $powershell -and $Action.Arguments -eq $arguments -and
+            $Trigger.CimClass.CimClassName -eq 'MSFT_TaskLogonTrigger' -and $Trigger.UserId -eq $user -and
+            $Principal.UserId -eq $user -and "$($Principal.RunLevel)" -eq 'Highest' -and "$($Principal.LogonType)" -eq 'Interactive'
+        }
+    }
 }
 
 Describe 'Schéma : aucune propriété que le provider ne lit pas' {

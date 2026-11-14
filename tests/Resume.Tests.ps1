@@ -304,6 +304,53 @@ Describe 'Register-OSSetupResumeTask' {
     }
 }
 
+Describe 'Register-OSSetupResumeTask : tâche enregistrée' {
+    It 'relance le compte courant à l''ouverture de session, droits les plus élevés, sans limite de durée' {
+        # Seul l'enregistrement est simulé : les objets de la tâche (en mémoire, sans effet) sont les vrais.
+        Mock -ModuleName OSSetup Register-ScheduledTask {}
+        Register-OSSetupResumeTask -ResumeRoot 'C:\Program Files\OS-Setup\resume'
+        $user = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+        Should -Invoke -ModuleName OSSetup Register-ScheduledTask -Times 1 -Exactly -ParameterFilter {
+            $TaskName -eq 'OS-Setup - reprise' -and $Force -and
+            $Action.WorkingDirectory -eq 'C:\Program Files\OS-Setup' -and
+            $Trigger.CimClass.CimClassName -eq 'MSFT_TaskLogonTrigger' -and $Trigger.UserId -eq $user -and
+            $Principal.UserId -eq $user -and "$($Principal.RunLevel)" -eq 'Highest' -and "$($Principal.LogonType)" -eq 'Interactive' -and
+            $Settings.ExecutionTimeLimit -eq 'PT0S'
+        }
+    }
+}
+
+Describe 'Unregister-OSSetupResumeTask' {
+    BeforeEach {
+        Mock -ModuleName OSSetup Unregister-ScheduledTask {}
+    }
+
+    It 'supprime la tâche de reprise quand elle existe, sans confirmation' {
+        Mock -ModuleName OSSetup Get-ScheduledTask { [pscustomobject]@{ TaskName = 'OS-Setup - reprise' } } -ParameterFilter { $TaskName -eq 'OS-Setup - reprise' }
+        Unregister-OSSetupResumeTask
+        Should -Invoke -ModuleName OSSetup Unregister-ScheduledTask -Times 1 -Exactly -ParameterFilter {
+            $TaskName -eq 'OS-Setup - reprise' -and $PesterBoundParameters['Confirm'] -eq $false
+        }
+    }
+
+    It 'ne fait rien sans tâche' {
+        Mock -ModuleName OSSetup Get-ScheduledTask {}
+        Unregister-OSSetupResumeTask
+        Should -Invoke -ModuleName OSSetup Unregister-ScheduledTask -Times 0 -Exactly
+    }
+}
+
+Describe 'Test-OSSetupResumePwsh' {
+    It 'n''autorise la reprise automatique que si le pwsh.exe du MSI existe' {
+        $pwsh = Join-Path -Path $TestDrive -ChildPath 'PowerShell\7\pwsh.exe'
+        Mock -ModuleName OSSetup Get-OSSetupResumePwshPath { $pwsh }
+        Test-OSSetupResumePwsh | Should -BeFalse
+        New-Item -Path (Split-Path -Path $pwsh -Parent) -ItemType Directory -Force | Out-Null
+        Set-Content -LiteralPath $pwsh -Value ''
+        Test-OSSetupResumePwsh | Should -BeTrue
+    }
+}
+
 Describe 'Copie figée de la reprise' {
     BeforeEach {
         $source = Join-Path -Path $TestDrive -ChildPath "src-$([guid]::NewGuid().ToString('N'))"
