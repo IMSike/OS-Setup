@@ -211,7 +211,9 @@ function Install-WingetPackage {
 function Initialize-BootstrapRepository {
     <#
     Copie du dépôt utilisée par le setup. Lancé depuis un clone (setup.ps1 à côté du script) : ce clone, tel quel.
-    Sinon : clone dans Destination, ou mise à jour de la copie qui s'y trouve déjà.
+    Sinon : clone dans Destination, ou mise à jour de la copie qui s'y trouve déjà. Avec -BranchRequested, une copie
+    existante sur une autre branche y est d'abord basculée, seulement si elle n'a aucune modification locale (sinon
+    arrêt avec un message : rien n'est écrasé).
     Retourne @{ Root = <dossier>; Cloned = <vrai si ce bootstrap vient de cloner> }.
     #>
     [CmdletBinding()]
@@ -222,12 +224,35 @@ function Initialize-BootstrapRepository {
         [Parameter(Mandatory)][string]$Destination,
         # Dossier du script : une copie du dépôt s'il contient setup.ps1.
         [AllowEmptyString()]
-        [string]$ScriptRoot
+        [string]$ScriptRoot,
+        # -Branch donné explicitement : sans lui, une copie existante reste sur sa branche courante.
+        [switch]$BranchRequested
     )
     if ($ScriptRoot -and (Test-Path -LiteralPath (Join-Path -Path $ScriptRoot -ChildPath 'setup.ps1'))) {
+        if ($BranchRequested) {
+            Write-Host -Object "    -Branch ignoré : le clone d'où le bootstrap est lancé est utilisé tel quel ($ScriptRoot)." -ForegroundColor Yellow
+        }
         return @{ Root = $ScriptRoot; Cloned = $false }
     }
     if (Test-Path -LiteralPath (Join-Path -Path $Destination -ChildPath '.git')) {
+        if ($BranchRequested) {
+            $current = "$(& git -C $Destination rev-parse --abbrev-ref HEAD)".Trim()
+            if ($LASTEXITCODE -ne 0) { throw "Branche de la copie du dépôt illisible ($Destination)." }
+            if ($current -ne $Branch) {
+                # Basculement sans risque seulement : aucune modification locale (fichiers suivis ou non) à perdre.
+                $changes = @(& git -C $Destination status --porcelain)
+                if ($LASTEXITCODE -ne 0) { throw "État de la copie du dépôt illisible ($Destination)." }
+                if ($changes.Count -gt 0) {
+                    throw ("La copie du dépôt dans {0} est sur la branche « {1} » et contient des modifications locales : " +
+                        "elle n'est pas basculée sur « {2} ». Enregistrez ou mettez de côté ces modifications, ou changez " +
+                        "de branche vous-même (git -C ""{0}"" switch {2}), puis relancez le bootstrap.") -f $Destination, $current, $Branch
+                }
+                Write-Step "Basculement du dépôt dans $Destination de la branche $current vers $Branch"
+                & git -C $Destination fetch origin
+                if ($LASTEXITCODE -eq 0) { & git -C $Destination checkout $Branch }
+                if ($LASTEXITCODE -ne 0) { throw "Échec du basculement du dépôt sur la branche $Branch." }
+            }
+        }
         Write-Step "Mise à jour du dépôt dans $Destination"
         & git -C $Destination pull --ff-only
         if ($LASTEXITCODE -ne 0) { throw 'Échec de la mise à jour du dépôt.' }
@@ -408,7 +433,8 @@ try {
     Install-WingetPackage -Id 'Microsoft.PowerShell' -Command 'pwsh' -InstallerType 'wix'
 
     # Lancé depuis un clone : on l'utilise tel quel. Sinon : clone ou mise à jour dans $Destination.
-    $repository = Initialize-BootstrapRepository -RepoUrl $RepoUrl -Branch $Branch -Destination $Destination -ScriptRoot $PSScriptRoot
+    $repository = Initialize-BootstrapRepository -RepoUrl $RepoUrl -Branch $Branch -Destination $Destination -ScriptRoot $PSScriptRoot `
+        -BranchRequested:($PSBoundParameters.ContainsKey('Branch'))
     $repoRoot = $repository.Root
     # Seule une copie clonée par le bootstrap peut être supprimée en fin de setup : jamais un clone de développement,
     # qu'il soit lancé directement ou placé dans $Destination.

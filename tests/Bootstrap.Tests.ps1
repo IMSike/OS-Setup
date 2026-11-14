@@ -56,6 +56,51 @@ Describe 'bootstrap.ps1 : copie du dépôt et trace pour le nettoyage de fin' {
         }
     }
 
+    Context 'copie existante sur une autre branche que -Branch' {
+        BeforeEach {
+            New-Item -Path "$destination\.git" -ItemType Directory -Force | Out-Null
+            $global:OSSetupTestGitStatus = @()
+            Mock git {
+                $global:OSSetupTestGit.Add("$args")
+                $global:LASTEXITCODE = 0
+                if ($args -contains 'rev-parse') { return 'dev' }
+                if ($args -contains 'status') { return $global:OSSetupTestGitStatus }
+            }
+        }
+
+        AfterEach {
+            Remove-Variable -Name OSSetupTestGitStatus -Scope Global -ErrorAction SilentlyContinue
+        }
+
+        It 'reste sur la branche courante quand -Branch n''est pas donné' {
+            Initialize-BootstrapRepository -RepoUrl 'u' -Branch 'main' -Destination $destination -ScriptRoot '' | Out-Null
+            $global:OSSetupTestGit | Should -Be @("-C $destination pull --ff-only")
+        }
+
+        It 'bascule sur la branche demandée une copie sans modification locale, puis la met à jour' {
+            Initialize-BootstrapRepository -RepoUrl 'u' -Branch 'main' -Destination $destination -ScriptRoot '' -BranchRequested | Out-Null
+            $global:OSSetupTestGit | Should -Be @(
+                "-C $destination rev-parse --abbrev-ref HEAD"
+                "-C $destination status --porcelain"
+                "-C $destination fetch origin"
+                "-C $destination checkout main"
+                "-C $destination pull --ff-only"
+            )
+        }
+
+        It 'ne bascule pas une copie qui a des modifications locales et explique quoi faire' {
+            $global:OSSetupTestGitStatus = @(' M setup.ps1')
+            { Initialize-BootstrapRepository -RepoUrl 'u' -Branch 'main' -Destination $destination -ScriptRoot '' -BranchRequested } |
+                Should -Throw '*branche « dev »*modifications locales*pas basculée sur « main »*'
+            $global:OSSetupTestGit | Where-Object { $_ -match 'checkout|pull|fetch|reset|stash' } | Should -BeNullOrEmpty
+        }
+
+        It 'ne fait que mettre à jour une copie déjà sur la branche demandée' {
+            Initialize-BootstrapRepository -RepoUrl 'u' -Branch 'dev' -Destination $destination -ScriptRoot '' -BranchRequested | Out-Null
+            $global:OSSetupTestGit | Should -Be @("-C $destination rev-parse --abbrev-ref HEAD", "-C $destination pull --ff-only")
+        }
+    }
+
     It 'garde la copie clonée par un bootstrap précédent, et ses outils installés' {
         New-Item -Path "$destination\state" -ItemType Directory -Force | Out-Null
         @{ ownsClone = $true; bootstrapScript = $null; installedTools = @('Git.Git') } | ConvertTo-Json |
