@@ -18,13 +18,23 @@ param()
     Test     = {
         param($Action, $Context)
         $wantEnabled = $Action['enabled'] -ne $false
+        # Test est appelé plusieurs fois par action (plan, revérification, contrôle final) : l'absence de la
+        # fonctionnalité n'est journalisée qu'une fois par exécution.
+        $logMissing = {
+            if (-not (Get-Variable -Name WindowsFeatureMissingLogged -Scope Script -ErrorAction SilentlyContinue)) {
+                $script:WindowsFeatureMissingLogged = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+            }
+            if ($script:WindowsFeatureMissingLogged.Add($Action['name'])) {
+                Write-OSSetupLog -Level Detail -Message "  fonctionnalité $($Action['name']) inexistante dans cette version de Windows : rien à désactiver"
+            }
+        }
         if (Test-OSSetupElevated) {
             # « Enable Pending » (activée, redémarrage en attente) n'est pas conforme : l'activation est relancée
             # et signale de nouveau le redémarrage nécessaire. Idem pour « Disable Pending ».
             $output = & dism.exe /English /Online /Get-FeatureInfo "/FeatureName:$($Action['name'])"
             # 0x800F080C : nom de fonctionnalité inconnu de cette version de Windows.
             if ($LASTEXITCODE -eq -2146498548 -and -not $wantEnabled) {
-                Write-OSSetupLog -Level Detail -Message "  fonctionnalité $($Action['name']) inexistante dans cette version de Windows : rien à désactiver"
+                & $logMissing
                 return $true
             }
             if ($LASTEXITCODE -ne 0) { throw "Fonctionnalité '$($Action['name'])' introuvable (dism, code $LASTEXITCODE)." }
@@ -34,7 +44,7 @@ param()
         # Sans droits administrateur (simulation) : lecture CIM, 1 = activée, 2 = désactivée.
         $feature = Get-CimInstance -ClassName Win32_OptionalFeature -Filter "Name='$($Action['name'])'"
         if (-not $feature -and -not $wantEnabled) {
-            Write-OSSetupLog -Level Detail -Message "  fonctionnalité $($Action['name']) inexistante dans cette version de Windows : rien à désactiver"
+            & $logMissing
             return $true
         }
         if (-not $feature) { throw "Fonctionnalité '$($Action['name'])' introuvable." }

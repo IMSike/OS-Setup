@@ -17,7 +17,7 @@ param()
 
     Test     = {
         param($Action, $Context)
-        foreach ($entry in Get-OSSetupStartupEntry -Name $Action['name'] -Scope $(if ($Action['scope']) { $Action['scope'] } else { 'user' })) {
+        foreach ($entry in Get-OSSetupStartupEntry -Name $Action['name'] -Scope ($Action['scope'] ?? 'user')) {
             if ($entry.Enabled) { return $false }
         }
         $true
@@ -26,14 +26,14 @@ param()
     Read     = {
         param($Action, $Context)
         [ordered]@{
-            entries = @(Get-OSSetupStartupEntry -Name $Action['name'] -Scope $(if ($Action['scope']) { $Action['scope'] } else { 'user' }) |
+            entries = @(Get-OSSetupStartupEntry -Name $Action['name'] -Scope ($Action['scope'] ?? 'user') |
                     ForEach-Object { [ordered]@{ name = $_.Name; enabled = $_.Enabled; approvedKey = $_.ApprovedKey } })
         }
     }
 
     Invoke   = {
         param($Action, $Context)
-        foreach ($entry in Get-OSSetupStartupEntry -Name $Action['name'] -Scope $(if ($Action['scope']) { $Action['scope'] } else { 'user' }) | Where-Object Enabled) {
+        foreach ($entry in Get-OSSetupStartupEntry -Name $Action['name'] -Scope ($Action['scope'] ?? 'user') | Where-Object Enabled) {
             Disable-OSSetupStartupEntry -Entry $entry -Confirm:$false
         }
     }

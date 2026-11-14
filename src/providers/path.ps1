@@ -13,16 +13,15 @@ param()
         "ajouter $($Action['path']) au PATH ($scope)"
     }
 
+    # Portée « user » ou « machine » du catalogue, transmise telle quelle (les fonctions du PATH ignorent la casse).
     Test     = {
         param($Action, $Context)
-        $scope = if ($Action['scope'] -eq 'machine') { 'Machine' } else { 'User' }
         $wanted = $Action['path'].TrimEnd('\')
-        [bool](Get-OSSetupPathEntry -Scope $scope | Where-Object { $_.TrimEnd('\') -eq $wanted })
+        [bool](Get-OSSetupPathEntry -Scope ($Action['scope'] ?? 'user') | Where-Object { $_.TrimEnd('\') -eq $wanted })
     }
 
     Invoke   = {
         param($Action, $Context)
-        $scope = if ($Action['scope'] -eq 'machine') { 'Machine' } else { 'User' }
-        Add-OSSetupPathEntry -Path $Action['path'] -Scope $scope -Confirm:$false
+        Add-OSSetupPathEntry -Path $Action['path'] -Scope ($Action['scope'] ?? 'user') -Confirm:$false
     }
 }

@@ -186,6 +186,45 @@ Describe 'Provider vscode-extension : liste des extensions' {
     }
 }
 
+Describe 'Provider windows-feature : fonctionnalité inexistante' {
+    It 'ne journalise son absence qu''une fois, quel que soit le nombre de tests' {
+        InModuleScope OSSetup {
+            Remove-Variable -Name WindowsFeatureMissingLogged -Scope Script -ErrorAction SilentlyContinue
+            Mock -CommandName Write-OSSetupLog
+            Mock -CommandName Test-OSSetupElevated -MockWith { $false }
+            Mock -CommandName Get-CimInstance
+            $provider = Get-OSSetupProvider -Name 'windows-feature'
+            foreach ($i in 1..3) { & $provider.Test @{ name = 'MicrosoftWindowsPowerShellV2Root'; enabled = $false } @{} | Should -BeTrue }
+            Should -Invoke -CommandName Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -like '*MicrosoftWindowsPowerShellV2Root inexistante*' }
+            Remove-Variable -Name WindowsFeatureMissingLogged -Scope Script -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+Describe 'Providers path et startup-entry : portée' {
+    It 'path transmet la portée du catalogue, compte par défaut' {
+        InModuleScope OSSetup {
+            Mock -CommandName Get-OSSetupPathEntry -MockWith { 'C:\Outils\' }
+            $provider = Get-OSSetupProvider -Name 'path'
+            & $provider.Test @{ path = 'C:\Outils' } @{} | Should -BeTrue
+            Should -Invoke -CommandName Get-OSSetupPathEntry -Times 1 -Exactly -ParameterFilter { $Scope -eq 'User' }
+            & $provider.Test @{ path = 'C:\Outils'; scope = 'machine' } @{} | Should -BeTrue
+            Should -Invoke -CommandName Get-OSSetupPathEntry -Times 1 -Exactly -ParameterFilter { $Scope -eq 'Machine' }
+        }
+    }
+
+    It 'startup-entry transmet la portée du catalogue, compte par défaut' {
+        InModuleScope OSSetup {
+            Mock -CommandName Get-OSSetupStartupEntry
+            $provider = Get-OSSetupProvider -Name 'startup-entry'
+            & $provider.Test @{ name = 'Discord' } @{} | Should -BeTrue
+            & $provider.Test @{ name = 'Discord'; scope = 'machine' } @{} | Should -BeTrue
+            Should -Invoke -CommandName Get-OSSetupStartupEntry -Times 1 -Exactly -ParameterFilter { $Scope -eq 'user' }
+            Should -Invoke -CommandName Get-OSSetupStartupEntry -Times 1 -Exactly -ParameterFilter { $Scope -eq 'machine' }
+        }
+    }
+}
+
 Describe 'Provider herdr-plugin' {
     BeforeAll {
         # Pester ne simule qu'une commande existante : une fonction vide remplace herdr là où il manque (ex. runner CI).
