@@ -228,8 +228,7 @@ Describe 'src/cleanup.ps1' {
         }
 
         function New-TestCleanupWork {
-            # Dossier de travail et copie du script, avec sa configuration.
-            param([hashtable]$Config)
+            # Dossier de travail et copie du script, avec le chemin de sa configuration.
             $work = Get-TestRealPath -Path (Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid().ToString('N')))
             New-Item -Path $work -ItemType Directory -Force | Out-Null
             $script = Join-Path -Path $work -ChildPath 'cleanup.ps1'
