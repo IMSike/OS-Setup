@@ -152,6 +152,40 @@ Describe 'Provider windows-update : description' {
     }
 }
 
+Describe 'Provider vscode-extension : liste des extensions' {
+    BeforeAll {
+        # Pester ne simule qu'une commande existante : des fonctions vides remplacent les éditeurs absents.
+        $script:editorStubs = @('code', 'cursor' | Where-Object { -not (Get-Command -Name $_ -ErrorAction SilentlyContinue) })
+        foreach ($stub in $script:editorStubs) { New-Item -Path "Function:\global:$stub" -Value {} | Out-Null }
+    }
+
+    AfterAll {
+        foreach ($stub in $script:editorStubs) { Remove-Item -Path "Function:\$stub" -ErrorAction SilentlyContinue }
+    }
+
+    It 'lit la liste une fois par passe et par éditeur, puis la relit après Clear-OSSetupStateCache' {
+        InModuleScope OSSetup {
+            Clear-OSSetupStateCache
+            Mock -CommandName Get-Command -MockWith { [pscustomobject]@{ Name = "$Name.cmd" } } -ParameterFilter { $Name -in 'code', 'cursor' }
+            Mock -CommandName code -MockWith { 'dbaeumer.vscode-eslint'; 'esbenp.prettier-vscode' }
+            Mock -CommandName cursor -MockWith { 'dbaeumer.vscode-eslint' }
+            $provider = Get-OSSetupProvider -Name 'vscode-extension'
+            & $provider.Test @{ id = 'dbaeumer.vscode-eslint' } @{} | Should -BeTrue
+            & $provider.Test @{ id = 'esbenp.prettier-vscode' } @{} | Should -BeTrue
+            & $provider.Test @{ id = 'ms-python.python' } @{} | Should -BeFalse
+            & $provider.Test @{ id = 'esbenp.prettier-vscode'; editor = 'cursor' } @{} | Should -BeFalse
+            & $provider.Test @{ id = 'dbaeumer.vscode-eslint'; editor = 'cursor' } @{} | Should -BeTrue
+            Should -Invoke -CommandName code -Times 1 -Exactly
+            Should -Invoke -CommandName cursor -Times 1 -Exactly
+
+            Clear-OSSetupStateCache
+            & $provider.Test @{ id = 'dbaeumer.vscode-eslint' } @{} | Should -BeTrue
+            Should -Invoke -CommandName code -Times 2 -Exactly
+            Clear-OSSetupStateCache
+        }
+    }
+}
+
 Describe 'Provider herdr-plugin' {
     BeforeAll {
         # Pester ne simule qu'une commande existante : une fonction vide remplace herdr là où il manque (ex. runner CI).

@@ -13,12 +13,11 @@ param()
         "extension $editorName $($Action['id'])"
     }
 
+    # Liste des extensions lue une fois par passe et par éditeur (une lecture par action serait lente).
     Test     = {
         param($Action, $Context)
         $command = if ($Action['editor']) { $Action['editor'] } else { 'code' }
-        if (-not (Get-Command -Name $command -CommandType Application -ErrorAction SilentlyContinue)) { return $false }
-        $installed = @(& $command --list-extensions 2>$null)
-        [bool]($installed | Where-Object { $_ -eq $Action['id'] })
+        [bool](Get-OSSetupEditorExtension -Command $command | Where-Object { $_ -eq $Action['id'] })
     }
 
     Invoke   = {

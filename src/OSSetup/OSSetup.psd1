@@ -51,6 +51,8 @@
         'Get-OSSetupDeviceProblem'
         'Install-OSSetupWindowsUpdate'
         'Write-OSSetupDeviceReport'
+        # Editor.ps1
+        'Get-OSSetupEditorExtension'
         # Elevation.ps1
         'Assert-OSSetupInteractiveUser'
         'ConvertTo-OSSetupCommandArgument'
