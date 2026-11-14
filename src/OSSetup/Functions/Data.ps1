@@ -19,6 +19,11 @@ function Read-OSSetupJsonFile {
         [System.Collections.Generic.List[string]]$Errors
     )
     $json = Get-Content -Path $Path -Raw -Encoding utf8
+    # Fichier vide : Test-Json refuserait la chaîne vide par une erreur de liaison, sans nom de fichier.
+    if ([string]::IsNullOrWhiteSpace($json)) {
+        $Errors.Add("${Path} : fichier vide.")
+        return $null
+    }
     $schemaErrors = $null
     $valid = Test-Json -Json $json -SchemaFile $SchemaPath -ErrorVariable schemaErrors -ErrorAction SilentlyContinue
     if (-not $valid) {

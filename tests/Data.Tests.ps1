@@ -279,6 +279,18 @@ Describe 'Import-OSSetupData' {
         # Seul le texte du moteur est vérifié : les détails de Test-Json dépendent de la version de PowerShell et de sa langue.
         { Import-OSSetupData -Root $root } | Should -Throw '*bad.json : non conforme au schéma item.schema.json*'
     }
+
+    It 'signale un fichier vide par son nom' {
+        $root = Join-Path -Path $TestDrive -ChildPath 'empty'
+        Copy-Item -Path (Join-Path -Path $repoRoot -ChildPath 'schemas') -Destination (Join-Path -Path $root -ChildPath 'schemas') -Recurse
+        New-Item -Path (Join-Path -Path $root -ChildPath 'catalog\test') -ItemType Directory -Force | Out-Null
+        New-Item -Path (Join-Path -Path $root -ChildPath 'profiles') -ItemType Directory -Force | Out-Null
+        New-Item -Path (Join-Path -Path $root -ChildPath 'catalog\test\vide.json') -ItemType File | Out-Null
+        Set-Content -Path (Join-Path -Path $root -ChildPath 'profiles\blanc.json') -Value '  '
+        $message = try { Import-OSSetupData -Root $root; $null } catch { $_.Exception.Message }
+        $message | Should -BeLike '*vide.json : fichier vide.*'
+        $message | Should -BeLike '*blanc.json : fichier vide.*'
+    }
 }
 
 Describe 'Format-OSSetupSchemaError' {
