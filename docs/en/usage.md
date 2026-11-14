@@ -89,6 +89,8 @@ Apart from the resume copy, these folders are inside the repository copy and ign
 
 If an item requires a reboot, the setup saves its state, creates a scheduled resume task and restarts the machine (10 s countdown that a key press postpones). It resumes by itself at the next logon, with no new UAC prompt, running the setup as it was when the reboot was requested (a change made in the repository in between is ignored).
 
+The automatic resume only runs the PowerShell 7 installed by its MSI (`%ProgramFiles%\PowerShell\7\pwsh.exe`, see [ADR 0005](adr/0005-resume-from-administrators-only-copy.md)). The bootstrap installs it, unless another PowerShell 7 was already there (Microsoft Store, zip archive…). Without it, the setup creates no resume task: it still restarts the machine, and asks you in the log to run it again by hand afterwards with the same choices (`./setup.ps1 -AnswerFile state\answers-last.json`).
+
 Some settings only take effect at the next logon: the session is then closed at the end of the setup, in the same way.
 
 After the setup ends, the cleanup keeps running for a few minutes in the background: do not restart the machine right away.

@@ -238,6 +238,31 @@ function Register-OSSetupResumeTask {
     }
 }
 
+function Get-OSSetupResumePwshPath {
+    <#
+    .SYNOPSIS
+        pwsh.exe du MSI de PowerShell 7 (%ProgramFiles%\PowerShell\7), le seul que le lanceur de la reprise exécute :
+        chemin fixe, modifiable par les seuls administrateurs (ADR 0005). Même chemin que src\resume.ps1, qui ne charge
+        pas le module : garder les deux alignés.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param()
+    [IO.Path]::Combine([Environment]::GetFolderPath('ProgramFiles'), 'PowerShell', '7', 'pwsh.exe')
+}
+
+function Test-OSSetupResumePwsh {
+    <#
+    .SYNOPSIS
+        Vrai si la reprise automatique est possible : le pwsh.exe du MSI de PowerShell 7 est installé. Le bootstrap ne
+        l'installe pas quand un autre PowerShell 7 est déjà présent (Microsoft Store, archive…).
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param()
+    [IO.File]::Exists((Get-OSSetupResumePwshPath))
+}
+
 function Unregister-OSSetupResumeTask {
     [CmdletBinding(SupportsShouldProcess)]
     param()
@@ -337,18 +362,24 @@ function Request-OSSetupRestart {
     .SYNOPSIS
         Redémarre la machine. Sans -Immediate : compte à rebours de 10 secondes, une touche le reporte.
         Retourne $true si le redémarrage est lancé, $false s'il est reporté.
+    .PARAMETER Manual
+        Aucune reprise automatique n'est prévue : le message d'un redémarrage reporté demande de relancer le setup à la
+        main après le redémarrage.
     #>
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([bool])]
     param(
         [switch]$Immediate,
 
-        [int]$Seconds = 10
+        [int]$Seconds = 10,
+
+        [switch]$Manual
     )
     if (-not $Immediate -and
         -not (Wait-OSSetupCountdown -Label 'Redémarrage' -Hint ' — appuyez sur une touche pour le reporter' -Seconds $Seconds)) {
-        Write-OSSetupLog -Level Warning -Message ('Redémarrage reporté. Le setup reprendra automatiquement à la prochaine ' +
-            'ouverture de session, après un redémarrage.')
+        $next = if ($Manual) { 'Relancez le setup à la main après un redémarrage pour terminer.' }
+        else { 'Le setup reprendra automatiquement à la prochaine ouverture de session, après un redémarrage.' }
+        Write-OSSetupLog -Level Warning -Message "Redémarrage reporté. $next"
         return $false
     }
     if ($PSCmdlet.ShouldProcess($env:COMPUTERNAME, 'Redémarrer')) {

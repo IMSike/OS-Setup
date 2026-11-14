@@ -134,6 +134,20 @@ Describe 'setup.ps1 : redémarrage nécessaire' {
         $result.Names | Should -Not -Contain 'Invoke-OSSetupCleanup'
     }
 
+    It 'sans le PowerShell 7 du MSI, ne crée pas de tâche vouée à l''échec et demande de relancer à la main' {
+        $result = Invoke-TestSetup -Argument '-Profiles', 'base', '-AcceptDefaults', '-Yes', '-NoPause' -Returns @{
+            'Invoke-OSSetupPlan'     = @(@{ Status = 'reboot'; RebootRequired = $true })
+            'Test-OSSetupResumePwsh' = $false
+        }
+        $result.ExitCode | Should -Be 0
+        foreach ($name in 'Copy-OSSetupResumeCode', 'Save-OSSetupRunState', 'Register-OSSetupResumeTask', 'Write-OSSetupRunResult', 'Invoke-OSSetupCleanup') {
+            $result.Names | Should -Not -Contain $name
+        }
+        Get-TestCallArgument -Result $result -Name 'Request-OSSetupRestart' | Should -Contain '-Manual'
+        $warning = $result.Calls | Where-Object { $_.name -eq 'Write-OSSetupLog' -and "$($_.args)" -like '*reprise automatique est impossible*' }
+        "$($warning.args)" | Should -BeLike '*relancez le setup à la main*-AnswerFile*answers-last.json*'
+    }
+
     It 'si la tâche de reprise ne peut pas être créée, termine l''exécution en échec et retire ce qui a été préparé' {
         $result = Invoke-TestSetup -Argument '-Profiles', 'base', '-AcceptDefaults', '-Yes', '-NoPause' `
             -Returns @{ 'Invoke-OSSetupPlan' = @(@{ Status = 'reboot'; RebootRequired = $true }) } `

@@ -190,6 +190,41 @@ Describe 'Request-OSSetupRestart' {
         Request-OSSetupRestart -Immediate -WhatIf | Should -BeFalse
         Should -Invoke -ModuleName OSSetup Restart-Computer -Times 0 -Exactly
     }
+
+    It 'reporté sans reprise automatique prévue, demande de relancer le setup à la main' {
+        Mock -ModuleName OSSetup Wait-OSSetupCountdown { $false }
+        Request-OSSetupRestart -Manual | Should -BeFalse
+        Should -Invoke -ModuleName OSSetup Restart-Computer -Times 0 -Exactly
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -like '*Relancez le setup à la main*' }
+    }
+}
+
+Describe 'Lanceur de la reprise (src/resume.ps1)' {
+    It 'cherche le PowerShell 7 du MSI sous Program Files, comme le lanceur' {
+        Get-OSSetupResumePwshPath | Should -Be ([IO.Path]::Combine([Environment]::GetFolderPath('ProgramFiles'), 'PowerShell\7\pwsh.exe'))
+        Test-OSSetupResumePwsh | Should -Be ([IO.File]::Exists((Get-OSSetupResumePwshPath)))
+        Get-Content -LiteralPath (Join-Path -Path $PSScriptRoot -ChildPath '..\src\resume.ps1') -Raw |
+            Should -BeLike "*GetFolderPath('ProgramFiles'), 'PowerShell', '7', 'pwsh.exe')*"
+    }
+
+    It 'transmet le code de sortie du setup, ou s''arrête sur un message lisible sans PowerShell 7 (MSI)' {
+        $powershell = Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        if (-not (Test-Path -LiteralPath $powershell)) { Set-ItResult -Skipped -Because 'Windows PowerShell 5.1 absent'; return }
+        # Copie factice : son setup.ps1 sort seulement avec le code 3 (reprise demandée par -Resume).
+        $copy = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid().ToString('N'))
+        New-Item -Path $copy -ItemType Directory | Out-Null
+        Copy-Item -LiteralPath (Join-Path -Path $PSScriptRoot -ChildPath '..\src\resume.ps1') -Destination $copy
+        Set-Content -LiteralPath "$copy\setup.ps1" -Value 'param([switch]$Resume) if ($Resume) { exit 3 } exit 9'
+        # Entrée standard vide : la pause sur erreur se termine aussitôt.
+        $output = $null | & $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$copy\resume.ps1" 2>&1
+        if (Test-OSSetupResumePwsh) {
+            $LASTEXITCODE | Should -Be 3
+        }
+        else {
+            $LASTEXITCODE | Should -Be 1
+            "$output" | Should -BeLike '*PowerShell 7 (MSI) introuvable*Appuyez sur Entrée*'
+        }
+    }
 }
 
 Describe 'Register-OSSetupResumeTask' {

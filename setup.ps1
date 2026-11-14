@@ -273,17 +273,31 @@ try {
                 answers  = $answers
                 dataRoot = $dataRoot
             }
-            # Copie d'abord (elle garde son dossier state), puis l'état, puis la tâche qui les utilise.
-            Copy-OSSetupResumeCode -SourceRoot $root
-            Save-OSSetupRunState -StateRoot $runStateRoot -State $nextState
-            Register-OSSetupResumeTask -ResumeRoot $resumeRoot
-            # Seulement maintenant : si la copie, l'état ou la tâche échoue, l'exécution se termine en échec et le
-            # finally retire ce qui a déjà été créé, au lieu de laisser une reprise incomplète.
-            $waitingForRestart = $true
-            Write-OSSetupLog -Message ''
-            Write-OSSetupLog -Level Warning -Message 'Un redémarrage est nécessaire pour terminer. Le setup reprendra automatiquement à l''ouverture de session.'
-            # Reporté : l'état et la tâche restent en place, la reprise aura lieu après le prochain redémarrage.
-            [void](Request-OSSetupRestart -Immediate:$Yes)
+            if (Test-OSSetupResumePwsh) {
+                # Copie d'abord (elle garde son dossier state), puis l'état, puis la tâche qui les utilise.
+                Copy-OSSetupResumeCode -SourceRoot $root
+                Save-OSSetupRunState -StateRoot $runStateRoot -State $nextState
+                Register-OSSetupResumeTask -ResumeRoot $resumeRoot
+                # Seulement maintenant : si la copie, l'état ou la tâche échoue, l'exécution se termine en échec et le
+                # finally retire ce qui a déjà été créé, au lieu de laisser une reprise incomplète.
+                $waitingForRestart = $true
+                Write-OSSetupLog -Message ''
+                Write-OSSetupLog -Level Warning -Message 'Un redémarrage est nécessaire pour terminer. Le setup reprendra automatiquement à l''ouverture de session.'
+                # Reporté : l'état et la tâche restent en place, la reprise aura lieu après le prochain redémarrage.
+                [void](Request-OSSetupRestart -Immediate:$Yes)
+            }
+            else {
+                # Le lanceur de la reprise n'exécute que le pwsh.exe du MSI de PowerShell 7 (ADR 0005) : une tâche
+                # échouerait à chaque ouverture de session. Ni copie, ni état, ni tâche ; l'exécution n'est pas
+                # terminée pour autant (pas de nettoyage de fin) : elle se termine en relançant le setup à la main.
+                $waitingForRestart = $true
+                Write-OSSetupLog -Message ''
+                Write-OSSetupLog -Level Warning -Message ("Un redémarrage est nécessaire pour terminer, mais la reprise automatique est impossible : " +
+                    "PowerShell 7 n'est pas installé par son MSI ($(Get-OSSetupResumePwshPath)), le seul que la reprise exécute. " +
+                    "Après le redémarrage, relancez le setup à la main avec les mêmes choix : " +
+                    "./setup.ps1 -AnswerFile '$(Join-Path -Path $stateRoot -ChildPath 'answers-last.json')'")
+                [void](Request-OSSetupRestart -Immediate:$Yes -Manual)
+            }
         }
         elseif (-not $WhatIfPreference -and (Test-OSSetupElevated) -and
             ($results | Where-Object { $_.Status -eq 'done' -and $_.RequiresLogoff })) {
