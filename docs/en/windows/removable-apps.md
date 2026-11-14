@@ -63,8 +63,6 @@ Warnings: an item whose removal erases local data says so when it is selected (`
 
 ## Xbox (menu "Xbox à supprimer", Xbox to remove, nothing selected)
 
-To be decided with a future gaming profile.
-
 | Item | App (packages) | Implications |
 |---|---|---|
 | `remove-xbox-app` | Xbox app (`Microsoft.XboxApp`) | No more access to PC Game Pass from this app. |
@@ -97,15 +95,15 @@ To be decided with a future gaming profile.
 | Microsoft Store, purchase service | Updates of App Installer and of dependencies |
 | HEIF, VP9, WebM, WebP extensions | Codecs (images, videos) |
 | fr-FR language pack | Interface language |
-| **Edge**, WebView2 | Windows 10: uninstallation not supported (`NoRemove` = 1), reinstalled by updates, parts of Windows open it; WebView2 is used by many applications. Edge will be **neutralized** (startup launch, default browser, pinning, policies) with the browser configuration; full uninstallation to be studied for Windows 11. |
-| Windows Media Player | The only remaining player if Groove and Movies & TV are removed, until a player is chosen in a profile |
+| **Edge**, WebView2 | Windows 10: uninstallation not supported (`NoRemove` = 1), reinstalled by updates, parts of Windows open it; WebView2 is used by many applications. Edge is **neutralized** instead (startup launch, desktop shortcut, nags, taskbar pin; see [`browsers.md`](browsers.md)). |
+| Windows Media Player | The only remaining audio and video player if Groove and Movies & TV are removed (no profile installs another one) |
 | Paint, Notepad, Snipping Tool, Remote Desktop, Microsoft Print to PDF, OpenSSH client, languages, .NET | Useful or required by the system |
 | System apps (lock screen, Start, Windows Security…) | Windows components |
 | Microsoft Update Health Tools, updates (KB) | Windows Update components |
 | Driver panels (NVIDIA, Realtek…) | Hardware-specific |
-| **Windows PowerShell 5.1** | Part of Windows (not an optional feature); used by system components and by the setup bootstrap. PowerShell 7 will be the default of the `dev` profile. |
+| **Windows PowerShell 5.1** | Part of Windows (not an optional feature); used by system components and by the setup bootstrap. The `dev` profile installs PowerShell 7 alongside it and makes it the default shell of Windows Terminal (`pwsh`, `terminal-pwsh-default`, see [`development.md`](development.md)). |
 
 ## Other findings
 
-- **Sponsored apps** installed automatically (Candy Crush, etc.): prevented by `sponsored-apps-off` (see [`settings.md`](settings.md)). The Start menu keeps **download tiles** (arrow) for the promoted apps of the default layout; they install on first click. To be removed with the Start menu layout (desktop integration).
-- **Launch at startup** (VM inventory): OneDrive (removed above), Edge ("startup boost", after its first opening: handled with the browsers), Windows Security (✘, antivirus status), Edge update (✘ as long as Edge remains). The software installed by the setup will get a "do not launch at startup" setting when relevant.
+- **Sponsored apps** installed automatically (Candy Crush, etc.): prevented by `sponsored-apps-off` (see [`settings.md`](settings.md)). The Start menu keeps **download tiles** (arrow) for the promoted apps of the default layout; they install on first click. `start-no-tiles` removes them (see [`desktop.md`](desktop.md)).
+- **Launch at startup** (VM inventory): OneDrive (removed above), Edge ("startup boost", after its first opening: disabled by `edge-no-background`), Windows Security (✘, antivirus status), Edge update (✘ as long as Edge remains). Software installed by the setup that launches at startup has a setting to disable it: `brave-no-autostart` (see [`browsers.md`](browsers.md)), `discord-no-autostart` (see [`apps.md`](apps.md)); Docker Desktop is started by `docker-maintenance` (see [`development.md`](development.md)).

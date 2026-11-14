@@ -63,8 +63,6 @@ Avertissements : un élément dont la suppression efface des données locales le
 
 ## Xbox (menu « Xbox à supprimer », rien de coché)
 
-À trancher avec un futur profil jeu.
-
 | Élément | Application (paquets) | Implications |
 |---|---|---|
 | `remove-xbox-app` | Application Xbox (`Microsoft.XboxApp`) | Plus d'accès au Game Pass PC depuis cette application. |
@@ -97,15 +95,15 @@ Avertissements : un élément dont la suppression efface des données locales le
 | Microsoft Store, service d'achat | Mises à jour d'App Installer et de dépendances |
 | Extensions HEIF, VP9, WebM, WebP | Codecs (images, vidéos) |
 | Pack de langue fr-FR | Langue de l'interface |
-| **Edge**, WebView2 | Windows 10 : désinstallation non prise en charge (`NoRemove` = 1), réinstallé par les mises à jour, des parties de Windows l'ouvrent ; WebView2 sert à de nombreuses applications. Edge sera **neutralisé** (lancement au démarrage, navigateur par défaut, épinglage, stratégies) avec la configuration des navigateurs ; désinstallation complète à étudier pour Windows 11. |
-| Lecteur Windows Media | Seul lecteur restant si Groove et Films et TV sont supprimés, en attendant un lecteur choisi dans un profil |
+| **Edge**, WebView2 | Windows 10 : désinstallation non prise en charge (`NoRemove` = 1), réinstallé par les mises à jour, des parties de Windows l'ouvrent ; WebView2 sert à de nombreuses applications. Edge est **neutralisé** à la place (lancement au démarrage, raccourci du bureau, incitations, épingle de la barre des tâches ; voir [`browsers.md`](browsers.md)). |
+| Lecteur Windows Media | Seul lecteur audio et vidéo restant si Groove et Films et TV sont supprimés (aucun profil n'en installe d'autre) |
 | Paint, Bloc-notes, Outil Capture, Bureau à distance, Microsoft Print to PDF, client OpenSSH, langues, .NET | Utiles ou nécessaires au système |
 | Applications système (écran de verrouillage, Démarrer, Sécurité Windows…) | Composants de Windows |
 | Microsoft Update Health Tools, mises à jour (KB) | Composants de Windows Update |
 | Panneaux de pilotes (NVIDIA, Realtek…) | Spécifiques au matériel |
-| **Windows PowerShell 5.1** | Fait partie de Windows (pas une fonctionnalité facultative) ; utilisé par des composants système et par le bootstrap du setup. PowerShell 7 sera le défaut du profil `dev`. |
+| **Windows PowerShell 5.1** | Fait partie de Windows (pas une fonctionnalité facultative) ; utilisé par des composants système et par le bootstrap du setup. Le profil `dev` installe PowerShell 7 à côté et en fait le shell par défaut de Windows Terminal (`pwsh`, `terminal-pwsh-default`, voir [`development.md`](development.md)). |
 
 ## Autres constats
 
-- **Applications sponsorisées** auto-installées (Candy Crush, etc.) : empêchées par `sponsored-apps-off` (voir [`settings.md`](settings.md)). Le menu Démarrer garde des **vignettes de téléchargement** (flèche) pour les applications promues de la disposition par défaut ; elles s'installent au premier clic. À retirer avec la disposition du menu Démarrer (intégration au bureau).
-- **Lancement au démarrage** (inventaire VM) : OneDrive (supprimé ci-dessus), Edge (« démarrage rapide », après sa première ouverture : traité avec les navigateurs), Sécurité Windows (✘, état de l'antivirus), mise à jour d'Edge (✘ tant qu'Edge reste). Les logiciels installés par le setup recevront un réglage « ne pas lancer au démarrage » quand c'est pertinent.
+- **Applications sponsorisées** auto-installées (Candy Crush, etc.) : empêchées par `sponsored-apps-off` (voir [`settings.md`](settings.md)). Le menu Démarrer garde des **vignettes de téléchargement** (flèche) pour les applications promues de la disposition par défaut ; elles s'installent au premier clic. `start-no-tiles` les retire (voir [`desktop.md`](desktop.md)).
+- **Lancement au démarrage** (inventaire VM) : OneDrive (supprimé ci-dessus), Edge (« démarrage rapide », après sa première ouverture : désactivé par `edge-no-background`), Sécurité Windows (✘, état de l'antivirus), mise à jour d'Edge (✘ tant qu'Edge reste). Les logiciels installés par le setup qui se lancent au démarrage ont un réglage pour le désactiver : `brave-no-autostart` (voir [`browsers.md`](browsers.md)), `discord-no-autostart` (voir [`apps.md`](apps.md)) ; Docker Desktop est démarré par `docker-maintenance` (voir [`development.md`](development.md)).
