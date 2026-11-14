@@ -17,15 +17,17 @@
     "choices": {
       "description": "Éléments retenus par groupe de choix (id du groupe → ids d'éléments).",
       "type": "object",
+      "propertyNames": { "pattern": "^[a-z0-9][a-z0-9-]*$" },
       "additionalProperties": {
         "type": "array",
         "uniqueItems": true,
-        "items": { "type": "string" }
+        "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" }
       }
     },
     "variables": {
-      "description": "Valeurs des variables (surchargent les valeurs par défaut des profils).",
+      "description": "Valeurs des variables déclarées par les profils choisis (surchargent leurs valeurs par défaut). Une variable intégrée (UserProfile…) ne peut pas être remplacée ; une variable qu'aucun profil choisi ne déclare est ignorée avec un avertissement.",
       "type": "object",
+      "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9]*$" },
       "additionalProperties": { "type": "string" }
     }
   }

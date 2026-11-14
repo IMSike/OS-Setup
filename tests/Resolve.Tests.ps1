@@ -264,6 +264,46 @@ Describe 'Test-OSSetupAnswer' {
     It 'rejette un groupe de choix hors des profils sélectionnés' {
         { Test-OSSetupAnswer -Data (New-TestData) -Answers @{ profiles = @('base'); choices = @{ one = @('x') } } } | Should -Throw '*aucun profil*'
     }
+
+    It 'compare groupes et options en tenant compte de la casse, comme les clés JSON' {
+        # Table sensible à la casse, comme celle que produit ConvertFrom-Json -AsHashtable.
+        $answers = '{ "profiles": ["base"], "choices": { "Pick": ["y"] } }' | ConvertFrom-Json -AsHashtable
+        { Test-OSSetupAnswer -Data (New-TestData) -Answers $answers } | Should -Not -Throw
+        $answers['choices'].Count | Should -Be 0
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -eq "Groupe de choix 'Pick' inconnu, ignoré." }
+
+        $answers = '{ "profiles": ["base"], "choices": { "pick": ["Y"] } }' | ConvertFrom-Json -AsHashtable
+        { Test-OSSetupAnswer -Data (New-TestData) -Answers $answers } | Should -Not -Throw
+        $answers['choices']['pick'].Count | Should -Be 0
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -like "*option 'Y' inconnue*" }
+    }
+
+    It 'ignore avec un avertissement une variable qu''aucun profil choisi ne déclare' {
+        $answers = '{ "profiles": ["dev"], "variables": { "Root": "D:\\Dev", "RootDir": "x", "root": "y" } }' | ConvertFrom-Json -AsHashtable
+        { Test-OSSetupAnswer -Data (New-TestData) -Answers $answers } | Should -Not -Throw
+        @($answers['variables'].Keys) | Should -Be @('Root')
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 2 -Exactly -ParameterFilter { $Level -eq 'Warning' -and $Message -like 'Variable*ignorée.' }
+
+        # Variable d'un profil non choisi.
+        $answers = @{ profiles = @('base'); variables = @{ Root = 'D:\Dev' } }
+        { Test-OSSetupAnswer -Data (New-TestData) -Answers $answers } | Should -Not -Throw
+        $answers['variables'].Count | Should -Be 0
+    }
+
+    It 'refuse une variable qui porte le nom d''une variable intégrée' {
+        { Test-OSSetupAnswer -Data (New-TestData) -Answers @{ profiles = @('dev'); variables = @{ ProgramFiles = 'C:\x' } } } |
+            Should -Throw "*'ProgramFiles' est une variable intégrée*"
+        { Test-OSSetupAnswer -Data (New-TestData) -Answers @{ profiles = @('dev'); variables = @{ userprofile = 'C:\x' } } } |
+            Should -Throw '*variable intégrée*'
+    }
+
+    It 'le schéma refuse un groupe, une option ou un nom de variable mal formés' {
+        $schema = Join-Path -Path $PSScriptRoot -ChildPath '..\schemas\answers.schema.json'
+        Test-Json -Json '{ "profiles": ["base"], "choices": { "pick": ["x"] }, "variables": { "DevRoot": "x" } }' -SchemaFile $schema | Should -BeTrue
+        Test-Json -Json '{ "profiles": ["base"], "choices": { "Pick": ["x"] } }' -SchemaFile $schema -ErrorAction SilentlyContinue | Should -BeFalse
+        Test-Json -Json '{ "profiles": ["base"], "choices": { "pick": ["X"] } }' -SchemaFile $schema -ErrorAction SilentlyContinue | Should -BeFalse
+        Test-Json -Json '{ "profiles": ["base"], "variables": { "Dev Root": "x" } }' -SchemaFile $schema -ErrorAction SilentlyContinue | Should -BeFalse
+    }
 }
 
 Describe 'Variables' {

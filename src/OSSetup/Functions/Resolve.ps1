@@ -73,7 +73,9 @@ function Test-OSSetupAnswer {
         Vérifie la cohérence d'un fichier de réponses avec les données. Lève une erreur si incohérent.
         Une option inconnue d'un groupe de choix (ex. élément retiré du catalogue depuis l'enregistrement du fichier)
         est retirée des réponses avec un avertissement : le reste du fichier s'applique. De même pour un groupe de choix
-        qu'aucun profil ne déclare plus (groupe retiré du catalogue).
+        qu'aucun profil ne déclare plus (groupe retiré du catalogue), et pour une variable qu'aucun profil choisi ne
+        déclare. Une variable qui porte le nom d'une variable intégrée (UserProfile…) est refusée.
+        Les identifiants sont comparés en tenant compte de la casse, comme les clés d'un fichier JSON.
     #>
     [CmdletBinding()]
     param(
@@ -92,13 +94,27 @@ function Test-OSSetupAnswer {
         # Groupes de tous les profils : un groupe qu'aucun profil ne déclare a été retiré du catalogue.
         $catalogChoiceIds = @($Data.Profiles.Values | ForEach-Object { $_['choices'] } | ForEach-Object { $_['id'] })
         foreach ($answeredId in @($Answers['choices'].Keys)) {
-            if ($answeredId -notin $catalogChoiceIds) {
+            if ($answeredId -cnotin $catalogChoiceIds) {
                 Write-OSSetupLog -Level Warning -Message "Groupe de choix '$answeredId' inconnu, ignoré."
                 # Retiré des réponses, comme une option inconnue : ni appliqué, ni réenregistré dans answers-last.json.
                 $Answers['choices'].Remove($answeredId)
             }
-            elseif ($answeredId -notin $knownChoiceIds) {
+            elseif ($answeredId -cnotin $knownChoiceIds) {
                 $problems.Add("Le groupe de choix '$answeredId' n'appartient à aucun profil sélectionné.")
+            }
+        }
+    }
+    if ($null -ne $Answers['variables']) {
+        # Variables intégrées : insensible à la casse, comme la table des valeurs qu'une réponse remplacerait.
+        $builtinNames = @((Get-OSSetupBuiltinVariable).Keys)
+        $declaredNames = @((Get-OSSetupVariableDefinition -Data $Data -ResolvedProfileId $resolvedProfiles).Keys)
+        foreach ($name in @($Answers['variables'].Keys)) {
+            if ($name -in $builtinNames) {
+                $problems.Add("La variable '$name' est une variable intégrée : elle ne peut pas être remplacée.")
+            }
+            elseif ($name -cnotin $declaredNames) {
+                Write-OSSetupLog -Level Warning -Message "Variable '$name' déclarée par aucun profil choisi, ignorée."
+                $Answers['variables'].Remove($name)
             }
         }
     }
@@ -106,9 +122,9 @@ function Test-OSSetupAnswer {
         $choiceId = $choice['id']
         if ($null -ne $Answers['choices'] -and $Answers['choices'].Contains($choiceId)) {
             $answered = @($Answers['choices'][$choiceId])
-            $known = @($answered | Where-Object { $_ -in $choice['options'] })
+            $known = @($answered | Where-Object { $_ -cin $choice['options'] })
             if ($known.Count -lt $answered.Count) {
-                foreach ($option in $answered | Where-Object { $_ -notin $choice['options'] }) {
+                foreach ($option in $answered | Where-Object { $_ -cnotin $choice['options'] }) {
                     Write-OSSetupLog -Level Warning -Message "Choix '$choiceId' : option '$option' inconnue, ignorée."
                 }
                 # Retirée des réponses : ni appliquée, ni réenregistrée dans answers-last.json, ni signalée à nouveau.

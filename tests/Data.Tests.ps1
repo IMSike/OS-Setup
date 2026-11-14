@@ -343,6 +343,16 @@ Describe 'Test-OSSetupDataReference' {
         $problems[0] | Should -BeLike "élément 'early' : la dépendance 'layout' est traitée en dernier*"
     }
 
+    It 'refuse qu''un profil déclare une variable du nom d''une variable intégrée' {
+        $data = [pscustomobject]@{
+            Items    = @{}
+            Profiles = @{ p = @{ id = 'p'; variables = @{ DevRoot = @{ prompt = 'x'; default = 'y' }; programFiles = @{ prompt = 'x'; default = 'y' } } } }
+        }
+        $problems = @(Test-OSSetupDataReference -Data $data)
+        $problems.Count | Should -Be 1
+        $problems[0] | Should -BeLike "*'programFiles' porte le nom d'une variable intégrée*"
+    }
+
     It 'accepte dans ''items'' un élément sans action (épingle seule)' {
         $data = [pscustomobject]@{
             Items    = @{ pin = @{ id = 'pin'; taskbarPin = @{ link = 'x.lnk' } } }

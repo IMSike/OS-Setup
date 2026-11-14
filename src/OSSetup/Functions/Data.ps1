@@ -161,10 +161,17 @@ function Test-OSSetupDataReference {
         $Data
     )
     $choiceOwners = @{}
+    $builtinNames = @((Get-OSSetupBuiltinVariable).Keys)
     foreach ($setupProfile in $Data.Profiles.Values) {
         $where = "profil '$($setupProfile['id'])'"
         foreach ($parent in $setupProfile['extends']) {
             if (-not $Data.Profiles.Contains($parent)) { "${where} : profil étendu inconnu '$parent'." }
+        }
+        if ($null -ne $setupProfile['variables']) {
+            foreach ($name in $setupProfile['variables'].Keys) {
+                # Insensible à la casse, comme la table des valeurs où la variable du profil remplacerait l'intégrée.
+                if ($name -in $builtinNames) { "${where} : la variable '$name' porte le nom d'une variable intégrée." }
+            }
         }
         foreach ($itemId in $setupProfile['items']) {
             if (-not $Data.Items.Contains($itemId)) { "${where} : élément inconnu '$itemId'." }
