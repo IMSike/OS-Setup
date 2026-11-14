@@ -36,6 +36,7 @@
     ],
     "taskbar-start": [
       "start-no-tiles",
+      "taskbar-autohide",
       "taskbar-search-icon",
       "taskbar-hide-taskview",
       "taskbar-hide-people",
