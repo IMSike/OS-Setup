@@ -124,6 +124,8 @@ function Backup-OSSetupFile {
     <#
     .SYNOPSIS
         Copie un fichier dans le dossier de sauvegarde de l'exécution, en reproduisant son chemin. Retourne la copie.
+        Une sauvegarde déjà présente n'est jamais remplacée : la première de l'exécution est l'original (plusieurs
+        actions peuvent modifier le même fichier, ex. settings.json de VS Code).
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -136,10 +138,13 @@ function Backup-OSSetupFile {
     $fullPath = [System.IO.Path]::GetFullPath($Path)
     $relative = $fullPath -replace '^([A-Za-z]):', '$1' -replace '^[\\/]+', ''
     $destination = Join-Path -Path $BackupRoot -ChildPath $relative
+    if (Test-Path -LiteralPath $destination -PathType Leaf) {
+        return $destination
+    }
     if ($PSCmdlet.ShouldProcess($fullPath, "Sauvegarder vers $destination")) {
         Assert-OSSetupDataPath -Path $destination
         New-Item -Path (Split-Path -Path $destination -Parent) -ItemType Directory -Force | Out-Null
-        Copy-Item -Path $fullPath -Destination $destination -Force
+        Copy-Item -LiteralPath $fullPath -Destination $destination
     }
     $destination
 }

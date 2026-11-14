@@ -40,6 +40,19 @@ Describe 'Provider file' {
         $backups.Count | Should -Be 1
         Get-Content -Path $backups[0].FullName -Raw | Should -Be 'ancien'
     }
+
+    It 'garde la sauvegarde de l''original quand plusieurs actions modifient le même fichier' {
+        New-Item -Path (Split-Path -Path $target -Parent) -ItemType Directory -Force | Out-Null
+        Set-Content -Path $target -Value 'original' -NoNewline
+        $context.BackupRoot = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid())
+        & $provider.Invoke $action $context
+        $context.Variables = @{ Root = 'E:\Autre' }
+        & $provider.Invoke $action $context
+        Get-Content -Path $target -Raw | Should -Be "root=E:\Autre`n"
+        $backups = @(Get-ChildItem -Path $context.BackupRoot -Recurse -File)
+        $backups.Count | Should -Be 1
+        Get-Content -Path $backups[0].FullName -Raw | Should -Be 'original'
+    }
 }
 
 Describe 'Provider file : suppression (present = false)' {
