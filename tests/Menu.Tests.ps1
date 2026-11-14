@@ -143,6 +143,65 @@ Describe 'Get-OSSetupMenuLine' {
     }
 }
 
+Describe 'Read-OSSetupMenuText' {
+    BeforeEach {
+        Mock -ModuleName OSSetup Write-Host {}
+        # Saisies successives ; file vide : $null, comme Read-Host quand l'entrée standard est épuisée.
+        $global:OSSetupTestInput = [System.Collections.Generic.Queue[object]]::new()
+        Mock -ModuleName OSSetup Read-Host { if ($global:OSSetupTestInput.Count) { $global:OSSetupTestInput.Dequeue() } else { $null } }
+        function Set-TestInput([string[]]$Line) {
+            foreach ($l in $Line) { $global:OSSetupTestInput.Enqueue($l) }
+        }
+    }
+
+    AfterEach {
+        Remove-Variable -Name OSSetupTestInput -Scope Global -ErrorAction SilentlyContinue
+    }
+
+    It 'redemande toute la saisie quand un numéro est invalide, au lieu de valider une sélection vide' {
+        $state = New-OSSetupMenuState -Title 't' -Option (New-TestOption 'a', 'b') -Mode multi -Selected 'a'
+        Set-TestInput 'x', '2'
+        (Read-OSSetupMenuText -State $state).Values | Should -Be @('b')
+        Should -Invoke -ModuleName OSSetup Read-Host -Times 2 -Exactly
+    }
+
+    It 'refuse un numéro hors de la liste au lieu de l''ignorer' {
+        $state = New-OSSetupMenuState -Title 't' -Option (New-TestOption 'a', 'b') -Mode multi
+        Set-TestInput '1 9', '1 2'
+        (Read-OSSetupMenuText -State $state).Values | Should -Be @('a', 'b')
+        Should -Invoke -ModuleName OSSetup Write-Host -Times 1 -Exactly -ParameterFilter { $Object -like '*non reconnue*''9''*' }
+    }
+
+    It 'accepte 0 pour « aucun » quand aucun choix n''est requis, et l''annonce' {
+        $state = New-OSSetupMenuState -Title 't' -Option (New-TestOption 'a', 'b') -Mode multi -Selected 'a'
+        Set-TestInput '0'
+        $result = Read-OSSetupMenuText -State $state
+        $result.Action | Should -Be 'next'
+        @($result.Values).Count | Should -Be 0
+        Should -Invoke -ModuleName OSSetup Read-Host -ParameterFilter { $Prompt -like '*0 pour aucun*' }
+    }
+
+    It 'n''accepte pas 0 quand un choix est requis' {
+        $state = New-OSSetupMenuState -Title 't' -Option (New-TestOption 'a', 'b') -Mode multi -Min 1
+        Set-TestInput '0', '1'
+        (Read-OSSetupMenuText -State $state).Values | Should -Be @('a')
+        Should -Invoke -ModuleName OSSetup Read-Host -Times 2 -Exactly -ParameterFilter { $Prompt -notlike '*0 pour aucun*' }
+    }
+
+    It 'explique les bornes d''un menu sans maximum comme le menu au clavier' {
+        $state = New-OSSetupMenuState -Title 't' -Option (New-TestOption 'a', 'b') -Mode multi -Min 1
+        Set-TestInput '', '1'
+        (Read-OSSetupMenuText -State $state).Values | Should -Be @('a')
+        Should -Invoke -ModuleName OSSetup Write-Host -Times 1 -Exactly -ParameterFilter { $Object -eq 'Sélectionnez au moins 1 élément(s).' }
+        Should -Invoke -ModuleName OSSetup Write-Host -Times 0 -Exactly -ParameterFilter { $Object -like '*2147483647*' }
+    }
+
+    It 'lève une erreur explicite quand l''entrée standard est épuisée' {
+        $state = New-OSSetupMenuState -Title 'Profils' -Option (New-TestOption 'a') -Mode multi
+        { Read-OSSetupMenuText -State $state } | Should -Throw '*Profils*-AnswerFile*-Yes*'
+    }
+}
+
 Describe 'Read-OSSetupAnswer' {
     BeforeEach {
         Mock -ModuleName OSSetup Write-OSSetupLog {}

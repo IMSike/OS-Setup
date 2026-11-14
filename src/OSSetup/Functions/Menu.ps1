@@ -73,6 +73,26 @@ function Get-OSSetupMenuRow {
     if ($State.AllowBack) { @{ Kind = 'back' } }
 }
 
+function Get-OSSetupMenuCountMessage {
+    <#
+    .SYNOPSIS
+        Message affiché quand le nombre d'éléments sélectionnés est hors des bornes d'un menu (sans maximum :
+        « au moins N »).
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [int]$Min,
+
+        [Parameter(Mandatory)]
+        [int]$Max
+    )
+    if ($Min -eq $Max) { "Sélectionnez $Min élément(s)." }
+    elseif ($Max -eq [int]::MaxValue) { "Sélectionnez au moins $Min élément(s)." }
+    else { "Sélectionnez entre $Min et $Max élément(s)." }
+}
+
 function Invoke-OSSetupMenuKey {
     <#
     .SYNOPSIS
@@ -106,9 +126,7 @@ function Invoke-OSSetupMenuKey {
                 'validate' {
                     $count = $State.Selected.Count
                     if ($count -lt $State.Min -or $count -gt $State.Max) {
-                        $State.Message = if ($State.Min -eq $State.Max) { "Sélectionnez $($State.Min) élément(s)." }
-                        elseif ($State.Max -eq [int]::MaxValue) { "Sélectionnez au moins $($State.Min) élément(s)." }
-                        else { "Sélectionnez entre $($State.Min) et $($State.Max) élément(s)." }
+                        $State.Message = Get-OSSetupMenuCountMessage -Min $State.Min -Max $State.Max
                         return
                     }
                     return @{ Action = 'next'; Values = $State.Selected.ToArray() }
@@ -311,32 +329,46 @@ function Read-OSSetupMenuText {
         $mark = if ($State.Selected.Contains($State.Options[$i].Value)) { ' (actuel)' } else { '' }
         Write-Host -Object ('  {0,2}. {1}{2}' -f ($i + 1), $State.Options[$i].Label, $mark)
     }
+    # Bornes effectives : un seul élément en choix unique, exactement un en mode action.
+    $min = if ($State.Mode -eq 'action') { 1 } else { $State.Min }
+    $max = if ($State.Mode -eq 'multi') { $State.Max } else { 1 }
+    # « 0 » sélectionne explicitement « aucun » (une entrée vide garde la sélection actuelle).
+    $allowNone = $State.Mode -ne 'action' -and $min -eq 0
     $hint = if ($State.Mode -eq 'multi') { 'Numéros (ex. 1 3)' } else { 'Numéro' }
     if ($State.Mode -ne 'action') { $hint += ', Entrée pour garder l''actuel' }
+    if ($allowNone) { $hint += ', 0 pour aucun' }
     if ($State.AllowBack) { $hint += ', r pour revenir' }
 
     while ($true) {
-        $userInput = (Read-Host -Prompt $hint).Trim()
+        $answer = Read-Host -Prompt $hint
+        # Entrée standard épuisée (console redirigée sans réponse) : redemander bouclerait sans fin.
+        if ($null -eq $answer) {
+            throw "Aucune réponse possible au menu « $($State.Title) » : l'entrée standard est épuisée. Sans console, utiliser -AnswerFile ou -Yes."
+        }
+        $userInput = $answer.Trim()
         if ($State.AllowBack -and $userInput -match '^r(etour)?$') { return @{ Action = 'back'; Values = @() } }
         if (-not $userInput) {
             if ($State.Mode -eq 'action') { continue }
             $values = $State.Selected.ToArray()
         }
-        else {
-            $values = foreach ($token in $userInput -split '[\s,;]+' | Where-Object { $_ }) {
-                $index = 0
-                if ([int]::TryParse($token, [ref]$index) -and $index -ge 1 -and $index -le $State.Options.Count) {
-                    $State.Options[$index - 1].Value
-                }
-                else {
-                    Write-Host -Object "Entrée ignorée : '$token'." -ForegroundColor Yellow
-                }
-            }
-            $values = @($values | Select-Object -Unique)
+        elseif ($allowNone -and $userInput -eq '0') {
+            $values = @()
         }
-        $max = if ($State.Mode -eq 'multi') { $State.Max } else { 1 }
-        if ($values.Count -lt $State.Min -or $values.Count -gt $max -or ($State.Mode -eq 'action' -and $values.Count -ne 1)) {
-            Write-Host -Object "Sélection invalide (entre $($State.Min) et $max élément(s))." -ForegroundColor Yellow
+        else {
+            $tokens = @($userInput -split '[\s,;]+' | Where-Object { $_ })
+            $invalid = @($tokens | Where-Object {
+                    $index = 0
+                    -not ([int]::TryParse($_, [ref]$index) -and $index -ge 1 -and $index -le $State.Options.Count)
+                })
+            # Un seul jeton invalide et toute la saisie est redemandée : la valider sans lui changerait la sélection.
+            if ($invalid.Count -gt 0) {
+                Write-Host -Object "Entrée non reconnue : $(($invalid | ForEach-Object { "'$_'" }) -join ', ') (numéros de 1 à $($State.Options.Count))." -ForegroundColor Yellow
+                continue
+            }
+            $values = @($tokens | ForEach-Object { $State.Options[[int]$_ - 1].Value } | Select-Object -Unique)
+        }
+        if ($values.Count -lt $min -or $values.Count -gt $max) {
+            Write-Host -Object (Get-OSSetupMenuCountMessage -Min $min -Max $max) -ForegroundColor Yellow
             continue
         }
         return @{ Action = 'next'; Values = @($values) }

@@ -84,6 +84,7 @@
         'Read-OSSetupMenuText'
         'Test-OSSetupInteractiveConsole'
         'Write-OSSetupMenuFrame'
+        'Get-OSSetupMenuCountMessage'
         # Path.ps1
         'Add-OSSetupPathEntry'
         'ConvertTo-OSSetupPathList'
