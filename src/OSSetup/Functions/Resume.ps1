@@ -91,7 +91,7 @@ function Save-OSSetupRunState {
     if ($PSCmdlet.ShouldProcess($path, 'Enregistrer l''état de reprise')) {
         New-Item -Path $StateRoot -ItemType Directory -Force | Out-Null
         # Fichier temporaire puis renommage : une coupure pendant l'écriture ne laisse jamais un état tronqué.
-        $State | ConvertTo-Json -Depth 6 | Set-Content -Path "$path.tmp" -Encoding utf8NoBOM
+        $State | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath "$path.tmp" -Encoding utf8NoBOM
         Move-Item -LiteralPath "$path.tmp" -Destination $path -Force
     }
 }
@@ -107,8 +107,8 @@ function Read-OSSetupRunState {
         [string]$StateRoot
     )
     $path = Join-Path -Path $StateRoot -ChildPath 'run.json'
-    if (-not (Test-Path -Path $path)) { return $null }
-    $state = Get-Content -Path $path -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable
+    if (-not (Test-Path -LiteralPath $path)) { return $null }
+    $state = Get-Content -LiteralPath $path -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable
     # Les tableaux JSON arrivent en List : les réponses attendent des tableaux.
     $answers = $state['answers']
     $answers['profiles'] = @($answers['profiles'])
@@ -125,8 +125,8 @@ function Remove-OSSetupRunState {
         [string]$StateRoot
     )
     $path = Join-Path -Path $StateRoot -ChildPath 'run.json'
-    if ((Test-Path -Path $path) -and $PSCmdlet.ShouldProcess($path, 'Supprimer l''état de reprise')) {
-        Remove-Item -Path $path -Force
+    if ((Test-Path -LiteralPath $path) -and $PSCmdlet.ShouldProcess($path, 'Supprimer l''état de reprise')) {
+        Remove-Item -LiteralPath $path -Force
     }
 }
 
@@ -151,7 +151,7 @@ function Write-OSSetupRunResult {
         Assert-OSSetupDataPath -Path $path
         New-Item -Path $StateRoot -ItemType Directory -Force | Out-Null
         [ordered]@{ runId = $RunId; exitCode = $ExitCode; finishedAt = (Get-Date).ToString('o') } |
-            ConvertTo-Json | Set-Content -Path $path -Encoding utf8NoBOM
+            ConvertTo-Json | Set-Content -LiteralPath $path -Encoding utf8NoBOM
     }
 }
 

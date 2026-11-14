@@ -40,6 +40,6 @@ function Write-OSSetupLog {
             Write-Host -Object $_.Exception.Message -ForegroundColor Red
             throw
         }
-        Add-Content -Path $script:LogPath -Value $line -Encoding utf8 -WhatIf:$false
+        Add-Content -LiteralPath $script:LogPath -Value $line -Encoding utf8 -WhatIf:$false
     }
 }

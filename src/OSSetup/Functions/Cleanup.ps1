@@ -13,8 +13,8 @@ function Read-OSSetupBootstrapInfo {
         [string]$Root
     )
     $path = Join-Path -Path $Root -ChildPath 'state\bootstrap.json'
-    if (-not (Test-Path -Path $path)) { return $null }
-    $info = Get-Content -Path $path -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable
+    if (-not (Test-Path -LiteralPath $path)) { return $null }
+    $info = Get-Content -LiteralPath $path -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable
     @{
         ownsClone       = [bool]$info['ownsClone']
         bootstrapScript = $info['bootstrapScript']
@@ -125,16 +125,16 @@ function Save-OSSetupHistory {
     )
     foreach ($source in $sources) {
         Assert-OSSetupDataPath -Path $source
-        if (Test-Path -Path $source) { Copy-Item -Path $source -Destination $target -Force }
+        if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination $target -Force }
     }
     $backups = Join-Path -Path $Root -ChildPath "state\backups\$RunId"
     Assert-OSSetupDataPath -Path $backups
-    if (Test-Path -Path $backups) {
+    if (Test-Path -LiteralPath $backups) {
         # Tous les éléments : un lien physique n'a pas d'attribut qui le signale.
         foreach ($entry in @(Get-ChildItem -LiteralPath $backups -Recurse -Force)) {
             Assert-OSSetupDataPath -Path $entry.FullName
         }
-        Copy-Item -Path $backups -Destination (Join-Path -Path $target -ChildPath 'backups') -Recurse -Force
+        Copy-Item -LiteralPath $backups -Destination (Join-Path -Path $target -ChildPath 'backups') -Recurse -Force
     }
     $target
 }
@@ -225,9 +225,9 @@ function Invoke-OSSetupCleanup {
         New-Item -Path $WorkRoot -ItemType Directory -Force | Out-Null
         $script = Join-Path -Path $WorkRoot -ChildPath "OS-Setup-cleanup-$id.ps1"
         $config = Join-Path -Path $WorkRoot -ChildPath "OS-Setup-cleanup-$id.json"
-        Copy-Item -Path (Join-Path -Path $CodeRoot -ChildPath 'src\cleanup.ps1') -Destination $script
+        Copy-Item -LiteralPath (Join-Path -Path $CodeRoot -ChildPath 'src\cleanup.ps1') -Destination $script
         [ordered]@{ waitPid = $PID; uninstall = $uninstall; remove = $remove.ToArray(); logPath = $cleanupLogPath; logoff = [bool]$Logoff } |
-            ConvertTo-Json | Set-Content -Path $config -Encoding utf8
+            ConvertTo-Json | Set-Content -LiteralPath $config -Encoding utf8
         # Dossier de travail hors du dépôt : sinon le dossier à supprimer resterait verrouillé.
         Start-Process -FilePath (Get-OSSetupWindowsPowerShellPath) `
             -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', "`"$script`"", '-ConfigPath', "`"$config`"" `

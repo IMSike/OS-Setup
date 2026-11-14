@@ -139,10 +139,10 @@ function Install-WingetFromGitHub {
         $zipPath = Join-Path -Path $work -ChildPath $dependencies.name
         Invoke-WebRequest -Uri $bundle.browser_download_url -OutFile $bundlePath -UseBasicParsing
         Invoke-WebRequest -Uri $dependencies.browser_download_url -OutFile $zipPath -UseBasicParsing
-        Expand-Archive -Path $zipPath -DestinationPath (Join-Path -Path $work -ChildPath 'deps') -Force
+        Expand-Archive -LiteralPath $zipPath -DestinationPath (Join-Path -Path $work -ChildPath 'deps') -Force
 
         $architecture = if ([Environment]::Is64BitOperatingSystem) { 'x64' } else { 'x86' }
-        $appx = Get-ChildItem -Path (Join-Path -Path $work -ChildPath 'deps') -Filter '*.appx' -Recurse |
+        $appx = Get-ChildItem -LiteralPath (Join-Path -Path $work -ChildPath 'deps') -Filter '*.appx' -Recurse |
             Where-Object { $_.FullName -match "\\$architecture\\" }
         foreach ($package in $appx) {
             Write-Host -Object "    Dépendance : $($package.Name)"
@@ -158,7 +158,7 @@ function Install-WingetFromGitHub {
         Add-AppxPackage -Path $bundlePath -ErrorAction Stop
     }
     finally {
-        Remove-Item -Path $work -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
 

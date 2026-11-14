@@ -142,6 +142,29 @@ Describe 'État de reprise' {
         Write-OSSetupRunResult -StateRoot $stateRoot -RunId 'r1' -ExitCode 1
         (Get-Content -Path (Join-Path -Path $stateRoot -ChildPath 'last-result.json') -Raw | ConvertFrom-Json).exitCode | Should -Be 1
     }
+
+    It 'fonctionne dans un dépôt dont le chemin contient des crochets (pas de jokers)' {
+        $bracketRoot = Join-Path -Path $TestDrive -ChildPath "$([guid]::NewGuid().ToString('N'))\dépôt [1]\state"
+        Save-OSSetupRunState -StateRoot $bracketRoot -State @{ runId = 'r1'; pass = 1; answers = @{ profiles = @('base') } }
+        (Read-OSSetupRunState -StateRoot $bracketRoot)['runId'] | Should -Be 'r1'
+        Write-OSSetupRunResult -StateRoot $bracketRoot -RunId 'r1' -ExitCode 0
+        Test-Path -LiteralPath (Join-Path -Path $bracketRoot -ChildPath 'last-result.json') | Should -BeTrue
+        Remove-OSSetupRunState -StateRoot $bracketRoot
+        Read-OSSetupRunState -StateRoot $bracketRoot | Should -BeNullOrEmpty
+    }
+
+    It 'écrit le journal dans un dépôt dont le chemin contient des crochets' {
+        Mock -ModuleName OSSetup Write-Host {}
+        $logs = Join-Path -Path $TestDrive -ChildPath "$([guid]::NewGuid().ToString('N'))\dépôt [1]\logs"
+        try {
+            $logPath = Start-OSSetupLog -Directory $logs -RunId 'r1'
+            Write-OSSetupLog -Message 'ligne'
+        }
+        finally {
+            InModuleScope OSSetup { $script:LogPath = $null }
+        }
+        Get-Content -LiteralPath $logPath -Raw | Should -BeLike '*ligne*'
+    }
 }
 
 Describe 'Request-OSSetupLogoff' {

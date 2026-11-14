@@ -5,24 +5,35 @@
     $profileTemp = Join-Path -Path ([Environment]::GetFolderPath('UserProfile')) -ChildPath 'AppData\Local\Temp'
 
     function New-TestClone {
-        # Faux dépôt laissé par le bootstrap : journal, réponses, sauvegardes, bootstrap.json, src/cleanup.ps1.
+        # Faux dépôt laissé par le bootstrap : journal, réponses, sauvegardes, bootstrap.json, src/cleanup.ps1. Des
+        # crochets dans son nom vérifient qu'aucun chemin n'est lu comme un motif à jokers. Il est rangé sous un
+        # dossier sans crochets : Pester vide TestDrive avec -Path et échouerait sur un nom à crochets à sa racine.
         param([bool]$OwnsClone, [string[]]$InstalledTool = @(), [string]$RunId = 'r1',
             [string]$BootstrapScript = (Join-Path -Path $profileTemp -ChildPath 'bootstrap.ps1'))
-        $root = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid())
+        $root = Join-Path -Path $TestDrive -ChildPath "$([guid]::NewGuid().ToString('N'))\dépôt [1]"
         New-Item -Path "$root\logs", "$root\state\backups\$RunId", "$root\src" -ItemType Directory -Force | Out-Null
-        Set-Content -Path "$root\logs\setup-$RunId.log" -Value 'journal'
-        Set-Content -Path "$root\state\answers-last.json" -Value '{}'
-        Set-Content -Path "$root\state\backups\$RunId\config.txt" -Value 'ancienne config'
-        Copy-Item -Path (Join-Path -Path $repoRoot -ChildPath 'src\cleanup.ps1') -Destination "$root\src\cleanup.ps1"
+        Set-Content -LiteralPath "$root\logs\setup-$RunId.log" -Value 'journal'
+        Set-Content -LiteralPath "$root\state\answers-last.json" -Value '{}'
+        Set-Content -LiteralPath "$root\state\backups\$RunId\config.txt" -Value 'ancienne config'
+        Copy-Item -LiteralPath (Join-Path -Path $repoRoot -ChildPath 'src\cleanup.ps1') -Destination "$root\src\cleanup.ps1"
         @{ ownsClone = $OwnsClone; bootstrapScript = $BootstrapScript; installedTools = $InstalledTool } |
-            ConvertTo-Json | Set-Content -Path "$root\state\bootstrap.json"
+            ConvertTo-Json | Set-Content -LiteralPath "$root\state\bootstrap.json"
         $root
+    }
+
+    $windowsPowerShell = Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe'
+
+    function Invoke-TestCleanupScript {
+        # Exécute une copie de src/cleanup.ps1 comme le setup : Windows PowerShell 5.1, processus séparé (le script
+        # remplace PSModulePath pour tout son processus, ce qui perturberait celui des tests).
+        param([string]$Script, [string]$ConfigPath)
+        & $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $Script -ConfigPath $ConfigPath | Out-Null
     }
 
     function Get-LaunchedConfig {
         # Configuration passée au processus de nettoyage (dernier lancement capturé).
         $path = $global:OSSetupTestCleanupArgs[-1].Trim('"')
-        Get-Content -Path $path -Raw | ConvertFrom-Json
+        Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
     }
 }
 
@@ -95,10 +106,10 @@ Describe 'Invoke-OSSetupCleanup' {
     AfterEach {
         if ($global:OSSetupTestCleanupArgs) {
             $config = Get-LaunchedConfig
-            Remove-Item -Path $global:OSSetupTestCleanupArgs[-1].Trim('"'), $global:OSSetupTestCleanupArgs[-3].Trim('"') -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $global:OSSetupTestCleanupArgs[-1].Trim('"'), $global:OSSetupTestCleanupArgs[-3].Trim('"') -Force -ErrorAction SilentlyContinue
             # Seul un historique créé par le test (dossier de l'exécution sous %LOCALAPPDATA%\OS-Setup) est supprimé.
             if ($config.logPath -and $config.logPath.StartsWith($historyRoot)) {
-                Remove-Item -Path (Split-Path -Path $config.logPath -Parent) -Recurse -Force -ErrorAction SilentlyContinue
+                Remove-Item -LiteralPath (Split-Path -Path $config.logPath -Parent) -Recurse -Force -ErrorAction SilentlyContinue
             }
         }
         Remove-Variable -Name OSSetupTestCleanupArgs -Scope Global -ErrorAction SilentlyContinue
@@ -117,14 +128,14 @@ Describe 'Invoke-OSSetupCleanup' {
         $root = New-TestClone -OwnsClone $true -InstalledTool 'Git.Git' -RunId $runId
         $code = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid())
         New-Item -Path "$code\src", "$code\state" -ItemType Directory -Force | Out-Null
-        Set-Content -Path "$code\src\cleanup.ps1" -Value '# copie de la reprise'
-        Copy-Item -Path "$root\state\bootstrap.json" -Destination "$code\state\bootstrap.json"
+        Set-Content -LiteralPath "$code\src\cleanup.ps1" -Value '# copie de la reprise'
+        Copy-Item -LiteralPath "$root\state\bootstrap.json" -Destination "$code\state\bootstrap.json"
         # Trace du dépôt modifiée après la copie : elle ne doit pas être suivie.
-        $frozenScript = (Get-Content -Path "$code\state\bootstrap.json" -Raw | ConvertFrom-Json).bootstrapScript
+        $frozenScript = (Get-Content -LiteralPath "$code\state\bootstrap.json" -Raw | ConvertFrom-Json).bootstrapScript
         @{ ownsClone = $true; bootstrapScript = (Join-Path -Path $profileTemp -ChildPath 'autre.ps1'); installedTools = @('Autre.Outil') } |
-            ConvertTo-Json | Set-Content -Path "$root\state\bootstrap.json"
+            ConvertTo-Json | Set-Content -LiteralPath "$root\state\bootstrap.json"
         Invoke-OSSetupCleanup -Root $root -CodeRoot $code -RunId $runId -SelectedWingetId @() -Yes
-        Get-Content -Path $global:OSSetupTestCleanupArgs[-3].Trim('"') -Raw | Should -Match 'copie de la reprise'
+        Get-Content -LiteralPath $global:OSSetupTestCleanupArgs[-3].Trim('"') -Raw | Should -Match 'copie de la reprise'
         $config = Get-LaunchedConfig
         $config.uninstall | Should -Be @('Git.Git')
         $config.remove | Should -Be @($root, $frozenScript)
@@ -140,7 +151,7 @@ Describe 'Invoke-OSSetupCleanup' {
     It 'sur un clone de développement, lance seulement la fermeture de session demandée' {
         $root = Join-Path -Path $TestDrive -ChildPath 'dev-clone-logoff'
         New-Item -Path "$root\src" -ItemType Directory -Force | Out-Null
-        Copy-Item -Path (Join-Path -Path $repoRoot -ChildPath 'src\cleanup.ps1') -Destination "$root\src\cleanup.ps1"
+        Copy-Item -LiteralPath (Join-Path -Path $repoRoot -ChildPath 'src\cleanup.ps1') -Destination "$root\src\cleanup.ps1"
         Invoke-OSSetupCleanup -Root $root -RunId 'r1' -SelectedWingetId @() -Yes -Logoff
         $config = Get-LaunchedConfig
         $config.logoff | Should -BeTrue
@@ -156,8 +167,8 @@ Describe 'Invoke-OSSetupCleanup' {
         $config.remove | Should -Be @($root, (Join-Path -Path $profileTemp -ChildPath 'bootstrap.ps1'))
         $config.uninstall | Should -BeNullOrEmpty
         $config.waitPid | Should -Be $PID
-        Test-Path -Path (Join-Path -Path $historyRoot -ChildPath "$runId\setup-$runId.log") | Should -BeTrue
-        Test-Path -Path (Join-Path -Path $historyRoot -ChildPath "$runId\backups\config.txt") | Should -BeTrue
+        Test-Path -LiteralPath (Join-Path -Path $historyRoot -ChildPath "$runId\setup-$runId.log") | Should -BeTrue
+        Test-Path -LiteralPath (Join-Path -Path $historyRoot -ChildPath "$runId\backups\config.txt") | Should -BeTrue
     }
 
     It 'ne supprime pas un script du bootstrap noté hors de %TEMP% et de Téléchargements' {
@@ -199,59 +210,112 @@ Describe 'Invoke-OSSetupCleanup' {
     }
 }
 
-Describe 'src/cleanup.ps1 : suppression sans suivre les liens' {
-    It 'supprime le dossier, ses fichiers en lecture seule et la jonction, sans toucher la cible de la jonction' {
-        $work = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid().ToString('N'))
-        $clone = Join-Path -Path $work -ChildPath 'clone'
-        $outside = Join-Path -Path $work -ChildPath 'outside'
-        New-Item -Path "$clone\sub", $outside -ItemType Directory -Force | Out-Null
-        Set-Content -Path "$clone\sub\file.txt" -Value 'x'
-        Set-Content -Path "$clone\readonly.txt" -Value 'x'
-        (Get-Item -LiteralPath "$clone\readonly.txt").IsReadOnly = $true
-        Set-Content -Path "$outside\keep.txt" -Value 'à garder'
-        New-Item -Path "$clone\link" -ItemType Junction -Value $outside | Out-Null
-        $cleanupScript = Join-Path -Path $work -ChildPath 'cleanup.ps1'
-        Copy-Item -Path (Join-Path -Path $repoRoot -ChildPath 'src\cleanup.ps1') -Destination $cleanupScript
-        $cleanupConfig = Join-Path -Path $work -ChildPath 'cleanup.json'
-        [ordered]@{ waitPid = [int]::MaxValue; uninstall = @(); remove = @($clone); logPath = "$work\setup.log"; logoff = $false } |
-            ConvertTo-Json -Depth 4 | Set-Content -Path $cleanupConfig -Encoding utf8
-        Mock Wait-Process {}
+Describe 'src/cleanup.ps1' {
+    BeforeAll {
+        function Get-TestRealPath {
+            # Chemin sans jonction ni lien symbolique : TestDrive est sous %TEMP%, qui peut passer par une jonction
+            # (dossier temporaire déplacé) ; le script refuserait alors tout chemin du test.
+            param([string]$Path)
+            $full = [IO.Path]::GetFullPath($Path)
+            $current = [IO.Path]::GetPathRoot($full)
+            foreach ($part in $full.Substring($current.Length).Split('\', [StringSplitOptions]::RemoveEmptyEntries)) {
+                $current = Join-Path -Path $current -ChildPath $part
+                $info = [IO.DirectoryInfo]::new($current)
+                if ($info.Exists -and $info.LinkTarget) { $current = $info.ResolveLinkTarget($true).FullName }
+            }
+            $current
+        }
 
-        & $cleanupScript -ConfigPath $cleanupConfig
+        function New-TestCleanupWork {
+            # Dossier de travail et copie du script, avec sa configuration.
+            param([hashtable]$Config)
+            $work = Get-TestRealPath -Path (Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid().ToString('N')))
+            New-Item -Path $work -ItemType Directory -Force | Out-Null
+            $script = Join-Path -Path $work -ChildPath 'cleanup.ps1'
+            Copy-Item -LiteralPath (Join-Path -Path $repoRoot -ChildPath 'src\cleanup.ps1') -Destination $script
+            @{ Work = $work; Script = $script; Config = (Join-Path -Path $work -ChildPath 'cleanup.json') }
+        }
+
+        function Save-TestCleanupConfig {
+            # Rien à attendre : le processus noté n'existe pas.
+            param([string]$Path, [string[]]$Remove = @(), [string]$LogPath)
+            [ordered]@{ waitPid = [int]::MaxValue; uninstall = @(); remove = @($Remove); logPath = $LogPath; logoff = $false } |
+                ConvertTo-Json | Set-Content -LiteralPath $Path -Encoding utf8
+        }
+    }
+
+    BeforeEach {
+        if (-not (Test-Path -LiteralPath $windowsPowerShell)) { Set-ItResult -Skipped -Because 'Windows PowerShell 5.1 absent' }
+    }
+
+    It 'supprime le dossier, ses fichiers en lecture seule et la jonction, sans toucher la cible de la jonction' {
+        $test = New-TestCleanupWork
+        $clone = Join-Path -Path $test.Work -ChildPath 'clone'
+        $outside = Join-Path -Path $test.Work -ChildPath 'outside'
+        New-Item -Path "$clone\sub", $outside -ItemType Directory -Force | Out-Null
+        Set-Content -LiteralPath "$clone\sub\file.txt" -Value 'x'
+        Set-Content -LiteralPath "$clone\readonly.txt" -Value 'x'
+        (Get-Item -LiteralPath "$clone\readonly.txt").IsReadOnly = $true
+        Set-Content -LiteralPath "$outside\keep.txt" -Value 'à garder'
+        New-Item -Path "$clone\link" -ItemType Junction -Value $outside | Out-Null
+        Save-TestCleanupConfig -Path $test.Config -Remove $clone -LogPath "$($test.Work)\setup.log"
+
+        Invoke-TestCleanupScript -Script $test.Script -ConfigPath $test.Config
 
         Test-Path -LiteralPath $clone | Should -BeFalse
         Get-Content -LiteralPath "$outside\keep.txt" | Should -Be 'à garder'
-        Get-Content -Path "$work\setup.log" -Raw -Encoding utf8 | Should -BeLike "*Suppression de $clone : faite*"
+        Get-Content -LiteralPath "$($test.Work)\setup.log" -Raw -Encoding utf8 | Should -BeLike "*Suppression de $clone : faite*"
+        # Configuration et script supprimés à la fin.
+        Test-Path -LiteralPath $test.Config | Should -BeFalse
+        Test-Path -LiteralPath $test.Script | Should -BeFalse
     }
-}
 
-Describe 'src/cleanup.ps1 : modules chargés' {
+    It 'ne supprime rien et n''écrit pas le journal au travers d''une jonction parente' {
+        $test = New-TestCleanupWork
+        $outside = Join-Path -Path $test.Work -ChildPath 'outside'
+        New-Item -Path "$outside\clone", (Join-Path -Path $test.Work -ChildPath 'repo') -ItemType Directory -Force | Out-Null
+        Set-Content -LiteralPath "$outside\clone\keep.txt" -Value 'à garder'
+        $junction = Join-Path -Path $test.Work -ChildPath 'repo\parent'
+        New-Item -Path $junction -ItemType Junction -Value $outside | Out-Null
+        Save-TestCleanupConfig -Path $test.Config -Remove "$junction\clone" -LogPath "$junction\setup.log"
+
+        Invoke-TestCleanupScript -Script $test.Script -ConfigPath $test.Config
+
+        Get-Content -LiteralPath "$outside\clone\keep.txt" | Should -Be 'à garder'
+        Test-Path -LiteralPath "$outside\setup.log" | Should -BeFalse
+    }
+
+    It 'supprime un dossier dont le chemin contient des crochets, et y écrit son journal' {
+        $test = New-TestCleanupWork
+        $repo = Join-Path -Path $test.Work -ChildPath 'dépôt [1]'
+        New-Item -Path "$repo\clone" -ItemType Directory -Force | Out-Null
+        Save-TestCleanupConfig -Path $test.Config -Remove "$repo\clone" -LogPath "$repo\setup.log"
+
+        Invoke-TestCleanupScript -Script $test.Script -ConfigPath $test.Config
+
+        Test-Path -LiteralPath "$repo\clone" | Should -BeFalse
+        Get-Content -LiteralPath "$repo\setup.log" -Raw -Encoding utf8 | Should -BeLike '*Suppression de * : faite*'
+    }
+
     It 'ne charge pas un module placé en tête de PSModulePath à la place d''une cmdlet de Windows' {
-        $powershell = Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe'
-        if (-not (Test-Path -LiteralPath $powershell)) { Set-ItResult -Skipped -Because 'Windows PowerShell 5.1 absent'; return }
         # Module piège dans un dossier modifiable par l'utilisateur (comme Documents\WindowsPowerShell\Modules) : il
         # exporte Get-Content, première cmdlet du script, et laisse une trace s'il est exécuté.
-        $work = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid().ToString('N'))
-        $modules = Join-Path -Path $work -ChildPath 'modules'
+        $test = New-TestCleanupWork
+        $modules = Join-Path -Path $test.Work -ChildPath 'modules'
         $trap = Join-Path -Path $modules -ChildPath 'Trap'
-        $marker = Join-Path -Path $work -ChildPath 'trap-ran.txt'
+        $marker = Join-Path -Path $test.Work -ChildPath 'trap-ran.txt'
         New-Item -Path $trap -ItemType Directory -Force | Out-Null
         Set-Content -LiteralPath "$trap\Trap.psm1" -Value @(
             "function Get-Content { [IO.File]::WriteAllText('$marker', 'x') }"
             'Export-ModuleMember -Function Get-Content'
         )
         Set-Content -LiteralPath "$trap\Trap.psd1" -Value "@{ RootModule = 'Trap.psm1'; ModuleVersion = '1.0'; GUID = '$([guid]::NewGuid())'; FunctionsToExport = @('Get-Content') }"
-        $cleanupScript = Join-Path -Path $work -ChildPath 'cleanup.ps1'
-        Copy-Item -LiteralPath (Join-Path -Path $repoRoot -ChildPath 'src\cleanup.ps1') -Destination $cleanupScript
-        $cleanupConfig = Join-Path -Path $work -ChildPath 'cleanup.json'
-        # Rien à faire : processus attendu inexistant, aucune désinstallation ni suppression, pas de journal.
-        [ordered]@{ waitPid = [int]::MaxValue; uninstall = @(); remove = @(); logPath = $null; logoff = $false } |
-            ConvertTo-Json | Set-Content -LiteralPath $cleanupConfig -Encoding utf8
+        Save-TestCleanupConfig -Path $test.Config
 
         $previous = $env:PSModulePath
         try {
             $env:PSModulePath = "$modules;$previous"
-            & $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $cleanupScript -ConfigPath $cleanupConfig | Out-Null
+            Invoke-TestCleanupScript -Script $test.Script -ConfigPath $test.Config
         }
         finally {
             $env:PSModulePath = $previous
@@ -259,29 +323,7 @@ Describe 'src/cleanup.ps1 : modules chargés' {
 
         Test-Path -LiteralPath $marker | Should -BeFalse
         # Le script a bien tourné jusqu'au bout : il a supprimé sa configuration et lui-même.
-        Test-Path -LiteralPath $cleanupConfig | Should -BeFalse
-        Test-Path -LiteralPath $cleanupScript | Should -BeFalse
-    }
-}
-
-Describe 'src/cleanup.ps1 : chemins dont un dossier parent est un lien' {
-    It 'ne supprime rien et n''écrit pas le journal au travers d''une jonction' {
-        $work = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid().ToString('N'))
-        $outside = Join-Path -Path $work -ChildPath 'outside'
-        New-Item -Path "$outside\clone", (Join-Path -Path $work -ChildPath 'repo') -ItemType Directory -Force | Out-Null
-        Set-Content -Path "$outside\clone\keep.txt" -Value 'à garder'
-        $junction = Join-Path -Path $work -ChildPath 'repo\parent'
-        New-Item -Path $junction -ItemType Junction -Value $outside | Out-Null
-        $cleanupScript = Join-Path -Path $work -ChildPath 'cleanup.ps1'
-        Copy-Item -Path (Join-Path -Path $repoRoot -ChildPath 'src\cleanup.ps1') -Destination $cleanupScript
-        $cleanupConfig = Join-Path -Path $work -ChildPath 'cleanup.json'
-        [ordered]@{ waitPid = [int]::MaxValue; run = @(); uninstall = @(); remove = @("$junction\clone"); logPath = "$junction\setup.log"; logoff = $false } |
-            ConvertTo-Json -Depth 4 | Set-Content -Path $cleanupConfig -Encoding utf8
-        Mock Wait-Process {}
-
-        & $cleanupScript -ConfigPath $cleanupConfig
-
-        Get-Content -LiteralPath "$outside\clone\keep.txt" | Should -Be 'à garder'
-        Test-Path -LiteralPath "$outside\setup.log" | Should -BeFalse
+        Test-Path -LiteralPath $test.Config | Should -BeFalse
+        Test-Path -LiteralPath $test.Script | Should -BeFalse
     }
 }
