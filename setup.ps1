@@ -1,12 +1,13 @@
 ﻿#Requires -Version 7.4
 <#
 .SYNOPSIS
-    Point d'entrée principal d'OS_Setup.
+    Point d'entrée principal d'OS-Setup.
 .DESCRIPTION
     Hors simulation (-WhatIf), le script se relance en administrateur s'il ne l'est pas déjà :
     une seule invite UAC pour toute l'exécution.
-    Si des éléments nécessitent un redémarrage, l'état est enregistré dans state/run.json, une tâche planifiée
-    relance le setup (-Resume) à la prochaine ouverture de session, et la machine redémarre.
+    Si des éléments nécessitent un redémarrage, le code est copié dans %ProgramFiles%\OS-Setup\resume, l'état est
+    enregistré dans sa copie (state\run.json), une tâche planifiée relance le setup (-Resume) depuis cette copie à la
+    prochaine ouverture de session, et la machine redémarre (ADR 0005).
 .EXAMPLE
     ./setup.ps1
     Assistant interactif (profils, choix, emplacements), affichage du plan, validation, exécution.
@@ -44,7 +45,8 @@ param(
     # Usage interne : indique que le script a été relancé dans une fenêtre administrateur.
     [switch]$Relaunched,
 
-    # Usage interne : reprise après redémarrage (lancée par la tâche planifiée), à partir de state/run.json.
+    # Usage interne : reprise après redémarrage (lancée par la tâche planifiée), à partir de
+    # %ProgramFiles%\OS-Setup\resume\state\run.json.
     [switch]$Resume
 )
 

@@ -1,13 +1,15 @@
 ﻿<#
 .SYNOPSIS
-    Amorçage d'OS_Setup sur une machine Windows vierge (Windows PowerShell 5.1, sans module externe).
+    Amorçage d'OS-Setup sur une machine Windows vierge (Windows PowerShell 5.1, sans module externe).
 .DESCRIPTION
-    1. Vérifie l'OS et winget.
+    1. Vérifie l'OS.
     2. Se relance en administrateur (une seule invite UAC pour tout le setup) et vérifie que le compte
        administrateur est bien celui de la session ouverte.
-    3. Installe Git et PowerShell 7 via winget s'ils sont absents.
-    4. Clone (ou met à jour) le dépôt, sauf si le script est lancé depuis un clone existant.
-    5. Lance setup.ps1 sous PowerShell 7 en lui transmettant les arguments restants.
+    3. Installe winget depuis sa publication officielle (github.com/microsoft/winget-cli) s'il est absent.
+    4. Installe Git et PowerShell 7 (MSI) via winget s'ils sont absents.
+    5. Clone (ou met à jour) le dépôt, sauf si le script est lancé depuis un clone existant, et note dans
+       state\bootstrap.json ce que le nettoyage de fin pourra retirer.
+    6. Lance setup.ps1 sous PowerShell 7 en lui transmettant les arguments restants.
     Avec -WhatIf (simulation) : aucune de ces étapes n'est faite, ni élévation, ni installation, ni clonage, ni
     écriture de state\bootstrap.json ; le script affiche ce qu'il ferait, puis lance « setup.ps1 -WhatIf » si
     PowerShell 7 et une copie du dépôt sont déjà présents, sinon explique pourquoi la simulation s'arrête là.
@@ -22,15 +24,21 @@
 #>
 # PositionalBinding désactivé : sinon une valeur transmise sous forme de texte (ex. « -AnswerFile » venant
 # d'un tableau) serait affectée à RepoUrl, Branch… au lieu d'être transmise à setup.ps1.
+# Pas de SupportsShouldProcess : -WhatIf est un argument de setup.ps1 (SetupArguments). Test-WhatIfArgument le
+# reconnaît et Show-BootstrapSimulation remplace alors toutes les étapes qui modifient la machine.
 [CmdletBinding(PositionalBinding = $false)]
 param(
+    # Dépôt à cloner quand le script n'est pas lancé depuis une copie du dépôt.
     [string]$RepoUrl = 'https://github.com/IMSike/OS-Setup.git',
 
+    # Branche à cloner, ou vers laquelle basculer une copie existante de Destination sans modification locale. Sans
+    # effet quand le script est lancé depuis une copie du dépôt.
     [string]$Branch = 'main',
 
+    # Dossier où cloner le dépôt (ou mettre à jour une copie existante).
     [string]$Destination = (Join-Path -Path $env:USERPROFILE -ChildPath 'OS-Setup'),
 
-    # Ne pas attendre Entrée avant de fermer la fenêtre administrateur.
+    # Ne pas attendre Entrée avant de fermer la fenêtre administrateur (transmis à la relance élevée).
     [switch]$NoPause,
 
     # Usage interne : indique que le script a été relancé dans une fenêtre administrateur.
@@ -53,6 +61,8 @@ function Write-Step {
 }
 
 function Test-Elevated {
+    # Copie de Test-OSSetupElevated (src\OSSetup\Functions\Elevation.ps1) : le bootstrap tourne avant que le dépôt
+    # soit là. À garder alignées.
     [CmdletBinding()]
     [OutputType([bool])]
     param()
@@ -74,6 +84,7 @@ function Assert-InteractiveUser {
     Vérifie que le compte qui exécute le setup est celui de la session ouverte (propriétaire d'explorer.exe).
     Sinon (compte standard + identifiants d'un autre administrateur), les réglages « utilisateur »
     iraient dans le profil de l'administrateur au lieu de celui de l'utilisateur.
+    Copie d'Assert-OSSetupInteractiveUser (src\OSSetup\Functions\Elevation.ps1), à garder alignée.
     #>
     [CmdletBinding()]
     param()
@@ -83,7 +94,7 @@ function Assert-InteractiveUser {
         Where-Object { $_.SessionId -eq $sessionId -and $_.UserName } |
         Select-Object -First 1
     if (-not $explorer) {
-        Write-Warning "Impossible d'identifier l'utilisateur de la session (explorer.exe absent) : vérification ignorée."
+        Write-Warning 'Utilisateur de la session introuvable (explorer.exe absent) : vérification ignorée.'
         return
     }
     $current = [Security.Principal.WindowsIdentity]::GetCurrent().Name
@@ -388,7 +399,7 @@ function Show-BootstrapSimulation {
 
 Write-Step 'Vérification des prérequis'
 if ([Environment]::OSVersion.Platform -ne 'Win32NT' -or [Environment]::OSVersion.Version.Major -lt 10) {
-    throw 'OS_Setup nécessite Windows 10 ou plus récent.'
+    throw 'OS-Setup nécessite Windows 10 ou plus récent.'
 }
 
 # Simulation : avant l'élévation, et sans aucune des étapes qui modifient la machine.
