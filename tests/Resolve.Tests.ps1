@@ -168,6 +168,16 @@ Describe 'Test-OSSetupItemApplicable' {
         Test-OSSetupItemApplicable -Item $item -Facts $windows | Should -BeFalse
     }
 
+    It 'accepte un fait attendu à false' {
+        $item = New-TestItem -Id 'a'
+        $item['when'] = @{ Activated = $false }
+        Test-OSSetupItemApplicable -Item $item -Facts $windows | Should -BeTrue
+        $item['when'] = @{ Activated = @($false) }
+        Test-OSSetupItemApplicable -Item $item -Facts $windows | Should -BeTrue
+        $item['when'] = @{ Activated = $true }
+        Test-OSSetupItemApplicable -Item $item -Facts $windows | Should -BeFalse
+    }
+
     It 'accepte une liste de valeurs attendues' {
         $item = New-TestItem -Id 'a'
         $item['when'] = @{ GpuVendor = @('amd', 'intel') }

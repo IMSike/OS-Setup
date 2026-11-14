@@ -109,7 +109,8 @@ function Test-OSSetupItemApplicable {
     foreach ($name in $when.Keys) {
         $accepted = @($when[$name])
         $actual = @($Facts[$name])
-        if (-not ($actual | Where-Object { $_ -in $accepted })) { return $false }
+        # Correspondances comptées : la valeur trouvée peut être fausse (ex. Activated attendu à false).
+        if (@($actual | Where-Object { $_ -in $accepted }).Count -eq 0) { return $false }
     }
     $true
 }
