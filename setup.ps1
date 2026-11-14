@@ -186,6 +186,13 @@ try {
         $answers = Read-OSSetupAnswer -Data $data -Facts $facts -ProfileId $Profiles
     }
 
+    # Les échecs des passes précédentes comptent dans le code de sortie final, même si cette passe n'a rien à faire.
+    if ($runState -and $runState['failed']) { $exitCode = 1 }
+
+    # Vrai quand le plan n'est pas appliqué (machine conforme, ou annulation). Jamais de return pour terminer : le
+    # script doit toujours finir par « exit $exitCode », sinon l'appelant (relance en administrateur, lanceur de la
+    # reprise) lirait le code de sortie d'une commande native antérieure.
+    $skipApply = $false
     # Plan, puis validation : appliquer, modifier une étape (retour dans l'assistant) ou annuler.
     while ($true) {
         Test-OSSetupAnswer -Data $data -Answers $answers
@@ -217,7 +224,7 @@ try {
         if ($WhatIfPreference -or $Yes -or $runState) {
             if ($nothingToDo) {
                 Write-OSSetupLog -Level Success -Message 'Rien à faire : la machine est conforme.'
-                return
+                $skipApply = $true
             }
             break
         }
@@ -228,46 +235,45 @@ try {
         if ($decision -eq 'cancel') {
             if ($nothingToDo) { Write-OSSetupLog -Level Success -Message 'Rien à faire : la machine est conforme.' }
             else { Write-OSSetupLog -Level Warning -Message 'Annulé par l''utilisateur : rien n''a été modifié.' }
-            return
+            $skipApply = $true
+            break
         }
         $answers = Read-OSSetupAnswer -Data $data -Facts $facts -ProfileId $Profiles -Answers $answers -StartStep $decision
     }
 
-    $results = @(Invoke-OSSetupPlan -Plan $plan -Context $context -WhatIf:$WhatIfPreference)
-    Show-OSSetupSummary -Result $results
-    # Ce qui reste à faire à la main côté matériel (hors simulation).
-    if (-not $WhatIfPreference) { Write-OSSetupDeviceReport }
-    $failed = [bool]($results | Where-Object { $_.Status -eq 'failed' })
-    # Les échecs des passes précédentes comptent dans le code de sortie final.
-    if ($failed -or ($runState -and $runState['failed'])) {
-        $exitCode = 1
-    }
+    if (-not $skipApply) {
+        $results = @(Invoke-OSSetupPlan -Plan $plan -Context $context -WhatIf:$WhatIfPreference)
+        Show-OSSetupSummary -Result $results
+        # Ce qui reste à faire à la main côté matériel (hors simulation).
+        if (-not $WhatIfPreference) { Write-OSSetupDeviceReport }
+        if ($results | Where-Object { $_.Status -eq 'failed' }) { $exitCode = 1 }
 
-    if (-not $WhatIfPreference -and ($results | Where-Object { $_.RebootRequired })) {
-        $waitingForRestart = $true
-        $nextState = @{
-            runId    = $runId
-            pass     = if ($runState) { $runState['pass'] } else { 1 }
-            yes      = [bool]$Yes
-            failed   = ($exitCode -ne 0)
-            answers  = $answers
-            dataRoot = $dataRoot
+        if (-not $WhatIfPreference -and ($results | Where-Object { $_.RebootRequired })) {
+            $waitingForRestart = $true
+            $nextState = @{
+                runId    = $runId
+                pass     = if ($runState) { $runState['pass'] } else { 1 }
+                yes      = [bool]$Yes
+                failed   = ($exitCode -ne 0)
+                answers  = $answers
+                dataRoot = $dataRoot
+            }
+            # Copie d'abord (elle garde son dossier state), puis l'état, puis la tâche qui les utilise.
+            Copy-OSSetupResumeCode -SourceRoot $root
+            Save-OSSetupRunState -StateRoot $runStateRoot -State $nextState
+            Register-OSSetupResumeTask -ResumeRoot $resumeRoot
+            Write-OSSetupLog -Message ''
+            Write-OSSetupLog -Level Warning -Message 'Un redémarrage est nécessaire pour terminer. Le setup reprendra automatiquement à l''ouverture de session.'
+            # Reporté : l'état et la tâche restent en place, la reprise aura lieu après le prochain redémarrage.
+            [void](Request-OSSetupRestart -Immediate:$Yes)
         }
-        # Copie d'abord (elle garde son dossier state), puis l'état, puis la tâche qui les utilise.
-        Copy-OSSetupResumeCode -SourceRoot $root
-        Save-OSSetupRunState -StateRoot $runStateRoot -State $nextState
-        Register-OSSetupResumeTask -ResumeRoot $resumeRoot
-        Write-OSSetupLog -Message ''
-        Write-OSSetupLog -Level Warning -Message 'Un redémarrage est nécessaire pour terminer. Le setup reprendra automatiquement à l''ouverture de session.'
-        # Reporté : l'état et la tâche restent en place, la reprise aura lieu après le prochain redémarrage.
-        [void](Request-OSSetupRestart -Immediate:$Yes)
-    }
-    elseif (-not $WhatIfPreference -and (Test-OSSetupElevated) -and
-        ($results | Where-Object { $_.Status -eq 'done' -and $_.RequiresLogoff })) {
-        # Environnement prêt à l'emploi : la session est fermée par le nettoyage de fin, après la fermeture du setup.
-        Write-OSSetupLog -Message ''
-        Write-OSSetupLog -Level Warning -Message 'La session va être fermée pour terminer : enregistrez le travail ouvert dans les autres fenêtres.'
-        $logoff = Request-OSSetupLogoff -Immediate:$Yes
+        elseif (-not $WhatIfPreference -and (Test-OSSetupElevated) -and
+            ($results | Where-Object { $_.Status -eq 'done' -and $_.RequiresLogoff })) {
+            # Environnement prêt à l'emploi : la session est fermée par le nettoyage de fin, après la fermeture du setup.
+            Write-OSSetupLog -Message ''
+            Write-OSSetupLog -Level Warning -Message 'La session va être fermée pour terminer : enregistrez le travail ouvert dans les autres fenêtres.'
+            $logoff = Request-OSSetupLogoff -Immediate:$Yes
+        }
     }
 }
 catch {

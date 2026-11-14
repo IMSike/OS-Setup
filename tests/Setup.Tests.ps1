@@ -1,0 +1,121 @@
+﻿BeforeAll {
+    # setup.ps1 est exécuté pour de vrai (pwsh enfant), mais depuis une copie dans TestDrive dont le module OSSetup est
+    # remplacé par des fonctions factices : chacune note son appel, puis retourne ou lève ce que le scénario prévoit.
+    # Aucune action sur le système.
+    $repoRoot = (Resolve-Path -Path (Join-Path -Path $PSScriptRoot -ChildPath '..')).Path
+    $setupPath = Join-Path -Path $repoRoot -ChildPath 'setup.ps1'
+    $setupAst = [System.Management.Automation.Language.Parser]::ParseFile($setupPath, [ref]$null, [ref]$null)
+    $script:moduleCommands = @($setupAst.FindAll({ param($node) $node -is [System.Management.Automation.Language.CommandAst] }, $true) |
+            ForEach-Object { $_.GetCommandName() } | Where-Object { $_ -like '*-OSSetup*' } | Sort-Object -Unique)
+    # Fonctions sans effet sur le système reprises telles quelles du module (leur logique fait partie du comportement testé).
+    $script:realCommands = @{}
+    foreach ($file in Get-ChildItem -LiteralPath (Join-Path -Path $repoRoot -ChildPath 'src\OSSetup\Functions') -Filter '*.ps1') {
+        $fileAst = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$null)
+        foreach ($definition in $fileAst.FindAll({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $false)) {
+            if ($definition.Name -in 'ConvertTo-OSSetupProfileList') { $script:realCommands[$definition.Name] = $definition.Extent.Text }
+        }
+    }
+
+    function Invoke-TestSetup {
+        <#
+        Exécute la copie de setup.ps1 et retourne { ExitCode; Calls } (Calls : appels du module, dans l'ordre, chacun
+        { name; args }). Returns / Throws : valeurs retournées / messages d'exception par fonction, en plus des valeurs
+        par défaut d'une exécution sans incident.
+        #>
+        param(
+            [string[]]$Argument = @(),
+            [hashtable]$Returns = @{},
+            [hashtable]$Throws = @{},
+            # Ligne de commande PowerShell exécutée avant setup.ps1 dans le même processus (ex. code de sortie natif).
+            [string]$Before
+        )
+        $root = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid().ToString('N'))
+        New-Item -Path (Join-Path -Path $root -ChildPath 'src\OSSetup') -ItemType Directory -Force | Out-Null
+        Copy-Item -LiteralPath $setupPath -Destination $root
+        $calls = Join-Path -Path $root -ChildPath 'calls.jsonl'
+        $scenario = Join-Path -Path $root -ChildPath 'scenario.json'
+        $defaults = @{
+            'Test-OSSetupElevated'          = $true
+            'Get-OSSetupResumeRoot'         = (Join-Path -Path $root -ChildPath 'resume')
+            'Start-OSSetupLog'              = (Join-Path -Path $root -ChildPath 'logs\setup.log')
+            'Get-OSSetupMaxPass'            = 5
+            'Import-OSSetupData'            = @{ Items = @{}; Profiles = @{} }
+            'Get-OSSetupFact'               = @{}
+            'New-OSSetupDefaultAnswer'      = @{ profiles = @('base') }
+            'Read-OSSetupAnswer'            = @{ profiles = @('base') }
+            'Test-OSSetupInteractiveConsole' = $false
+            'Get-OSSetupPlan'               = @(@{ Status = 'todo' })
+            'Invoke-OSSetupPlan'            = @(@{ Status = 'done' })
+            'Test-OSSetupResumePwsh'        = $true
+            'Request-OSSetupRestart'        = $true
+            'Request-OSSetupLogoff'         = $false
+        }
+        foreach ($key in $Returns.Keys) { $defaults[$key] = $Returns[$key] }
+        @{ returns = $defaults; throws = $Throws } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $scenario -Encoding utf8
+        $stubs = foreach ($name in $script:moduleCommands) {
+            if ($script:realCommands.ContainsKey($name)) { $script:realCommands[$name] }
+            else { "function $name { Invoke-TestStub -Name '$name' -Arguments `$args }" }
+        }
+        $module = @(
+            "`$script:Scenario = Get-Content -LiteralPath '$scenario' -Raw | ConvertFrom-Json -AsHashtable"
+            'function Invoke-TestStub {'
+            '    param([string]$Name, [object[]]$Arguments)'
+            '    $values = @($Arguments | ForEach-Object { if ($_ -is [System.Collections.IList]) { @($_ | ForEach-Object { "$_" }) -join ''|'' } else { "$_" } })'
+            "    Add-Content -LiteralPath '$calls' -Value ([ordered]@{ name = `$Name; args = `$values } | ConvertTo-Json -Compress) -Encoding utf8"
+            '    if ($script:Scenario.throws.ContainsKey($Name)) { throw $script:Scenario.throws[$Name] }'
+            '    if ($script:Scenario.returns.ContainsKey($Name)) { $script:Scenario.returns[$Name] }'
+            '}'
+        ) + $stubs
+        Set-Content -LiteralPath (Join-Path -Path $root -ChildPath 'src\OSSetup\OSSetup.psm1') -Value $module -Encoding utf8
+        Set-Content -LiteralPath (Join-Path -Path $root -ChildPath 'src\OSSetup\OSSetup.psd1') -Encoding utf8 `
+            -Value "@{ RootModule = 'OSSetup.psm1'; ModuleVersion = '1.0'; GUID = '$([guid]::NewGuid())'; FunctionsToExport = '*' }"
+
+        $setupCopy = Join-Path -Path $root -ChildPath 'setup.ps1'
+        $pwsh = (Get-Process -Id $PID).Path
+        if ($Before) {
+            # Noms de paramètres tels quels, valeurs entre apostrophes.
+            $quoted = @($Argument | ForEach-Object { if ($_ -match '^-\w+$') { $_ } else { "'" + ($_ -replace "'", "''") + "'" } }) -join ' '
+            & $pwsh -NoProfile -NonInteractive -Command "$Before; & '$setupCopy' $quoted; exit `$LASTEXITCODE" *> $null
+        }
+        else {
+            & $pwsh -NoProfile -NonInteractive -File $setupCopy @Argument *> $null
+        }
+        $exitCode = $LASTEXITCODE
+        $recorded = if (Test-Path -LiteralPath $calls) { @(Get-Content -LiteralPath $calls -Encoding utf8 | ForEach-Object { $_ | ConvertFrom-Json }) } else { @() }
+        [pscustomobject]@{ ExitCode = $exitCode; Calls = $recorded; Names = @($recorded | ForEach-Object { $_.name }) }
+    }
+
+    function Get-TestCallArgument {
+        # Arguments du premier appel de la fonction, ou $null si elle n'a pas été appelée.
+        param($Result, [string]$Name)
+        $call = $Result.Calls | Where-Object { $_.name -eq $Name } | Select-Object -First 1
+        if ($call) { @($call.args) } else { $null }
+    }
+}
+
+Describe 'setup.ps1 : code de sortie' {
+    It 'sort avec son propre code quand il n''y a rien à faire, pas avec celui d''une commande native antérieure' {
+        # Comme la relance en administrateur : « & setup.ps1 …; exit $LASTEXITCODE ».
+        $result = Invoke-TestSetup -Argument '-Profiles', 'base', '-AcceptDefaults', '-Yes', '-NoPause' `
+            -Returns @{ 'Get-OSSetupPlan' = @(@{ Status = 'ok' }) } -Before 'cmd.exe /c exit 7'
+        $result.ExitCode | Should -Be 0
+        $result.Names | Should -Not -Contain 'Invoke-OSSetupPlan'
+        $result.Names | Should -Contain 'Write-OSSetupRunResult'
+    }
+
+    It 'sort avec son propre code après une annulation' {
+        $result = Invoke-TestSetup -Argument '-NoPause' -Returns @{ 'Read-OSSetupConfirmation' = 'cancel' } -Before 'cmd.exe /c exit 7'
+        $result.ExitCode | Should -Be 0
+        $result.Names | Should -Not -Contain 'Invoke-OSSetupPlan'
+    }
+
+    It 'sur une reprise sans rien à faire, garde l''échec d''une passe précédente' {
+        $state = @{ runId = 'r1'; pass = 1; yes = $true; failed = $true; answers = @{ profiles = @('base') } }
+        $result = Invoke-TestSetup -Argument '-Resume', '-NoPause' -Returns @{
+            'Read-OSSetupRunState' = $state
+            'Get-OSSetupPlan'      = @(@{ Status = 'ok' })
+        }
+        $result.ExitCode | Should -Be 1
+        Get-TestCallArgument -Result $result -Name 'Write-OSSetupRunResult' | Should -Contain '1'
+    }
+}
