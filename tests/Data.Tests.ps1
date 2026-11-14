@@ -328,4 +328,12 @@ Describe 'Test-OSSetupDataReference' {
         $problems -join "`n" | Should -Match "'app' installe"
         $problems -join "`n" | Should -Match "'feature' installe"
     }
+
+    It 'accepte dans ''items'' un élément sans action (épingle seule)' {
+        $data = [pscustomobject]@{
+            Items    = @{ pin = @{ id = 'pin'; taskbarPin = @{ link = 'x.lnk' } } }
+            Profiles = @{ p = @{ id = 'p'; items = @('pin') } }
+        }
+        @(Test-OSSetupDataReference -Data $data).Count | Should -Be 0
+    }
 }

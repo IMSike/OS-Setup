@@ -144,7 +144,8 @@ function Test-OSSetupItemInstall {
         [Parameter(Mandatory)]
         $Item
     )
-    [bool]($Item['actions'] | Where-Object { $_['provider'] -in 'winget', 'windows-feature', 'appx', 'windows-capability', 'win32-uninstall', 'windows-update',
+    # Élément sans action (épingle ou disposition seule) : $null traverse le pipeline, d'où le test de $_.
+    [bool]($Item['actions'] | Where-Object { $_ -and $_['provider'] -in 'winget', 'windows-feature', 'appx', 'windows-capability', 'win32-uninstall', 'windows-update',
         'vscode-extension', 'install-script', 'fnm-node', 'npm-global', 'gh-extension', 'herdr-plugin', 'claude-plugin' })
 }
 
