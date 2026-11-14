@@ -96,7 +96,7 @@ auto (with `pwsh`) · template file
 
 ✔ · per account · winget `Microsoft.WindowsTerminal`
 
-- **Effect**: installs Windows Terminal (tabs, panes, modern rendering), then updated by winget.
+- **Effect**: installs Windows Terminal (tabs, panes, modern rendering). The setup does not update it once installed: `winget upgrade --id Microsoft.WindowsTerminal`.
 - **Implications**: Store application (MSIX), installed for the account: machine-wide installation is not supported on Windows 10. On Windows 10, Terminal cannot become the default terminal of Windows (Windows 11 only): a script launched by double-click still opens in the classic console.
 - **Rollback**: Settings > Apps > Windows Terminal > Uninstall.
 
