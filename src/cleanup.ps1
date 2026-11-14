@@ -9,6 +9,7 @@
     journal où consigner le résultat, fermeture de session. Supprime ensuite sa configuration et lui-même, puis ferme la session si demandé.
     Les chemins sont supprimés sans suivre les jonctions ni les liens symboliques : un lien placé dans le dépôt est
     retiré lui-même, jamais le contenu du dossier qu'il désigne (le nettoyage s'exécute en administrateur).
+    Modules chargés depuis les seuls dossiers réservés aux administrateurs : voir PSModulePath ci-dessous.
 #>
 [CmdletBinding()]
 param(
@@ -17,10 +18,19 @@ param(
 )
 
 Set-StrictMode -Version Latest
+# Le script s'exécute en administrateur et ses cmdlets (Get-Content, Remove-Item…) viennent de modules chargés à la
+# demande. Un Windows PowerShell 5.1 enfant met en tête de PSModulePath Documents\WindowsPowerShell\Modules, modifiable
+# par l'utilisateur : un module déposé là, exportant par exemple Get-Content, serait exécuté en administrateur à sa
+# place. Liste fixe des dossiers réservés aux administrateurs (ADR 0005), posée en .NET avant toute autre cmdlet que
+# celles de Microsoft.PowerShell.Core.
+[Environment]::SetEnvironmentVariable('PSModulePath', (@(
+            [IO.Path]::Combine([Environment]::GetFolderPath('ProgramFiles'), 'WindowsPowerShell\Modules')
+            [IO.Path]::Combine([Environment]::SystemDirectory, 'WindowsPowerShell\v1.0\Modules')
+        ) -join ';'), 'Process')
 # Continue, pas Stop : chaque étape du nettoyage est indépendante, un échec (désinstallation, fichier verrouillé) ne
 # doit pas empêcher les suivantes ni la suppression du script et de sa configuration.
 $ErrorActionPreference = 'Continue'
-$config = Get-Content -Path $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+$config = Get-Content -LiteralPath $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
 
 function Get-CleanupSetting {
     # Valeur de la configuration, ou $null si elle est absente (StrictMode refuse une propriété inexistante).
@@ -54,7 +64,7 @@ function Write-CleanupLog {
     $logPath = Get-CleanupSetting -Name 'logPath'
     if ($logPath -and -not (Test-CleanupLink -Path $logPath -Leaf)) {
         $line = '{0:yyyy-MM-dd HH:mm:ss} [CLEANUP] {1}' -f (Get-Date), $Message
-        Add-Content -Path $logPath -Value $line -Encoding UTF8
+        Add-Content -LiteralPath $logPath -Value $line -Encoding UTF8
     }
 }
 

@@ -212,6 +212,45 @@ Describe 'src/cleanup.ps1 : suppression sans suivre les liens' {
     }
 }
 
+Describe 'src/cleanup.ps1 : modules chargés' {
+    It 'ne charge pas un module placé en tête de PSModulePath à la place d''une cmdlet de Windows' {
+        $powershell = Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        if (-not (Test-Path -LiteralPath $powershell)) { Set-ItResult -Skipped -Because 'Windows PowerShell 5.1 absent'; return }
+        # Module piège dans un dossier modifiable par l'utilisateur (comme Documents\WindowsPowerShell\Modules) : il
+        # exporte Get-Content, première cmdlet du script, et laisse une trace s'il est exécuté.
+        $work = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid().ToString('N'))
+        $modules = Join-Path -Path $work -ChildPath 'modules'
+        $trap = Join-Path -Path $modules -ChildPath 'Trap'
+        $marker = Join-Path -Path $work -ChildPath 'trap-ran.txt'
+        New-Item -Path $trap -ItemType Directory -Force | Out-Null
+        Set-Content -LiteralPath "$trap\Trap.psm1" -Value @(
+            "function Get-Content { [IO.File]::WriteAllText('$marker', 'x') }"
+            'Export-ModuleMember -Function Get-Content'
+        )
+        Set-Content -LiteralPath "$trap\Trap.psd1" -Value "@{ RootModule = 'Trap.psm1'; ModuleVersion = '1.0'; GUID = '$([guid]::NewGuid())'; FunctionsToExport = @('Get-Content') }"
+        $cleanupScript = Join-Path -Path $work -ChildPath 'cleanup.ps1'
+        Copy-Item -LiteralPath (Join-Path -Path $repoRoot -ChildPath 'src\cleanup.ps1') -Destination $cleanupScript
+        $cleanupConfig = Join-Path -Path $work -ChildPath 'cleanup.json'
+        # Rien à faire : processus attendu inexistant, aucune désinstallation ni suppression, pas de journal.
+        [ordered]@{ waitPid = [int]::MaxValue; uninstall = @(); remove = @(); logPath = $null; logoff = $false } |
+            ConvertTo-Json | Set-Content -LiteralPath $cleanupConfig -Encoding utf8
+
+        $previous = $env:PSModulePath
+        try {
+            $env:PSModulePath = "$modules;$previous"
+            & $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $cleanupScript -ConfigPath $cleanupConfig | Out-Null
+        }
+        finally {
+            $env:PSModulePath = $previous
+        }
+
+        Test-Path -LiteralPath $marker | Should -BeFalse
+        # Le script a bien tourné jusqu'au bout : il a supprimé sa configuration et lui-même.
+        Test-Path -LiteralPath $cleanupConfig | Should -BeFalse
+        Test-Path -LiteralPath $cleanupScript | Should -BeFalse
+    }
+}
+
 Describe 'src/cleanup.ps1 : chemins dont un dossier parent est un lien' {
     It 'ne supprime rien et n''écrit pas le journal au travers d''une jonction' {
         $work = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid().ToString('N'))
