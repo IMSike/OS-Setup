@@ -22,17 +22,46 @@ function Read-OSSetupJsonFile {
     $schemaErrors = $null
     $valid = Test-Json -Json $json -SchemaFile $SchemaPath -ErrorVariable schemaErrors -ErrorAction SilentlyContinue
     if (-not $valid) {
-        # Test-Json ne fournit pas toujours de message (ex. échec d'un « oneOf ») : l'erreur doit être signalée quand même.
-        $messages = @($schemaErrors | ForEach-Object { $_.Exception.Message } | Where-Object { $_ })
-        if ($messages.Count -eq 0) {
-            $messages = @("non conforme au schéma $(Split-Path -Path $SchemaPath -Leaf) (vérifier notamment les actions et leur provider)")
-        }
-        foreach ($message in $messages) {
-            $Errors.Add("${Path} : $message")
-        }
+        $Errors.Add((Format-OSSetupSchemaError -Path $Path -SchemaPath $SchemaPath -SchemaError $schemaErrors))
         return $null
     }
     $json | ConvertFrom-Json -AsHashtable
+}
+
+function Format-OSSetupSchemaError {
+    <#
+    .SYNOPSIS
+        Message d'un fichier non conforme à son schéma : une ligne du moteur, puis les détails de Test-Json.
+    .DESCRIPTION
+        Les détails de Test-Json varient selon la version de PowerShell et sa langue : aucun pour l'échec d'un
+        « oneOf » en 7.4, une ligne par branche essayée en 7.6.10 (plus de 70 pour un provider inconnu). La ligne
+        du moteur est donc toujours présente ; les détails sont dédoublonnés et plafonnés.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path,
+
+        [Parameter(Mandatory)]
+        [string]$SchemaPath,
+
+        [AllowNull()]
+        [AllowEmptyCollection()]
+        [object[]]$SchemaError,
+
+        [int]$MaxDetail = 5
+    )
+    $message = "${Path} : non conforme au schéma $(Split-Path -Path $SchemaPath -Leaf)"
+    $details = @($SchemaError | ForEach-Object { $_.Exception.Message } | Where-Object { $_ } | Select-Object -Unique)
+    if ($details.Count -eq 0) {
+        return "$message (vérifier notamment les actions et leur provider)."
+    }
+    $lines = @($details | Select-Object -First $MaxDetail)
+    if ($details.Count -gt $MaxDetail) {
+        $lines += "… $($details.Count - $MaxDetail) autre(s) détail(s)"
+    }
+    "${message} :" + (@($lines | ForEach-Object { "`n     $_" }) -join '')
 }
 
 function Import-OSSetupData {

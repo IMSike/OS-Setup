@@ -276,7 +276,26 @@ Describe 'Import-OSSetupData' {
         New-Item -Path (Join-Path -Path $root -ChildPath 'catalog\test') -ItemType Directory -Force | Out-Null
         New-Item -Path (Join-Path -Path $root -ChildPath 'profiles') -ItemType Directory -Force | Out-Null
         Set-Content -Path (Join-Path -Path $root -ChildPath 'catalog\test\bad.json') -Value '{ "id": "bad", "name": "Bad", "category": "test", "platforms": ["windows"], "actions": [ { "provider": "unknown" } ] }'
-        { Import-OSSetupData -Root $root } | Should -Throw '*bad.json*non conforme*'
+        # Seul le texte du moteur est vérifié : les détails de Test-Json dépendent de la version de PowerShell et de sa langue.
+        { Import-OSSetupData -Root $root } | Should -Throw '*bad.json : non conforme au schéma item.schema.json*'
+    }
+}
+
+Describe 'Format-OSSetupSchemaError' {
+    BeforeAll {
+        $newError = { param([string]$Message) [System.Management.Automation.ErrorRecord]::new([Exception]::new($Message), 'x', 'InvalidData', $null) }
+    }
+
+    It 'commence par la ligne du moteur, même sans détail de Test-Json' {
+        Format-OSSetupSchemaError -Path 'C:\a.json' -SchemaPath 'C:\s\item.schema.json' -SchemaError @() |
+            Should -BeLike 'C:\a.json : non conforme au schéma item.schema.json (vérifier*'
+    }
+
+    It 'dédoublonne et plafonne les détails' {
+        $errors = @('un', 'deux', 'un', 'trois', 'quatre', 'cinq', 'six', 'sept') | ForEach-Object { & $newError $_ }
+        $lines = (Format-OSSetupSchemaError -Path 'C:\a.json' -SchemaPath 'item.schema.json' -SchemaError $errors) -split "`n"
+        $lines[0] | Should -Be 'C:\a.json : non conforme au schéma item.schema.json :'
+        @($lines | Select-Object -Skip 1 | ForEach-Object { $_.Trim() }) | Should -Be @('un', 'deux', 'trois', 'quatre', 'cinq', '… 2 autre(s) détail(s)')
     }
 }
 

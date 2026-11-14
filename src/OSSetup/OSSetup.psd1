@@ -17,6 +17,7 @@
         'Save-OSSetupHistory'
         'Test-OSSetupRemovableBootstrapScript'
         # Data.ps1
+        'Format-OSSetupSchemaError'
         'Get-OSSetupPlatform'
         'Import-OSSetupData'
         'Read-OSSetupJsonFile'
