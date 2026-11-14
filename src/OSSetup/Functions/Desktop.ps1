@@ -132,6 +132,18 @@ function Wait-OSSetupTaskbarPin {
     }
 }
 
+function Get-OSSetupSessionExplorer {
+    <#
+    .SYNOPSIS
+        Processus de l'Explorateur de la session courante. Élevé, le setup voit aussi ceux des autres sessions ouvertes
+        sur la machine : il ne doit ni les arrêter ni se satisfaire de leur présence.
+    #>
+    [CmdletBinding()]
+    param()
+    $sessionId = [System.Diagnostics.Process]::GetCurrentProcess().SessionId
+    Get-Process -Name explorer -ErrorAction SilentlyContinue | Where-Object { $_.SessionId -eq $sessionId }
+}
+
 function Restart-OSSetupExplorer {
     <#
     .SYNOPSIS
@@ -146,7 +158,7 @@ function Restart-OSSetupExplorer {
     # Arrêté de force, l'Explorateur n'enregistre pas l'état de la barre des tâches (il le fait en se fermant
     # normalement) : un masquage automatique réglé pendant le setup serait perdu. Il est rétabli après le redémarrage.
     $autoHide = try { Get-OSSetupTaskbarAutoHide } catch { $false }
-    Get-Process -Name explorer -ErrorAction SilentlyContinue | Stop-Process -Force
+    Get-OSSetupSessionExplorer | Stop-Process -Force
     if (Wait-OSSetupExplorer -TimeoutSeconds $TimeoutSeconds) {
         Restore-OSSetupTaskbarAutoHide -Enabled $autoHide
         return
@@ -194,7 +206,7 @@ function Wait-OSSetupExplorer {
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     while ((Get-Date) -lt $deadline) {
         Start-Sleep -Seconds 2
-        if (Get-Process -Name explorer -ErrorAction SilentlyContinue) {
+        if (Get-OSSetupSessionExplorer) {
             Start-Sleep -Seconds 5
             return $true
         }

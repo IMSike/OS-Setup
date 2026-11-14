@@ -137,6 +137,17 @@ Describe 'Wait-OSSetupTaskbarPin' {
     }
 }
 
+Describe 'Get-OSSetupSessionExplorer' {
+    It 'ne retient que l''Explorateur de la session courante' {
+        $session = [System.Diagnostics.Process]::GetCurrentProcess().SessionId
+        Mock -ModuleName OSSetup Get-Process -ParameterFilter { $Name -eq 'explorer' } -MockWith ([scriptblock]::Create(@"
+[pscustomobject]@{ Id = 1; SessionId = $session }
+[pscustomobject]@{ Id = 2; SessionId = $($session + 1) }
+"@))
+        @(Get-OSSetupSessionExplorer).Id | Should -Be @(1)
+    }
+}
+
 Describe 'Provider shortcut' {
     It 'teste la présence ou l''absence du raccourci' {
         $path = Join-Path -Path $TestDrive -ChildPath 'App.lnk'

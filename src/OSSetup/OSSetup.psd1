@@ -39,6 +39,7 @@
         'Start-OSSetupUnelevatedExplorer'
         'Wait-OSSetupExplorer'
         'Wait-OSSetupTaskbarPin'
+        'Get-OSSetupSessionExplorer'
         # Disk.ps1
         'Get-OSSetupDiskBoundedSize'
         'Get-OSSetupDockerBuildCacheLimit'
