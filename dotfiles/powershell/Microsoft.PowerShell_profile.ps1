@@ -1,14 +1,17 @@
-﻿# Profil PowerShell 7 — déployé par OS_Setup (ne pas modifier ici, modifier le dépôt).
+﻿# Profil PowerShell 7 — déployé par OS-Setup (ne pas modifier ici, modifier le dépôt).
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingInvokeExpression', '', Justification = 'fnm env | Invoke-Expression : intégration documentée par fnm.')]
 param()
 
-$env:DEV_ROOT = '{{DevRoot}}'
+# Chaîne littérale multiligne : le chemin substitué reste intact même s'il contient une apostrophe.
+$env:DEV_ROOT = @'
+{{DevRoot}}
+'@
 
 function Set-DevLocation {
     [CmdletBinding()]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'Change seulement le dossier courant de la session.')]
     param()
-    Set-Location -Path $env:DEV_ROOT
+    Set-Location -LiteralPath $env:DEV_ROOT
 }
 Set-Alias -Name dev -Value Set-DevLocation
 
