@@ -8,8 +8,7 @@
   "actions": [
     {
       "provider": "startup-entry",
-      "name": "Discord",
-      "enabled": false
+      "name": "Discord"
     }
   ]
 }

@@ -218,13 +218,12 @@
     "startupEntryAction": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["provider", "name", "enabled"],
+      "required": ["provider", "name"],
       "properties": {
         "provider": { "const": "startup-entry" },
         "description": { "type": "string" },
-        "name": { "description": "Nom de la valeur dans la clé Run (* accepté, ex. MicrosoftEdgeAutoLaunch_*).", "type": "string", "minLength": 1 },
-        "scope": { "description": "user (défaut) : clé Run du compte ; machine : clés Run de la machine (admin).", "enum": ["user", "machine"] },
-        "enabled": { "description": "false : ne pas lancer à l'ouverture de session (seule valeur prise en charge).", "const": false }
+        "name": { "description": "Nom de la valeur dans la clé Run (* accepté, ex. MicrosoftEdgeAutoLaunch_*), dont le lancement à l'ouverture de session est désactivé.", "type": "string", "minLength": 1 },
+        "scope": { "description": "user (défaut) : clé Run du compte ; machine : clés Run de la machine (admin).", "enum": ["user", "machine"] }
       }
     },
     "gitConfigAction": {
@@ -263,11 +262,11 @@
     "fnmNodeAction": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["provider", "version"],
+      "description": "Dernière version LTS de Node.js, définie comme version par défaut de fnm.",
+      "required": ["provider"],
       "properties": {
         "provider": { "const": "fnm-node" },
-        "description": { "type": "string" },
-        "version": { "description": "lts : dernière version LTS, définie comme version par défaut de fnm.", "const": "lts" }
+        "description": { "type": "string" }
       }
     },
     "npmGlobalAction": {

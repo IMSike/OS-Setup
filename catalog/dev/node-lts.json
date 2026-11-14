@@ -6,7 +6,7 @@
   "platforms": ["windows"],
   "dependsOn": ["fnm"],
   "actions": [
-    { "provider": "fnm-node", "version": "lts" },
+    { "provider": "fnm-node" },
     { "provider": "path", "path": "{{AppData}}\\fnm\\aliases\\default", "description": "PATH du compte : Node.js par défaut de fnm, disponible partout (Git Bash, cmd, applications)" }
   ]
 }

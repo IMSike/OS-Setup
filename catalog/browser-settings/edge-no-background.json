@@ -22,8 +22,7 @@
     },
     {
       "provider": "startup-entry",
-      "name": "MicrosoftEdgeAutoLaunch_*",
-      "enabled": false
+      "name": "MicrosoftEdgeAutoLaunch_*"
     }
   ]
 }

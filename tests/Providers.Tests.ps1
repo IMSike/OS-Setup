@@ -87,6 +87,19 @@ Describe 'Provider logon-task : conformité' {
     }
 }
 
+Describe 'Schéma : aucune propriété que le provider ne lit pas' {
+    It 'décrit <Provider> sans <Removed> (comportement fixe du provider)' -ForEach @(
+        @{ Provider = 'fnm-node'; Action = [ordered]@{ provider = 'fnm-node' }; Removed = 'version'; Value = 'lts' }
+        @{ Provider = 'startup-entry'; Action = [ordered]@{ provider = 'startup-entry'; name = 'Discord' }; Removed = 'enabled'; Value = $false }
+    ) {
+        $schema = Join-Path -Path $PSScriptRoot -ChildPath '..\schemas\item.schema.json'
+        $item = { param($Action) ConvertTo-Json -Depth 5 -InputObject ([ordered]@{ id = 'x'; name = 'X'; category = 'test'; platforms = @('windows'); actions = @($Action) }) }
+        Test-Json -Json (& $item $Action) -SchemaFile $schema | Should -BeTrue
+        $Action[$Removed] = $Value
+        Test-Json -Json (& $item $Action) -SchemaFile $schema -ErrorAction SilentlyContinue | Should -BeFalse
+    }
+}
+
 Describe 'Provider herdr-plugin' {
     BeforeAll {
         # Pester ne simule qu'une commande existante : une fonction vide remplace herdr là où il manque (ex. runner CI).

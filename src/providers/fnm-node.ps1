@@ -1,6 +1,6 @@
-﻿# Provider fnm-node : version de Node.js par défaut installée avec fnm (gestionnaire de versions). Seule « lts » est
-# prise en charge : dernière version LTS, utilisée hors des projets qui demandent une autre version (.nvmrc,
-# .node-version, installée à la demande par fnm).
+﻿# Provider fnm-node : version de Node.js par défaut installée avec fnm (gestionnaire de versions) : la dernière version
+# LTS (seul cas pris en charge, l'action n'a pas de paramètre), utilisée hors des projets qui demandent une autre
+# version (.nvmrc, .node-version, installée à la demande par fnm).
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification = 'Interface commune des providers : chaque bloc reçoit $Action et $Context, utilisés ou non.')]
 param()

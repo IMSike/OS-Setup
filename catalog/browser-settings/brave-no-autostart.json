@@ -9,8 +9,7 @@
   "actions": [
     {
       "provider": "startup-entry",
-      "name": "BraveSoftware Update",
-      "enabled": false
+      "name": "BraveSoftware Update"
     }
   ]
 }
