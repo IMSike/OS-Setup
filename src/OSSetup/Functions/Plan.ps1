@@ -29,17 +29,17 @@
                     continue
                 }
                 $step = [pscustomobject]@{
-                    ItemId        = $id
-                    ItemName      = $item['name']
-                    RequiresAdmin = [bool]$item['requiresAdmin']
+                    ItemId         = $id
+                    ItemName       = $item['name']
+                    RequiresAdmin  = [bool]$item['requiresAdmin']
                     RequiresReboot = [bool]$item['requiresReboot']
                     RequiresLogoff = [bool]$item['requiresLogoff']
-                    DependsOn     = @($item['dependsOn'] | Where-Object { $_ })
-                    Provider      = $rawAction['provider']
-                    Action        = $null
-                    Description   = $null
-                    Status        = 'todo'
-                    Detail        = $null
+                    DependsOn      = @($item['dependsOn'] | Where-Object { $_ })
+                    Provider       = $rawAction['provider']
+                    Action         = $null
+                    Description    = $null
+                    Status         = 'todo'
+                    Detail         = $null
                 }
                 # Information personnelle non renseignée (ex. nom pour Git) : l'action est ignorée plutôt qu'appliquée à vide.
                 $missing = @(Get-OSSetupActionVariableName -Action $rawAction | Where-Object { $Context['MissingVariables'] -and $Context.MissingVariables.Contains($_) } |
