@@ -353,6 +353,56 @@ Describe 'Test-OSSetupDataReference' {
         $problems[0] | Should -BeLike "*'programFiles' porte le nom d'une variable intégrée*"
     }
 
+    It 'refuse un unlessSelected qui désigne un élément inconnu' {
+        $data = [pscustomobject]@{
+            Items    = @{
+                known = @{ id = 'known' }
+                a     = @{ id = 'a'; actions = @(@{ provider = 'shortcut'; unlessSelected = 'known' }, @{ provider = 'shortcut'; unlessSelected = 'nope' }) }
+            }
+            Profiles = @{}
+        }
+        $problems = @(Test-OSSetupDataReference -Data $data)
+        $problems | Should -Be @("élément 'a' : unlessSelected désigne un élément inconnu 'nope'.")
+    }
+
+    It 'détecte un cycle de dépendances au chargement' {
+        $data = [pscustomobject]@{
+            Items    = [ordered]@{
+                a = @{ id = 'a'; dependsOn = @('b') }
+                b = @{ id = 'b'; dependsOn = @('c') }
+                c = @{ id = 'c'; dependsOn = @('a') }
+                d = @{ id = 'd'; dependsOn = @('a', 'd') }
+            }
+            Profiles = @{}
+        }
+        $problems = @(Test-OSSetupDataReference -Data $data)
+        $problems | Should -Be @("élément 'a' : cycle de dépendances (a → b → c → a).", "élément 'd' : cycle de dépendances (d → d).")
+    }
+
+    It 'refuse des valeurs par défaut hors des bornes du groupe' {
+        $items = @{ x = @{ id = 'x' }; y = @{ id = 'y' } }
+        $data = [pscustomobject]@{
+            Items    = $items
+            Profiles = @{
+                p = @{
+                    id      = 'p'
+                    choices = @(
+                        @{ id = 'single'; mode = 'single'; options = @('x', 'y'); default = @('x', 'y') }
+                        @{ id = 'min'; mode = 'multi'; options = @('x', 'y'); min = 1 }
+                        @{ id = 'max'; mode = 'multi'; options = @('x', 'y'); max = 1; default = @('x', 'y') }
+                        @{ id = 'ok'; mode = 'multi'; options = @('x', 'y'); min = 1; default = @('y') }
+                    )
+                }
+            }
+        }
+        $problems = @(Test-OSSetupDataReference -Data $data)
+        $problems | Should -Be @(
+            "profil 'p' : choix 'single', 2 valeur(s) par défaut, attendu entre 0 et 1."
+            "profil 'p' : choix 'min', 0 valeur(s) par défaut, attendu entre 1 et 2."
+            "profil 'p' : choix 'max', 2 valeur(s) par défaut, attendu entre 0 et 1."
+        )
+    }
+
     It 'accepte dans ''items'' un élément sans action (épingle seule)' {
         $data = [pscustomobject]@{
             Items    = @{ pin = @{ id = 'pin'; taskbarPin = @{ link = 'x.lnk' } } }

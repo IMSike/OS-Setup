@@ -191,6 +191,12 @@ function Test-OSSetupDataReference {
             foreach ($default in $choice['default']) {
                 if ($default -notin $choice['options']) { "${where} : choix '$($choice['id'])', défaut '$default' absent des options." }
             }
+            # Les valeurs par défaut s'appliquent telles quelles (-AcceptDefaults) : elles respectent les bornes du groupe.
+            $bound = Get-OSSetupChoiceBound -Choice $choice
+            $defaultCount = @($choice['default'] | Where-Object { $_ }).Count
+            if ($defaultCount -lt $bound.Min -or $defaultCount -gt $bound.Max) {
+                "${where} : choix '$($choice['id'])', $defaultCount valeur(s) par défaut, attendu entre $($bound.Min) et $($bound.Max)."
+            }
         }
     }
     foreach ($item in $Data.Items.Values) {
@@ -201,5 +207,34 @@ function Test-OSSetupDataReference {
                 "élément '$($item['id'])' : la dépendance '$dependency' est traitée en dernier (runLast), après lui."
             }
         }
+        foreach ($action in @($item['actions'] | Where-Object { $_ -and $_['unlessSelected'] })) {
+            if (-not $Data.Items.Contains($action['unlessSelected'])) {
+                "élément '$($item['id'])' : unlessSelected désigne un élément inconnu '$($action['unlessSelected'])'."
+            }
+        }
+    }
+
+    # Cycles de dépendances : détectés au chargement plutôt qu'au moment de la résolution des choix.
+    $state = @{}
+    $path = [System.Collections.Generic.List[string]]::new()
+    $visit = {
+        param([string]$Id)
+        $state[$Id] = 'visiting'
+        $path.Add($Id)
+        foreach ($dependency in $Data.Items[$Id]['dependsOn']) {
+            if (-not $Data.Items.Contains($dependency)) { continue }
+            if ($state[$dependency] -eq 'visiting') {
+                $cycle = @($path.GetRange($path.IndexOf($dependency), $path.Count - $path.IndexOf($dependency))) + $dependency
+                "élément '$dependency' : cycle de dépendances ($($cycle -join ' → '))."
+            }
+            elseif (-not $state.ContainsKey($dependency)) {
+                & $visit $dependency
+            }
+        }
+        $path.RemoveAt($path.Count - 1)
+        $state[$Id] = 'done'
+    }
+    foreach ($id in @($Data.Items.Keys)) {
+        if (-not $state.ContainsKey($id)) { & $visit $id }
     }
 }
