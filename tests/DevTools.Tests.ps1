@@ -113,6 +113,23 @@ Describe 'Étapes manuelles' {
         { Invoke-OSSetupManualStep -Action $action -Context @{ Interactive = $true } } | Should -Not -Throw
         Should -Invoke -ModuleName OSSetup -CommandName Start-OSSetupManualAssist -Times 1 -Exactly
     }
+
+    It 'écrit la consigne et chaque vérification manquée au journal' {
+        Mock -ModuleName OSSetup -CommandName Start-OSSetupManualAssist
+        Mock -ModuleName OSSetup -CommandName Write-OSSetupLog
+        $global:OSSetupTestMenuQueue = [System.Collections.Generic.Queue[string]]::new([string[]]@('check', 'skip'))
+        try {
+            Mock -ModuleName OSSetup -CommandName Read-OSSetupMenu -MockWith { @{ Action = 'next'; Values = @($global:OSSetupTestMenuQueue.Dequeue()) } }
+            Mock -ModuleName OSSetup -CommandName Test-OSSetupManualStep -MockWith { $false }
+            $action = [ordered]@{ provider = 'manual'; check = 'gh-auth'; instructions = 'se connecter.' }
+            { Invoke-OSSetupManualStep -Action $action -Context @{ Interactive = $true } } | Should -Throw '*passée*'
+            Should -Invoke -ModuleName OSSetup -CommandName Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -eq 'Étape manuelle : se connecter.' }
+            Should -Invoke -ModuleName OSSetup -CommandName Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Level -eq 'Warning' -and $Message -like 'Pas encore fait*' }
+        }
+        finally {
+            Remove-Variable -Name OSSetupTestMenuQueue -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 Describe 'Mémoire de WSL' {

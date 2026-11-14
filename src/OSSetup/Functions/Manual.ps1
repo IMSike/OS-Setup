@@ -103,8 +103,10 @@ function Invoke-OSSetupManualStep {
     if (-not $Context['Interactive']) {
         throw "étape manuelle, à faire plus tard (exécution sans surveillance) : $($Action['instructions'])"
     }
-    Write-Host -Object ''
-    Write-Host -Object "Étape manuelle : $($Action['instructions'])" -ForegroundColor Cyan
+    # Consigne et résultats des vérifications au journal, comme le reste du déroulement : seule la navigation dans le
+    # menu reste hors journal.
+    Write-OSSetupLog -Message ''
+    Write-OSSetupLog -Message "Étape manuelle : $($Action['instructions'])"
     Start-OSSetupManualAssist -Check $Action['check'] -Value $Action['value'] -Confirm:$false
     while ($true) {
         $options = @(
@@ -116,7 +118,7 @@ function Invoke-OSSetupManualStep {
         switch ($result.Values[0]) {
             'check' {
                 if (Test-OSSetupManualStep -Check $Action['check'] -Value $Action['value']) { return }
-                Write-Host -Object 'Pas encore fait : vérifiez les instructions ci-dessus.' -ForegroundColor Yellow
+                Write-OSSetupLog -Level Warning -Message 'Pas encore fait : vérifiez les instructions ci-dessus.'
             }
             'assist' { Start-OSSetupManualAssist -Check $Action['check'] -Value $Action['value'] -Confirm:$false }
             'skip' { throw 'étape manuelle passée, à faire plus tard.' }
