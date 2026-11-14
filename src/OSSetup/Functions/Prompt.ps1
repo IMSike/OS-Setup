@@ -281,6 +281,11 @@ function New-OSSetupDefaultAnswer {
 }
 
 function Read-OSSetupAnswerFile {
+    <#
+    .SYNOPSIS
+        Lit un fichier de réponses et le valide contre schemas/answers.schema.json ; erreur listant les écarts s'il
+        n'est pas conforme.
+    #>
     [CmdletBinding()]
     [OutputType([hashtable])]
     param(
@@ -299,6 +304,10 @@ function Read-OSSetupAnswerFile {
 }
 
 function Save-OSSetupAnswerFile {
+    <#
+    .SYNOPSIS
+        Enregistre les réponses de la session (profils, choix, variables) dans un fichier de réponses rejouable.
+    #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(Mandatory)]

@@ -79,6 +79,11 @@ function ConvertTo-OSSetupLayoutXml {
 }
 
 function Get-OSSetupLayoutHash {
+    <#
+    .SYNOPSIS
+        Empreinte (SHA-256, hexadécimal) d'un fichier de disposition : enregistrée une fois la disposition appliquée,
+        elle indique si la même disposition l'a déjà été.
+    #>
     [CmdletBinding()]
     [OutputType([string])]
     param(
@@ -293,6 +298,10 @@ function Set-OSSetupDesktopLayout {
 }
 
 function Get-OSSetupDesktopLayoutMarker {
+    <#
+    .SYNOPSIS
+        Empreinte de la dernière disposition appliquée (HKCU\Software\OS-Setup, valeur DesktopLayout) ; $null si aucune.
+    #>
     [CmdletBinding()]
     [OutputType([string])]
     param()
@@ -301,6 +310,11 @@ function Get-OSSetupDesktopLayoutMarker {
 }
 
 function Initialize-OSSetupAppBarApi {
+    <#
+    .SYNOPSIS
+        Déclare une fois par session les fonctions Windows de la barre des tâches (SHAppBarMessage, FindWindow) et
+        leurs structures, utilisées pour lire et régler son masquage automatique.
+    #>
     [CmdletBinding()]
     param()
     if ('OSSetup.AppBar' -as [type]) { return }

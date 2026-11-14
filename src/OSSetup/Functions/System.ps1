@@ -1,4 +1,6 @@
-﻿# Fonctions d'appui des providers système (service, scheduled-task, power).
+﻿# Fonctions d'appui des providers système : applications du Store (appx, annulation de leurs mises à jour), capacités
+# Windows (windows-capability), désinstallation classique (win32-uninstall), lancement à l'ouverture de session
+# (startup-entry), tâches planifiées (scheduled-task, logon-task), alimentation (power), Windows PowerShell 5.1.
 
 # Paramètres d'alimentation pris en charge : alias powercfg (sous-groupe, paramètre), valeurs en secondes.
 $script:PowerSettings = @{
@@ -136,9 +138,9 @@ function Get-OSSetupStoreCancelScript {
         [ValidatePattern('^[\w.-]+$')]
         [string]$Name
     )
-    # Le nom d'assembly qui suit le type est ignoré par la résolution WinRT (seul l'espace de noms compte) : il est
-    # aligné sur StoreUpdate.User.ps1 par simple cohérence. En cas d'échec, seul le message de l'exception est écrit
-    # sur la sortie d'erreur (sinon Windows PowerShell la met en forme sur plusieurs lignes coupées), code de sortie 1.
+    # Le nom d'assembly qui suit le type est ignoré par la résolution WinRT (seul l'espace de noms compte). En cas
+    # d'échec, seul le message de l'exception est écrit sur la sortie d'erreur (sinon Windows PowerShell la met en forme
+    # sur plusieurs lignes coupées), code de sortie 1.
     @"
 `$ErrorActionPreference = 'Stop'
 `$ProgressPreference = 'SilentlyContinue'
@@ -443,6 +445,10 @@ function Split-OSSetupTaskPath {
 }
 
 function Format-OSSetupDuration {
+    <#
+    .SYNOPSIS
+        Durée lisible pour les messages : « 45 s », « 20 min », « 4 min 30 s ».
+    #>
     [CmdletBinding()]
     [OutputType([string])]
     param(

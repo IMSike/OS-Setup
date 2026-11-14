@@ -234,7 +234,10 @@ function Test-OSSetupInteractiveConsole {
 }
 
 function Write-OSSetupMenuFrame {
-    # Écrit les lignes à partir de la ligne $Top, en effaçant le reste de chaque ligne et les lignes en trop.
+    <#
+    .SYNOPSIS
+        Écrit les lignes à partir de la ligne $Top, en effaçant le reste de chaque ligne et les lignes en trop.
+    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
