@@ -17,7 +17,7 @@
       "provider": "logon-task",
       "name": "OS-Setup - Docker (entretien)",
       "script": "{{ProgramFiles}}\\OS-Setup\\docker\\docker-maintenance.ps1",
-      "description": "Une fois par semaine au plus : compacte le disque virtuel de Docker avant son démarrage, puis supprime les images orphelines. Démarre Docker Desktop à la place de son lancement automatique (déployé par OS-Setup)."
+      "taskDescription": "Une fois par semaine au plus : compacte le disque virtuel de Docker avant son démarrage, puis supprime les images orphelines. Démarre Docker Desktop à la place de son lancement automatique (déployé par OS-Setup)."
     },
     {
       "provider": "file",

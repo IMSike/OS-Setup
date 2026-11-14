@@ -25,18 +25,30 @@ Describe 'Provider logon-task : erreurs des cmdlets du Planificateur' {
     It 'demande l''arrêt sur erreur à Register-ScheduledTask' {
         Mock -ModuleName OSSetup -CommandName Register-ScheduledTask
         InModuleScope OSSetup {
-            $action = @{ name = 'OS-Setup - test'; script = 'C:\Program Files\OS-Setup\test.ps1'; description = 'Tâche de test.' }
+            $action = @{ name = 'OS-Setup - test'; script = 'C:\Program Files\OS-Setup\test.ps1'; taskDescription = 'Tâche de test.' }
             & (Get-OSSetupProvider -Name 'logon-task').Invoke $action @{}
         }
         Should -Invoke -ModuleName OSSetup -CommandName Register-ScheduledTask -Times 1 -Exactly -ParameterFilter {
-            $TaskName -eq 'OS-Setup - test' -and $PesterBoundParameters['ErrorAction'] -eq 'Stop'
+            $TaskName -eq 'OS-Setup - test' -and $Description -eq 'Tâche de test.' -and $PesterBoundParameters['ErrorAction'] -eq 'Stop'
+        }
+    }
+
+    It 'prend le texte de la tâche dans taskDescription : description reste la phrase du plan' {
+        $schema = Join-Path -Path $PSScriptRoot -ChildPath '..\schemas\item.schema.json'
+        $item = { param($Action) ConvertTo-Json -Depth 5 -InputObject ([ordered]@{ id = 'x'; name = 'X'; category = 'test'; platforms = @('windows'); actions = @($Action) }) }
+        $task = [ordered]@{ provider = 'logon-task'; name = 'T'; script = '{{ProgramFiles}}\OS-Setup\t.ps1' }
+        Test-Json -Json (& $item ($task + @{ taskDescription = 'Texte.' })) -SchemaFile $schema | Should -BeTrue
+        Test-Json -Json (& $item ($task + @{ description = 'Texte.' })) -SchemaFile $schema -ErrorAction SilentlyContinue | Should -BeFalse
+        InModuleScope OSSetup {
+            & (Get-OSSetupProvider -Name 'logon-task').Describe @{ name = 'T'; script = 'C:\Program Files\OS-Setup\t.ps1'; taskDescription = 'Texte.' } @{} |
+                Should -Be 'tâche planifiée « T » à l''ouverture de session : t.ps1'
         }
     }
 }
 
 Describe 'Provider logon-task : conformité' {
     BeforeAll {
-        $script:logonAction = @{ name = 'OS-Setup - test'; script = 'C:\Program Files\OS-Setup\test.ps1'; description = 'Tâche de test.' }
+        $script:logonAction = @{ name = 'OS-Setup - test'; script = 'C:\Program Files\OS-Setup\test.ps1'; taskDescription = 'Tâche de test.' }
     }
 
     It 'est conforme <Case>' -ForEach @(

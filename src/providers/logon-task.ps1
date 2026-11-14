@@ -46,6 +46,6 @@ param()
         $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Highest -ErrorAction Stop
         $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::FromHours(1)) -ErrorAction Stop
         Register-ScheduledTask -TaskName $Action['name'] -Action $taskAction -Trigger $trigger -Principal $principal -Settings $settings `
-            -Description $Action['description'] -Force -ErrorAction Stop | Out-Null
+            -Description $Action['taskDescription'] -Force -ErrorAction Stop | Out-Null
     }
 }
