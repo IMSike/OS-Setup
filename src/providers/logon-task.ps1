@@ -30,11 +30,13 @@ param()
         param($Action, $Context)
         $user = [Security.Principal.WindowsIdentity]::GetCurrent().Name
         $powershell = Get-OSSetupWindowsPowerShellPath
-        $taskAction = New-ScheduledTaskAction -Execute $powershell -Argument (Get-OSSetupLogonTaskArgument -Script $Action['script'])
-        $trigger = New-ScheduledTaskTrigger -AtLogOn -User $user
-        $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Highest
-        $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::FromHours(1))
+        # Cmdlets CDXML (module ScheduledTasks) : elles n'héritent pas de $ErrorActionPreference du module, d'où
+        # -ErrorAction Stop (sinon l'erreur reste non bloquante et sa cause se perd).
+        $taskAction = New-ScheduledTaskAction -Execute $powershell -Argument (Get-OSSetupLogonTaskArgument -Script $Action['script']) -ErrorAction Stop
+        $trigger = New-ScheduledTaskTrigger -AtLogOn -User $user -ErrorAction Stop
+        $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Highest -ErrorAction Stop
+        $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::FromHours(1)) -ErrorAction Stop
         Register-ScheduledTask -TaskName $Action['name'] -Action $taskAction -Trigger $trigger -Principal $principal -Settings $settings `
-            -Description $Action['description'] -Force | Out-Null
+            -Description $Action['description'] -Force -ErrorAction Stop | Out-Null
     }
 }

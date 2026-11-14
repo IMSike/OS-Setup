@@ -35,11 +35,13 @@ param()
     Invoke   = {
         param($Action, $Context)
         $path, $name = Split-OSSetupTaskPath -Task $Action['task']
+        # Cmdlets CDXML (module ScheduledTasks) : elles n'héritent pas de $ErrorActionPreference du module, d'où
+        # -ErrorAction Stop (sinon l'erreur reste non bloquante et sa cause se perd).
         if ($Action['enabled']) {
-            Enable-ScheduledTask -TaskPath $path -TaskName $name | Out-Null
+            Enable-ScheduledTask -TaskPath $path -TaskName $name -ErrorAction Stop | Out-Null
         }
         else {
-            Disable-ScheduledTask -TaskPath $path -TaskName $name | Out-Null
+            Disable-ScheduledTask -TaskPath $path -TaskName $name -ErrorAction Stop | Out-Null
         }
     }
 }
