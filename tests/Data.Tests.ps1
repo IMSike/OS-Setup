@@ -69,7 +69,7 @@ Describe 'Données du dépôt' {
     }
 
     It 'le contrôle des scripts de logon-task refuse tout script hors de {{ProgramFiles}}\OS-Setup' {
-        $variables = Get-OSSetupBuiltinVariable -Root $repoRoot
+        $variables = Get-OSSetupBuiltinVariable
         $fake = [pscustomobject]@{
             Items = [ordered]@{
                 local   = @{ id = 'local'; actions = @(@{ provider = 'logon-task'; script = '{{LocalAppData}}\OS-Setup\a.ps1' }) }

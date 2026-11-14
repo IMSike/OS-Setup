@@ -22,14 +22,12 @@
     try {
         foreach ($id in $ItemId) {
             $item = $Data.Items[$id]
-            $index = 0
             foreach ($rawAction in $item['actions']) {
                 # Action sans objet quand un autre élément retenu prend le relais (ex. ne pas supprimer le raccourci
                 # posé par un installeur si l'utilisateur a demandé ce raccourci sur le bureau).
                 if ($rawAction['unlessSelected'] -and $Context.ContainsKey('ItemIds') -and $rawAction['unlessSelected'] -in $Context.ItemIds) {
                     continue
                 }
-                $index++
                 $step = [pscustomobject]@{
                     ItemId        = $id
                     ItemName      = $item['name']
@@ -37,7 +35,6 @@
                     RequiresReboot = [bool]$item['requiresReboot']
                     RequiresLogoff = [bool]$item['requiresLogoff']
                     DependsOn     = @($item['dependsOn'] | Where-Object { $_ })
-                    Index         = $index
                     Provider      = $rawAction['provider']
                     Action        = $null
                     Description   = $null

@@ -5,18 +5,13 @@
     #>
     [CmdletBinding()]
     [OutputType([System.Collections.Specialized.OrderedDictionary])]
-    param(
-        [Parameter(Mandatory)]
-        [string]$Root
-    )
+    param()
     [ordered]@{
-        RepoRoot        = $Root
         UserProfile     = [Environment]::GetFolderPath('UserProfile')
         Documents       = [Environment]::GetFolderPath('MyDocuments')
         AppData         = [Environment]::GetFolderPath('ApplicationData')
         LocalAppData    = [Environment]::GetFolderPath('LocalApplicationData')
-        Temp            = [System.IO.Path]::GetTempPath().TrimEnd([System.IO.Path]::DirectorySeparatorChar)
-        Windows         = [Environment]::GetFolderPath('Windows')
+        Windows        = [Environment]::GetFolderPath('Windows')
         ProgramFiles    = [Environment]::GetFolderPath('ProgramFiles')
         Desktop         = [Environment]::GetFolderPath('DesktopDirectory')
         PublicDesktop   = [Environment]::GetFolderPath('CommonDesktopDirectory')
@@ -142,7 +137,7 @@ function Resolve-OSSetupVariable {
         [hashtable]$Answers
     )
     $resolvedProfiles = Resolve-OSSetupProfileSet -Data $Data -ProfileId $Answers['profiles']
-    $raw = Get-OSSetupBuiltinVariable -Root $Data.Root
+    $raw = Get-OSSetupBuiltinVariable
     $definitions = Get-OSSetupVariableDefinition -Data $Data -ResolvedProfileId $resolvedProfiles
     foreach ($name in $definitions.Keys) {
         # Information personnelle : pas de valeur par défaut, connue seulement si elle a été renseignée.

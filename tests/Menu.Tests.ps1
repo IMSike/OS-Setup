@@ -28,7 +28,7 @@
             dev  = [ordered]@{
                 id = 'dev'; name = 'Dev'; extends = @('base'); items = @()
                 choices = @([ordered]@{ id = 'one'; prompt = 'Un seul'; mode = 'single'; options = @('x', 'y'); default = @('y') })
-                variables = [ordered]@{ Root = [ordered]@{ prompt = 'Racine'; default = '{{Temp}}\dev' } }
+                variables = [ordered]@{ Root = [ordered]@{ prompt = 'Racine'; default = '{{UserProfile}}\dev' } }
             }
         }
         [pscustomobject]@{ Root = 'C:\repo'; Items = $items; Profiles = $profiles }
