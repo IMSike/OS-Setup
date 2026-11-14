@@ -12,8 +12,10 @@
     4. Point de contrôle pris VM allumée : sa restauration redonne une session ouverte, sans démarrage.
     À relancer quand bootstrap.ps1 change (Invoke-TestVM.ps1 le signale).
     À lancer en administrateur, ou depuis un compte membre du groupe « Administrateurs Hyper-V ».
+    Pas de -WhatIf : les étapes dans la VM (bootstrap, suppression du dépôt copié) ne sont pas simulables, le
+    paramètre est donc refusé.
 #>
-[CmdletBinding(SupportsShouldProcess)]
+[CmdletBinding()]
 param(
     [string]$Name = 'OSSetup-Win10'
 )
@@ -53,8 +55,6 @@ Invoke-Command -VMName $Name -Credential $credential -ArgumentList $script:Guest
     "Outils du bootstrap : $($tools -join ', ')"
 }
 
-if ($PSCmdlet.ShouldProcess($Name, "Créer le point de contrôle « $script:PrerequisiteCheckpoint »")) {
-    Get-VMSnapshot -VMName $Name -Name $script:PrerequisiteCheckpoint -ErrorAction SilentlyContinue | Remove-VMSnapshot
-    Checkpoint-VM -Name $Name -SnapshotName $script:PrerequisiteCheckpoint
-    Write-TestVMStep "Point de contrôle « $script:PrerequisiteCheckpoint » créé"
-}
+Get-VMSnapshot -VMName $Name -Name $script:PrerequisiteCheckpoint -ErrorAction SilentlyContinue | Remove-VMSnapshot
+Checkpoint-VM -Name $Name -SnapshotName $script:PrerequisiteCheckpoint
+Write-TestVMStep "Point de contrôle « $script:PrerequisiteCheckpoint » créé"
