@@ -159,6 +159,25 @@ Describe 'bootstrap.ps1 -WhatIf : simulation' {
         Test-WhatIfArgument -Argument $null | Should -BeFalse
     }
 
+    It 'reconnaît aussi <_>, que setup.ps1 accepte comme -WhatIf' -ForEach @('-What', '-wh', '-WHATI', '-wi', '-wi:$true') {
+        Test-WhatIfArgument -Argument '-Profiles', 'base', $_ | Should -BeTrue
+    }
+
+    It 'ne prend pas pour -WhatIf <_>' -ForEach @('-W', '-wa', '-WarningAction', '-What:$false', '-WhatIfX') {
+        Test-WhatIfArgument -Argument $_ | Should -BeFalse
+    }
+
+    It 'reconnaît exactement les formes que PowerShell lie au paramètre WhatIf d''un script' {
+        # Script témoin avec SupportsShouldProcess, comme setup.ps1 (paramètres communs WarningAction… compris).
+        $probe = Join-Path -Path $TestDrive -ChildPath 'probe.ps1'
+        Set-Content -LiteralPath $probe -Value '[CmdletBinding(SupportsShouldProcess)] param() [bool]$WhatIfPreference'
+        foreach ($form in '-What', '-wh', '-wi', '-WhatIf') {
+            & ([scriptblock]::Create("& '$probe' $form")) | Should -BeTrue -Because $form
+            Test-WhatIfArgument -Argument $form | Should -BeTrue -Because $form
+        }
+        { & ([scriptblock]::Create("& '$probe' -W")) } | Should -Throw '*ambigu*'
+    }
+
     It 'sur une machine vierge, annonce les installations et le clonage puis s''arrête en expliquant pourquoi' {
         Show-BootstrapSimulation @script:simulationParameters -ScriptRoot '' | Should -BeNullOrEmpty
         $text = $global:OSSetupTestHost -join "`n"

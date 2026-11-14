@@ -303,7 +303,10 @@ function Save-BootstrapInfo {
 }
 
 function Test-WhatIfArgument {
-    # Vrai si -WhatIf (ou -WhatIf:$true) fait partie des arguments transmis à setup.ps1.
+    # Vrai si -WhatIf (ou -WhatIf:$true) fait partie des arguments transmis à setup.ps1, sous toutes les formes que
+    # PowerShell y reconnaît : préfixe non ambigu (-Wh … -WhatI ; -W seul est ambigu avec -WarningAction) et alias -wi,
+    # sans tenir compte de la casse. Sinon le bootstrap ferait élévation et installations réelles, puis setup.ps1
+    # accepterait l'argument comme -WhatIf.
     [CmdletBinding()]
     [OutputType([bool])]
     param(
@@ -312,7 +315,7 @@ function Test-WhatIfArgument {
         [string[]]$Argument
     )
     foreach ($value in @($Argument)) {
-        if ($value -match '^-WhatIf(:\$?true)?$') { return $true }
+        if ($value -match '^-(wh|wha|what|whati|whatif|wi)(:\$?true)?$') { return $true }
     }
     $false
 }
