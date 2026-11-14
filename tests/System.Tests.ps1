@@ -630,6 +630,59 @@ Describe 'Get-OSSetupStartupEntry' {
     }
 }
 
+Describe 'Disable-OSSetupStartupEntry' {
+    # Clé StartupApproved jetable (TestRegistry:), à la place de celle du compte.
+    BeforeEach {
+        $approved = "TestRegistry:\$([guid]::NewGuid())\StartupApproved\Run"
+        # Date fixe en UTC : ToFileTime ne dépend pas du fuseau horaire.
+        $fileTime = 133800000000000000
+        Mock -ModuleName OSSetup Get-Date { [datetime]::FromFileTimeUtc($fileTime) }
+    }
+
+    It 'crée la clé au besoin et écrit 03 00 00 00 suivi de la date (FILETIME), en binaire' {
+        Disable-OSSetupStartupEntry -Entry ([pscustomobject]@{ Name = 'Discord'; Enabled = $true; ApprovedKey = $approved }) -Confirm:$false
+        $key = Get-Item -Path $approved
+        $key.GetValueKind('Discord') | Should -Be 'Binary'
+        $value = $key.GetValue('Discord')
+        $value.Length | Should -Be 12
+        $value[0..3] | Should -Be @(3, 0, 0, 0)
+        [BitConverter]::ToInt64($value, 4) | Should -Be $fileTime
+    }
+
+    It 'remplace la valeur « activée » d''une entrée, sans toucher aux autres' {
+        New-Item -Path $approved -Force | Out-Null
+        New-ItemProperty -Path $approved -Name 'Discord' -PropertyType Binary -Value ([byte[]](2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)) | Out-Null
+        New-ItemProperty -Path $approved -Name 'Autre' -PropertyType Binary -Value ([byte[]](2, 0, 0, 0)) | Out-Null
+        Disable-OSSetupStartupEntry -Entry ([pscustomobject]@{ Name = 'Discord'; Enabled = $true; ApprovedKey = $approved }) -Confirm:$false
+        $key = Get-Item -Path $approved
+        $key.GetValue('Discord')[0] | Should -Be 3
+        $key.GetValue('Autre') | Should -Be @(2, 0, 0, 0)
+    }
+}
+
+Describe 'Provider startup-entry : désactivation' {
+    It 'désactive seulement les entrées encore actives, dans la portée du catalogue' {
+        Mock -ModuleName OSSetup Disable-OSSetupStartupEntry
+        Mock -ModuleName OSSetup Get-OSSetupStartupEntry {
+            [pscustomobject]@{ Name = 'MicrosoftEdgeAutoLaunch_A'; Enabled = $false; ApprovedKey = 'x' }
+            [pscustomobject]@{ Name = 'MicrosoftEdgeAutoLaunch_B'; Enabled = $true; ApprovedKey = 'x' }
+        }
+        InModuleScope OSSetup { & (Get-OSSetupProvider -Name startup-entry).Invoke @{ name = 'MicrosoftEdgeAutoLaunch_*'; scope = 'machine' } @{} }
+        Should -Invoke -ModuleName OSSetup Get-OSSetupStartupEntry -Times 1 -Exactly -ParameterFilter { $Name -eq 'MicrosoftEdgeAutoLaunch_*' -and $Scope -eq 'machine' }
+        Should -Invoke -ModuleName OSSetup Disable-OSSetupStartupEntry -Times 1 -Exactly
+        Should -Invoke -ModuleName OSSetup Disable-OSSetupStartupEntry -Times 1 -Exactly -ParameterFilter { $Entry.Name -eq 'MicrosoftEdgeAutoLaunch_B' }
+    }
+
+    It 'enregistre l''état d''origine de chaque entrée' {
+        Mock -ModuleName OSSetup Get-OSSetupStartupEntry { [pscustomobject]@{ Name = 'Discord'; Enabled = $true; ApprovedKey = 'HKCU:\k' } }
+        $before = InModuleScope OSSetup { & (Get-OSSetupProvider -Name startup-entry).Read @{ name = 'Discord' } @{} }
+        $before['entries'].Count | Should -Be 1
+        $before['entries'][0]['name'] | Should -Be 'Discord'
+        $before['entries'][0]['enabled'] | Should -BeTrue
+        $before['entries'][0]['approvedKey'] | Should -Be 'HKCU:\k'
+    }
+}
+
 Describe 'Provider windows-update' {
     It 'est conforme quand Windows Update ne propose plus de pilote' {
         Mock -ModuleName OSSetup Find-OSSetupWindowsUpdate {}
