@@ -75,6 +75,51 @@ Describe 'Provider logon-task : conformité' {
     }
 }
 
+Describe 'Provider herdr-plugin' {
+    BeforeAll {
+        # Pester ne simule qu'une commande existante : une fonction vide remplace herdr là où il manque (ex. runner CI).
+        $script:herdrStub = -not (Get-Command -Name herdr -ErrorAction SilentlyContinue)
+        if ($script:herdrStub) {
+            function global:herdr { }
+        }
+        $script:savedAppData = $env:APPDATA
+    }
+
+    AfterAll {
+        if ($script:herdrStub) { Remove-Item -Path Function:\herdr -ErrorAction SilentlyContinue }
+        $env:APPDATA = $script:savedAppData
+    }
+
+    BeforeEach {
+        $env:APPDATA = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid())
+        New-Item -Path (Join-Path -Path $env:APPDATA -ChildPath 'herdr') -ItemType Directory -Force | Out-Null
+        $pluginsPath = Join-Path -Path $env:APPDATA -ChildPath 'herdr\plugins.json'
+        $action = @{ repo = 'gcaudan/herdr-explorer'; id = 'gcaudan.explorer' }
+        Mock -ModuleName OSSetup -CommandName Write-OSSetupLog
+        Mock -ModuleName OSSetup -CommandName herdr -MockWith { $global:LASTEXITCODE = 0 }
+    }
+
+    It 'est conforme seulement quand le plugin est enregistré et activé' {
+        $provider = InModuleScope OSSetup { Get-OSSetupProvider -Name 'herdr-plugin' }
+        & $provider.Test $action @{} | Should -BeFalse
+        Set-Content -Path $pluginsPath -Value '[{ "plugin_id": "gcaudan.explorer", "enabled": false }]'
+        & $provider.Test $action @{} | Should -BeFalse
+        Set-Content -Path $pluginsPath -Value '[{ "plugin_id": "gcaudan.explorer", "enabled": true }]'
+        & $provider.Test $action @{} | Should -BeTrue
+    }
+
+    It 'installe un plugin absent, et réactive un plugin désactivé sans le réinstaller' {
+        $provider = InModuleScope OSSetup { Get-OSSetupProvider -Name 'herdr-plugin' }
+        & $provider.Invoke $action @{}
+        Should -Invoke -ModuleName OSSetup -CommandName herdr -Times 1 -Exactly -ParameterFilter { ($args -join ' ') -eq 'plugin install gcaudan/herdr-explorer --yes' }
+
+        Set-Content -Path $pluginsPath -Value '[{ "plugin_id": "gcaudan.explorer", "enabled": false }]'
+        & $provider.Invoke $action @{}
+        Should -Invoke -ModuleName OSSetup -CommandName herdr -Times 1 -Exactly -ParameterFilter { ($args -join ' ') -eq 'plugin enable gcaudan.explorer' }
+        Should -Invoke -ModuleName OSSetup -CommandName herdr -Times 2 -Exactly
+    }
+}
+
 Describe 'Provider registry' {
     # TestRegistry: clé jetable de Pester (sous HKCU:\Software\Pester), supprimée à la fin du bloc.
     BeforeEach {
