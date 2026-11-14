@@ -54,12 +54,24 @@ jobs:
           if [ "$EVENT" = "pull_request" ]; then
             check "$PR_TITLE"
             range="$BASE_SHA..$HEAD_SHA"
-          elif [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
-            range="$AFTER_SHA"
-          else
+          elif [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ] &&
+              git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
             range="$BEFORE_SHA..$AFTER_SHA"
+          else
+            # New branch, or forced push whose previous tip is not in the clone (fetch-depth: 0 fetches every
+            # branch and tag, not the commits the push dropped): check the commits not on main yet, or, when the
+            # pushed commit is already on main, those since the last version tag (the whole history if none).
+            if git rev-parse -q --verify origin/main >/dev/null && ! git merge-base --is-ancestor "$AFTER_SHA" origin/main; then
+              base=origin/main
+            else
+              base=$(git describe --tags --abbrev=0 "$AFTER_SHA" 2>/dev/null) || base=
+            fi
+            range="${base:+$base..}$AFTER_SHA"
+            echo "::notice::Previous commit ${BEFORE_SHA:-unknown} not available: checking $range"
           fi
+          # Captured with an explicit check: an invalid range must fail the job, not check zero messages.
+          subjects=$(git log --no-merges --format=%s "$range") || exit 1
           while IFS= read -r subject; do
             [ -n "$subject" ] && check "$subject"
-          done < <(git log --no-merges --format=%s $range)
+          done <<< "$subjects"
           exit $failed
