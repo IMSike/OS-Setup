@@ -11,10 +11,6 @@ answers/*
 *.secrets.json
 .env
 
-# Tests
-tests/output/
-TestResults/
-
 # OS / éditeurs
 Thumbs.db
 desktop.ini
