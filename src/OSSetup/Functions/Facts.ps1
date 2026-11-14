@@ -7,6 +7,11 @@ $script:FactNames = @(
 )
 
 function Get-OSSetupFactName {
+    <#
+    .SYNOPSIS
+        Noms des faits détectés. Utilisé seulement par les tests : ils vérifient que le schéma des éléments
+        (propriété when) liste exactement ces noms.
+    #>
     [CmdletBinding()]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseOutputTypeCorrectly', '', Justification = 'Le tableau est émis élément par élément : ce sont des chaînes.')]
     [OutputType([string])]

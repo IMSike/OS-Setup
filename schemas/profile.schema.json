@@ -18,7 +18,7 @@
       "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" }
     },
     "items": {
-      "description": "Éléments toujours installés avec ce profil.",
+      "description": "Réglages toujours appliqués avec ce profil. Ce qui installe ou supprime quelque chose est proposé dans un groupe de choix, jamais ici (vérifié au chargement).",
       "type": "array",
       "uniqueItems": true,
       "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" }
@@ -28,7 +28,7 @@
       "items": { "$ref": "#/definitions/choice" }
     },
     "variables": {
-      "description": "Variables demandées à l'utilisateur, avec valeur par défaut.",
+      "description": "Variables du profil : emplacements avec une valeur par défaut, ou informations personnelles sans valeur dans le dépôt (personal). Le nom d'une variable intégrée (UserProfile…) est refusé (vérifié au chargement).",
       "type": "object",
       "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9]*$" },
       "additionalProperties": { "$ref": "#/definitions/variable" }

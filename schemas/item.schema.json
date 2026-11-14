@@ -25,12 +25,12 @@
       "items": { "enum": ["windows", "linux"] }
     },
     "requiresAdmin": {
-      "description": "Vrai si au moins une action nécessite les droits administrateur.",
+      "description": "Vrai si au moins une action nécessite les droits administrateur. Sert uniquement au libellé « (admin) » du plan : le setup s'exécute déjà élevé.",
       "type": "boolean",
       "default": false
     },
     "when": {
-      "description": "Conditions sur les faits détectés (Platform, OSName, OSBuild, Edition, Activated, IsAdmin, Manufacturer, Model, CpuVendor, GpuVendor, VirtualizationEnabled). Toutes doivent être vraies ; une liste signifie « une de ces valeurs ».",
+      "description": "Conditions sur les faits détectés (noms listés dans propertyNames, identiques à ceux de src/OSSetup/Functions/Facts.ps1 : vérifié par un test). Toutes doivent être vraies ; une liste signifie « une de ces valeurs ».",
       "type": "object",
       "minProperties": 1,
       "propertyNames": {
@@ -64,7 +64,7 @@
       "default": false
     },
     "dependsOn": {
-      "description": "Éléments à traiter avant celui-ci (ajoutés automatiquement au plan).",
+      "description": "Éléments à traiter avant celui-ci. Une dépendance proposée dans aucun menu est ajoutée automatiquement au plan ; une dépendance proposée dans un menu mais non choisie fait ignorer cet élément.",
       "type": "array",
       "uniqueItems": true,
       "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" }
