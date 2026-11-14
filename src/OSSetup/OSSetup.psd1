@@ -136,6 +136,8 @@
         'Wait-OSSetupCountdown'
         'Wait-OSSetupUserSession'
         'Write-OSSetupRunResult'
+        # Shortcut.ps1
+        'Get-OSSetupShortcutTarget'
         # System.ps1
         'Clear-OSSetupStateCache'
         'ConvertFrom-OSSetupPowerQuery'

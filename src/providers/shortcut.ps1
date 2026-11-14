@@ -16,12 +16,18 @@ param()
     Test     = {
         param($Action, $Context)
         $exists = Test-Path -LiteralPath $Action['path']
-        if ($Action['present'] -eq $false) { -not $exists } else { $exists }
+        if ($Action['present'] -eq $false) { return -not $exists }
+        if (-not $exists) { return $false }
+        # Un raccourci du même nom qui pointe ailleurs n'est pas conforme. Source absente (logiciel pas encore
+        # installé) : rien à comparer, le raccourci présent est gardé.
+        if (-not (Test-Path -LiteralPath $Action['from'])) { return $true }
+        (Get-OSSetupShortcutTarget -Path $Action['path']) -eq (Get-OSSetupShortcutTarget -Path $Action['from'])
     }
 
     Read     = {
         param($Action, $Context)
-        [ordered]@{ exists = Test-Path -LiteralPath $Action['path'] }
+        if (-not (Test-Path -LiteralPath $Action['path'])) { return [ordered]@{ exists = $false } }
+        [ordered]@{ exists = $true; target = Get-OSSetupShortcutTarget -Path $Action['path'] }
     }
 
     Invoke   = {
@@ -34,6 +40,11 @@ param()
             return
         }
         if (-not (Test-Path -LiteralPath $Action['from'])) { throw "Raccourci source introuvable : $($Action['from'])." }
+        if (Test-Path -LiteralPath $Action['path']) {
+            # Raccourci du même nom vers une autre cible : sauvegardé avant d'être remplacé.
+            $backup = Backup-OSSetupFile -Path $Action['path'] -BackupRoot $Context.BackupRoot
+            Write-OSSetupLog -Level Detail -Message "  sauvegarde : $backup"
+        }
         New-Item -Path (Split-Path -Path $Action['path'] -Parent) -ItemType Directory -Force | Out-Null
         Copy-Item -LiteralPath $Action['from'] -Destination $Action['path'] -Force
     }

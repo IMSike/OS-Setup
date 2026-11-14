@@ -119,6 +119,55 @@ Describe 'Provider shortcut : suppression' {
     }
 }
 
+Describe 'Provider shortcut : copie' {
+    BeforeEach {
+        $root = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid())
+        $from = Join-Path -Path $root -ChildPath 'Menu\App.lnk'
+        $path = Join-Path -Path $root -ChildPath 'Bureau\App.lnk'
+        foreach ($file in $from, $path) {
+            New-Item -Path (Split-Path -Path $file -Parent) -ItemType Directory -Force | Out-Null
+        }
+        Set-Content -Path $from -Value 'nouveau' -NoNewline
+        Set-Content -Path $path -Value 'ancien' -NoNewline
+        $action = @{ path = $path; from = $from }
+        $context = @{ BackupRoot = Join-Path -Path $root -ChildPath 'backups' }
+        Mock -ModuleName OSSetup -CommandName Write-OSSetupLog
+        # Les fichiers de test ne sont pas de vrais raccourcis : la cible est déduite du contenu.
+        Mock -ModuleName OSSetup -CommandName Get-OSSetupShortcutTarget -MockWith {
+            if ((Get-Content -LiteralPath $Path -Raw) -eq 'nouveau') { 'C:\Program Files\App\app.exe' } else { 'C:\Ailleurs\autre.exe' }
+        }
+    }
+
+    It 'n''est pas conforme quand un raccourci du même nom pointe ailleurs, et le remplace après sauvegarde' {
+        InModuleScope OSSetup -Parameters @{ Action = $action; Context = $context } {
+            param($Action, $Context)
+            $provider = Get-OSSetupProvider -Name 'shortcut'
+            & $provider.Test $Action $Context | Should -BeFalse
+            (& $provider.Read $Action $Context)['target'] | Should -Be 'C:\Ailleurs\autre.exe'
+            & $provider.Invoke $Action $Context
+            & $provider.Test $Action $Context | Should -BeTrue
+        }
+        Get-Content -Path $path -Raw | Should -Be 'nouveau'
+        $backups = @(Get-ChildItem -Path $context.BackupRoot -Recurse -File)
+        $backups.Count | Should -Be 1
+        Get-Content -Path $backups[0].FullName -Raw | Should -Be 'ancien'
+    }
+}
+
+Describe 'Get-OSSetupShortcutTarget' {
+    It 'lit la cible d''un vrai raccourci sans le modifier' {
+        $path = Join-Path -Path $TestDrive -ChildPath 'Cible.lnk'
+        $shell = New-Object -ComObject WScript.Shell
+        $shortcut = $shell.CreateShortcut($path)
+        $shortcut.TargetPath = Join-Path -Path $env:SystemRoot -ChildPath 'notepad.exe'
+        $shortcut.Save()
+        $before = [System.IO.File]::ReadAllBytes($path)
+        InModuleScope OSSetup -Parameters @{ Path = $path } { param($Path) Get-OSSetupShortcutTarget -Path $Path } |
+            Should -Be (Join-Path -Path $env:SystemRoot -ChildPath 'notepad.exe')
+        [System.IO.File]::ReadAllBytes($path) | Should -Be $before
+    }
+}
+
 Describe 'Provider winget : installation' {
     BeforeAll {
         # Pester ne simule qu'une commande existante : une fonction vide remplace winget là où il manque (ex. runner CI).

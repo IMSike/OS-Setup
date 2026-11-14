@@ -180,10 +180,12 @@ Describe 'Provider shortcut' {
             param($Path)
             $provider = Get-OSSetupProvider -Name 'shortcut'
             & $provider.Test @{ path = $Path; present = $false } @{} | Should -BeTrue
-            & $provider.Test @{ path = $Path } @{} | Should -BeFalse
+            # Source absente (logiciel pas encore installé) : seule la présence compte.
+            $from = Join-Path -Path (Split-Path -Path $Path -Parent) -ChildPath 'absent.lnk'
+            & $provider.Test @{ path = $Path; from = $from } @{} | Should -BeFalse
             Set-Content -Path $Path -Value 'x'
             & $provider.Test @{ path = $Path; present = $false } @{} | Should -BeFalse
-            & $provider.Test @{ path = $Path } @{} | Should -BeTrue
+            & $provider.Test @{ path = $Path; from = $from } @{} | Should -BeTrue
         }
     }
 
