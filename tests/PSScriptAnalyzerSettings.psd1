@@ -1,4 +1,4 @@
-﻿# Réglages de PSScriptAnalyzer pour les tests (Pester et outillage des VM de test).
+﻿# Réglages de PSScriptAnalyzer pour les tests Pester (l'outillage des VM de test, tests/vm/, suit ceux du code du dépôt).
 # Mêmes règles que le code du dépôt (../PSScriptAnalyzerSettings.psd1), plus les exclusions propres aux tests.
 @{
     ExcludeRules = @(

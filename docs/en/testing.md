@@ -10,7 +10,7 @@ The [Pester 5](https://pester.dev) tests have no effect on the system (providers
 
 The scripts run by Windows PowerShell 5.1 (`bootstrap.ps1`, `src/cleanup.ps1`, `src/resume.ps1`, `tests/vm/Start-GuestRun.ps1`, and any script started by a `logon-task` action of the catalog) are also parsed by Windows PowerShell 5.1 when it is present: syntax specific to PowerShell 7 would break them only on the target machine.
 
-[PSScriptAnalyzer](https://github.com/PowerShell/PSScriptAnalyzer) checks the style and common errors of the PowerShell code, with the rules from `PSScriptAnalyzerSettings.psd1` (and `tests/PSScriptAnalyzerSettings.psd1` for the tests; exclusions are justified in the files). The `tests/CodeQuality.Tests.ps1` test runs it when it is installed, and also checks that the module manifest exports all its functions:
+[PSScriptAnalyzer](https://github.com/PowerShell/PSScriptAnalyzer) checks the style and common errors of the PowerShell code, with the rules from `PSScriptAnalyzerSettings.psd1` (and `tests/PSScriptAnalyzerSettings.psd1` for the Pester tests, the VM tooling in `tests/vm/` following the repository rules; exclusions are justified in the files). The `tests/CodeQuality.Tests.ps1` test runs it when it is installed, and also checks that the module manifest exports all its functions:
 
 ```powershell
 Install-PSResource PSScriptAnalyzer -Scope CurrentUser

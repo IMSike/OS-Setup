@@ -1,7 +1,7 @@
-﻿# Réglages de PSScriptAnalyzer pour le code du dépôt (setup.ps1, bootstrap.ps1, src/, dotfiles/).
-# Règles par défaut, sauf exclusions justifiées ci-dessous. Un cas isolé se traite au plus près du code avec
-# [Diagnostics.CodeAnalysis.SuppressMessageAttribute('Règle', 'Cible', Justification = '…')].
-# Les tests ont leurs propres réglages : tests/PSScriptAnalyzerSettings.psd1.
+﻿# Réglages de PSScriptAnalyzer pour le code du dépôt (setup.ps1, bootstrap.ps1, src/, dotfiles/) et l'outillage des
+# VM de test (tests/vm/). Règles par défaut, sauf exclusions justifiées ci-dessous. Un cas isolé se traite au plus
+# près du code avec [Diagnostics.CodeAnalysis.SuppressMessageAttribute('Règle', 'Cible', Justification = '…')].
+# Les tests Pester ont leurs propres réglages : tests/PSScriptAnalyzerSettings.psd1.
 # Vérifié par tests/CodeQuality.Tests.ps1.
 @{
     ExcludeRules = @(

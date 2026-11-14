@@ -45,7 +45,15 @@ Describe 'Qualité du code (PSScriptAnalyzer)' -Skip:$analyzerMissing {
     }
 
     It 'les tests ne produisent aucun avertissement' {
-        $findings = @(Get-AnalyzerFinding -Path 'tests' -Settings (Join-Path -Path $repoRoot -ChildPath 'tests\PSScriptAnalyzerSettings.psd1'))
+        # Tests Pester seulement : l'outillage des VM n'a pas besoin de leurs exclusions (test suivant).
+        $testPaths = Get-ChildItem -Path (Join-Path -Path $repoRoot -ChildPath 'tests') -Exclude 'vm' |
+            ForEach-Object { $_.FullName.Substring($repoRoot.Length + 1) }
+        $findings = @(Get-AnalyzerFinding -Path $testPaths -Settings (Join-Path -Path $repoRoot -ChildPath 'tests\PSScriptAnalyzerSettings.psd1'))
+        $findings | Should -BeNullOrEmpty
+    }
+
+    It 'l''outillage des VM de test ne produit aucun avertissement' {
+        $findings = @(Get-AnalyzerFinding -Path 'tests\vm' -Settings (Join-Path -Path $repoRoot -ChildPath 'PSScriptAnalyzerSettings.psd1'))
         $findings | Should -BeNullOrEmpty
     }
 }
