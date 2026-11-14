@@ -2,7 +2,7 @@
 
 Menu « Logiciels courants » du profil `base` (`catalog/apps/`) : logiciels utiles sur toutes les machines, installés par winget. Leurs réglages sont dans le menu suivant, « Logiciels courants : réglages », qui ne propose un réglage que si son logiciel est choisi. Épingle et raccourci sur le bureau : voir [Intégration au bureau](desktop.md).
 
-Volontairement absents : un outil de fichiers compressés (Windows ouvre déjà les `.zip`), un lecteur multimédia et les autres utilitaires, à ajouter au besoin.
+Volontairement absents : un outil de fichiers compressés (Windows ouvre déjà les `.zip`), un lecteur multimédia et les autres utilitaires.
 
 ## Discord — `discord`
 

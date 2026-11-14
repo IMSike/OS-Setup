@@ -2,7 +2,7 @@
 
 "Logiciels courants" (Common apps) menu of the `base` profile (`catalog/apps/`): software useful on every machine, installed with winget. Their settings are in the next menu, "Logiciels courants : réglages" (Common apps: settings), which only offers a setting if its software is selected. Taskbar pin and desktop shortcut: see [Desktop integration](desktop.md).
 
-Deliberately absent: an archive tool (Windows already opens `.zip` files), a media player and other utilities, to be added as needed.
+Deliberately absent: an archive tool (Windows already opens `.zip` files), a media player and other utilities.
 
 ## Discord — `discord`
 

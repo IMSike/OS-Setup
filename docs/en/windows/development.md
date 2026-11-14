@@ -121,7 +121,7 @@ Details of `terminal-settings` (Terminal default in parentheses):
 | `keybindings` | `Ctrl+C` copy, `Ctrl+V` paste, `Alt+Shift+D` duplicate pane (same list) | Shortcuts that Terminal writes into its file at its first launch (they have not been part of its defaults since version 1.21). The setup creates the file before that first launch: without this list, `Ctrl+V` was not a Terminal shortcut and was passed as is to the program (Claude Code did not paste the text; `Ctrl+Shift+V` worked). The list replaces that of an existing file (backed up beforehand) |
 | `disabledProfileSources` | `Windows.Terminal.Azure` (none) | Azure Cloud Shell profile removed from the list; Windows PowerShell 5.1 and the Command Prompt remain |
 | `profiles.defaults.font.size` | `8` (12) | Font size, for all profiles |
-| `profiles.defaults.useAcrylic`, `opacity` | `true`, `80` (no transparency) | Transparent, blurred background (acrylic effect): 80 lets you see what is behind the window well. The blur cannot be adjusted, only the opacity. On Windows 10, transparency is only possible with the acrylic effect; transparency without blur (`useAcrylic` = `false`) only exists on Windows 11 (to be offered with Windows 11 support). Live test: Ctrl+Shift+mouse wheel in the terminal |
+| `profiles.defaults.useAcrylic`, `opacity` | `true`, `80` (no transparency) | Transparent, blurred background (acrylic effect): 80 lets you see what is behind the window well. The blur cannot be adjusted, only the opacity. On Windows 10, transparency is only possible with the acrylic effect; transparency without blur (`useAcrylic` = `false`) only exists on Windows 11. Live test: Ctrl+Shift+mouse wheel in the terminal |
 | `compatibility.enableUnfocusedAcrylic` | `true` (`false`) | The acrylic effect stays when the window is not active (otherwise the background becomes opaque again) |
 | `profiles.defaults.colorScheme` | `One Half Dark` (Campbell) | Color scheme shipped with Terminal |
 | `profiles.defaults.padding` | `1` (8) | 1-pixel inner margin around the text |
@@ -232,7 +232,7 @@ Deliberately absent: `css.validate`/`scss.validate` set to `false` (they would d
 | `cursor-cli` (depends on Git) | script `https://cursor.com/install?win32=true`: `%LOCALAPPDATA%\cursor-agent`, added to the account PATH | `cursor-agent` or `agent` | delete `%LOCALAPPDATA%\cursor-agent` and the PATH entry |
 | `herdr` | script `https://herdr.dev/install.ps1` (stable version): `%USERPROFILE%\.herdr`, version folder added to the account PATH | `herdr` | delete `%USERPROFILE%\.herdr` and the PATH entry |
 
-- **Claude Code**: installation and basic settings (below). The full configuration (skills, plugins, MCP, memory location, carrying over the data of an existing installation) is not covered yet.
+- **Claude Code**: installation and basic settings (below). The setup does not manage the rest of the configuration: MCP servers, memory location, carrying over the data of an existing installation, skills and plugins other than those of the items below.
 - **rtk** ([rtk-ai/rtk](https://github.com/rtk-ai/rtk)): rewrites the commands run by agents to summarize their output (fewer tokens consumed).
 - **`rtk-claude`** (auto, with `rtk` and `claude-code`, `rtk-init` provider): `rtk init --global --auto-patch` adds the `PreToolUse` hook (`rtk hook claude`, on the Bash tool) to `%USERPROFILE%\.claude\settings.json`, creates `RTK.md` and its `@RTK.md` reference in `%USERPROFILE%\.claude\CLAUDE.md`. Check: `rtk init --show`. rtk first asks whether it may send anonymous usage statistics; with no recorded answer, the question would block the setup: the refusal is recorded (`rtk telemetry disable`), and can be changed with `rtk telemetry enable`. Rollback: `rtk init --global --uninstall`.
 - **herdr** ([herdrdev/herdr](https://github.com/herdrdev/herdr)): settings and plugin below.
@@ -242,7 +242,7 @@ Deliberately absent: `css.validate`/`scss.validate` set to `false` (they would d
 `playwright-cli`: ✔ · "Agents et terminal" menu (if Node.js chosen) · `npm-global` provider (`@playwright/cli`)
 
 - **Effect**: the `playwright-cli` command ([microsoft/playwright-cli](https://github.com/microsoft/playwright-cli)) with which **all agents** drive a browser (open a page, click, fill in, screenshot, network requests…). Replaces the Playwright MCP server: nothing to configure in each agent, and fewer tokens consumed (no tool schemas or page tree injected into the conversation).
-- **Isolation between agents** (verified in a VM): each **named session** (`playwright-cli -s=<name> …`, or the `PLAYWRIGHT_CLI_SESSION` variable for a whole agent) has its own browser, with an **in-memory** profile (own cookies, storage and tabs, lost on close); two different folders, including two worktrees of the same repository, each have their own browser. Two agents launched in the same folder without a session name would share the `default` session (same tabs), and the skill does not tell them to pick one: the PowerShell profile (`pwsh-profile`) therefore gives **each terminal** (window, tab, herdr pane, editor terminal) its own session, inherited by the agents launched in it. What remains is the case of sub-agents of the same agent working in parallel (same terminal): not covered yet. The MCP, for its part, used a persistent profile by default that only one instance can open at a time.
+- **Isolation between agents** (verified in a VM): each **named session** (`playwright-cli -s=<name> …`, or the `PLAYWRIGHT_CLI_SESSION` variable for a whole agent) has its own browser, with an **in-memory** profile (own cookies, storage and tabs, lost on close); two different folders, including two worktrees of the same repository, each have their own browser. Two agents launched in the same folder without a session name would share the `default` session (same tabs), and the skill does not tell them to pick one: the PowerShell profile (`pwsh-profile`) therefore gives **each terminal** (window, tab, herdr pane, editor terminal) its own session, inherited by the agents launched in it. Sub-agents of the same agent working in parallel run in the same terminal: they share its session unless they name their own. The MCP, for its part, used a persistent profile by default that only one instance can open at a time.
 - **Implications**: headless by default (`open --headed` to see the browser); a headless session closes after 1 h without a command. `playwright-cli list` lists the sessions, `close-all` closes them.
 - **Rollback**: `npm uninstall --global @playwright/cli`.
 
@@ -284,7 +284,7 @@ JSON merge (`file` provider, `merge-json` mode) into `%USERPROFILE%\.claude\sett
 | `autoUpdatesChannel` | `latest` | Updates as soon as they are published |
 | `autoContinueAtUsageLimit` | `true` | Resumes by itself when the usage limit is lifted |
 
-Deliberately absent: `SHELL` (Claude Code finds Git Bash on its own), hooks (rtk writes its own; herdr's is installed and rewritten by herdr), plugins (installed by their own item, e.g. `claude-dx`), skills (not covered yet).
+Deliberately absent: `SHELL` (Claude Code finds Git Bash on its own), hooks (rtk writes its own; herdr's is installed and rewritten by herdr), plugins (installed by their own item, e.g. `claude-dx`), skills (only the Playwright CLI one is installed, by `playwright-skill-claude`).
 
 `claude-bypass-permissions`: ✔ · "Claude Code : options" (Claude Code: options) menu · warning when checked · `dotfiles/claude/bypass-permissions.json`
 
@@ -366,7 +366,7 @@ Optional: only useful for working in a Linux terminal (Linux-specific tools, pro
 | Item | WSL distribution | Rollback |
 |---|---|---|
 | `wsl-ubuntu` | `Ubuntu` (latest LTS) | `wsl --unregister Ubuntu` |
-| `wsl-fedora` | `FedoraLinux-45` (Fedora's WSL name includes its version: to be updated with each new Fedora version) | `wsl --unregister FedoraLinux-45` |
+| `wsl-fedora` | `FedoraLinux-45` (Fedora's WSL name includes its version) | `wsl --unregister FedoraLinux-45` |
 
 - **Effect**: installs the distribution in WSL (`wsl --install --distribution <name>`, in a new window); at its first launch, it asks for the name and password of the **Linux account**: the only manual part. The setup then checks that the distribution is registered with a non-root account (registry `HKCU\Software\Microsoft\Windows\CurrentVersion\Lxss`, `DefaultUid`).
 - **Implications**: processed after the WSL restart. The password is used for `sudo`; it is known only to the user. `wsl --unregister` deletes the distribution and its files.
