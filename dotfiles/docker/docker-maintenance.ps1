@@ -48,10 +48,17 @@ $runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 $approvedKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run'
 $runName = 'Docker Desktop'
 $intervalDays = 7
+# Journal borné : au-delà de cette taille, seules les dernières lignes sont gardées.
+$logMaxBytes = 64KB
+$logKeepLines = 200
 
 function Write-MaintenanceLog {
     [CmdletBinding()]
     param([string]$Message)
+    if ((Test-Path -LiteralPath $logPath -PathType Leaf) -and (Get-Item -LiteralPath $logPath).Length -gt $logMaxBytes) {
+        $kept = @(Get-Content -LiteralPath $logPath -Encoding UTF8 | Select-Object -Last $logKeepLines)
+        Set-Content -LiteralPath $logPath -Value $kept -Encoding UTF8
+    }
     Add-Content -LiteralPath $logPath -Value ('{0:yyyy-MM-dd HH:mm:ss} {1}' -f (Get-Date), $Message) -Encoding UTF8
 }
 
@@ -111,7 +118,9 @@ function Invoke-VhdCompaction {
     # Commandes diskpart (exécutées en administrateur) à côté de ce script, dans un dossier que seuls les
     # administrateurs modifient : dans %TEMP%, un programme de la session pourrait les remplacer avant leur exécution.
     $script = Join-Path -Path $PSScriptRoot -ChildPath 'os-setup-compact.txt'
-    Set-Content -Path $script -Encoding ASCII -Value @(
+    # Page de code ANSI du système (Default sous Windows PowerShell 5.1) : en ASCII, un chemin accentué (ex. profil
+    # « Hélène ») deviendrait « ? » ; diskpart n'exécute pas un script UTF-16.
+    Set-Content -LiteralPath $script -Encoding Default -Value @(
         "select vdisk file=`"$Path`""
         'attach vdisk readonly'
         'compact vdisk'
@@ -119,12 +128,12 @@ function Invoke-VhdCompaction {
     )
     $output = & $diskpart /s $script 2>&1
     $exitCode = $LASTEXITCODE
-    Remove-Item -Path $script -Force
+    Remove-Item -LiteralPath $script -Force
     if ($exitCode -ne 0) {
         # Le disque peut rester attaché si le compactage a échoué : le détacher pour que Docker démarre.
-        Set-Content -Path $script -Encoding ASCII -Value @("select vdisk file=`"$Path`"", 'detach vdisk')
+        Set-Content -LiteralPath $script -Encoding Default -Value @("select vdisk file=`"$Path`"", 'detach vdisk')
         & $diskpart /s $script 2>&1 | Out-Null
-        Remove-Item -Path $script -Force
+        Remove-Item -LiteralPath $script -Force
         throw "diskpart a échoué (code $exitCode) : $(($output | Select-Object -Last 3) -join ' ')"
     }
     $after = (Get-Item -LiteralPath $Path).Length
@@ -175,7 +184,7 @@ if ($NoDocker) {
 }
 
 # 2. Démarrage de Docker Desktop, sans droits administrateur (par l'Explorateur), si son réglage le demande.
-if ($autoStart -and -not $dockerRunning -and (Test-Path -Path $dockerExe)) {
+if ($autoStart -and -not $dockerRunning -and (Test-Path -LiteralPath $dockerExe -PathType Leaf)) {
     Start-Process -FilePath $explorer -ArgumentList "`"$dockerExe`""
     Write-MaintenanceLog 'Docker Desktop démarré'
     $dockerRunning = $true
@@ -183,7 +192,7 @@ if ($autoStart -and -not $dockerRunning -and (Test-Path -Path $dockerExe)) {
 
 # 3. Images orphelines : moteur Docker prêt nécessaire (attente de 5 minutes au plus).
 try {
-    if ($dockerRunning -and (Test-Due -Date $state.lastPrune) -and (Test-Path -Path $dockerCli)) {
+    if ($dockerRunning -and (Test-Due -Date $state.lastPrune) -and (Test-Path -LiteralPath $dockerCli -PathType Leaf)) {
         $ready = $false
         for ($i = 0; $i -lt 60 -and -not $ready; $i++) {
             & $dockerCli info 2>$null | Out-Null
