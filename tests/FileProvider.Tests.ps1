@@ -122,6 +122,19 @@ Describe 'Provider file : fusion JSON (merge-json)' {
         & $provider.Test $action $context | Should -BeTrue
     }
 
+    It 'garde les clés qui ne diffèrent que par la casse' {
+        New-Item -Path (Split-Path -Path $target -Parent) -ItemType Directory -Force | Out-Null
+        Set-Content -Path $target -Value '{ "Foo": 1, "foo": 2, "distribution": { "A": 1, "a": 2 } }'
+        & $provider.Invoke $action $context
+        $json = Get-Content -Path $target -Raw | ConvertFrom-Json -AsHashtable
+        $json['Foo'] | Should -Be 1
+        $json['foo'] | Should -Be 2
+        $json['distribution']['A'] | Should -Be 1
+        $json['distribution']['a'] | Should -Be 2
+        $json['distribution']['do_not_create_desktop_shortcut'] | Should -BeTrue
+        & $provider.Test $action $context | Should -BeTrue
+    }
+
     It 'crée le fichier s''il n''existe pas' {
         & $provider.Invoke $action $context
         & $provider.Test $action $context | Should -BeTrue

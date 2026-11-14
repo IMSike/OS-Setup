@@ -78,7 +78,8 @@ function Merge-OSSetupJson {
         [AllowEmptyCollection()]
         [System.Collections.IDictionary]$Source
     )
-    $result = [ordered]@{}
+    # Clés comparées à l'octet près, comme en JSON : [ordered]@{} confondrait « Foo » et « foo ».
+    $result = [System.Collections.Specialized.OrderedDictionary]::new([System.StringComparer]::Ordinal)
     foreach ($key in $Target.Keys) { $result[$key] = $Target[$key] }
     foreach ($key in $Source.Keys) {
         if ($Source[$key] -is [System.Collections.IDictionary] -and $result[$key] -is [System.Collections.IDictionary]) {
