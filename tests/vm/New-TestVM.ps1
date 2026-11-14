@@ -51,6 +51,11 @@ if (Get-VM -Name $Name -ErrorAction SilentlyContinue) {
     Remove-VM -Name $Name -Force
     Remove-Item -Path (Split-Path -Path $vhdPath -Parent) -Recurse -Force -ErrorAction SilentlyContinue
 }
+elseif (Test-Path -Path (Split-Path -Path $vhdPath -Parent)) {
+    # Dossier sans VM : reste d'une création interrompue (la VM n'est créée qu'en dernier), sans quoi New-VHD échouerait.
+    Write-TestVMStep "Suppression des restes d'une création interrompue ($(Split-Path -Path $vhdPath -Parent))"
+    Remove-Item -Path (Split-Path -Path $vhdPath -Parent) -Recurse -Force
+}
 
 # --- Image -------------------------------------------------------------------------------------
 # Un cache par VM : les images Windows 10 et 11 portent le même nom de fichier.
@@ -61,13 +66,13 @@ if (-not $cachedImage) {
     New-Item -Path (Join-Path -Path $imageCache -ChildPath $Name) -ItemType Directory -Force | Out-Null
     $iso = $null
     $source = $ImagePath
-    if ([IO.Path]::GetExtension($ImagePath) -eq '.iso') {
-        $iso = Mount-DiskImage -ImagePath (Resolve-Path -Path $ImagePath).Path -PassThru
-        $letter = ($iso | Get-Volume).DriveLetter
-        $source = @(Get-ChildItem -Path "${letter}:\sources\install.wim", "${letter}:\sources\install.esd" -ErrorAction SilentlyContinue) |
-            Select-Object -First 1 -ExpandProperty FullName
-    }
     try {
+        if ([IO.Path]::GetExtension($ImagePath) -eq '.iso') {
+            $iso = Mount-DiskImage -ImagePath (Resolve-Path -Path $ImagePath).Path -PassThru
+            $letter = ($iso | Get-Volume).DriveLetter
+            $source = @(Get-ChildItem -Path "${letter}:\sources\install.wim", "${letter}:\sources\install.esd" -ErrorAction SilentlyContinue) |
+                Select-Object -First 1 -ExpandProperty FullName
+        }
         if (-not $source) { throw "Aucun install.wim ni install.esd dans $ImagePath." }
         $cachedImage = Join-Path -Path $imageCache -ChildPath "$Name\$(Split-Path -Path $source -Leaf)"
         Write-TestVMStep "Copie de l'image dans le cache ($cachedImage)"
@@ -102,9 +107,11 @@ Write-TestVMStep "Image retenue : index $($image.Index), $($image.Name), langue 
 # --- Disque virtuel ----------------------------------------------------------------------------
 Write-TestVMStep "Création du disque virtuel ($DiskGB Go, dynamique)"
 New-Item -Path (Split-Path -Path $vhdPath -Parent) -ItemType Directory -Force | Out-Null
-New-VHD -Path $vhdPath -SizeBytes ($DiskGB * 1GB) -Dynamic | Out-Null
-$disk = Mount-VHD -Path $vhdPath -Passthru | Get-Disk
+# En cas d'échec (DISM, bcdboot…), le disque inachevé est supprimé : sinon, sans VM, il bloquerait le lancement suivant.
+$diskReady = $false
 try {
+    New-VHD -Path $vhdPath -SizeBytes ($DiskGB * 1GB) -Dynamic | Out-Null
+    $disk = Mount-VHD -Path $vhdPath -Passthru | Get-Disk
     Initialize-Disk -Number $disk.Number -PartitionStyle GPT
     # Partitions UEFI standard : système EFI, réservée Microsoft (MSR), Windows.
     $efi = New-Partition -DiskNumber $disk.Number -Size 260MB -GptType '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}'
@@ -144,9 +151,15 @@ try {
     $panther = "${windowsLetter}:\Windows\Panther"
     New-Item -Path $panther -ItemType Directory -Force | Out-Null
     Set-Content -Path (Join-Path -Path $panther -ChildPath 'unattend.xml') -Value $unattend -Encoding utf8
+    Dismount-VHD -Path $vhdPath
+    $diskReady = $true
 }
 finally {
-    Dismount-VHD -Path $vhdPath
+    if (-not $diskReady) {
+        Dismount-VHD -Path $vhdPath -ErrorAction SilentlyContinue
+        Remove-Item -Path (Split-Path -Path $vhdPath -Parent) -Recurse -Force -ErrorAction SilentlyContinue
+        if (Test-Path -Path $vhdPath) { Write-Warning "Disque inachevé non supprimé (encore monté ?) : $vhdPath" }
+    }
 }
 
 # --- VM ----------------------------------------------------------------------------------------
