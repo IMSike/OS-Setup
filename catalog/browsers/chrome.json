@@ -4,6 +4,7 @@
   "name": "Google Chrome",
   "category": "browsers",
   "platforms": ["windows"],
+  "requiresAdmin": true,
   "actions": [
     { "provider": "winget", "id": "Google.Chrome" },
     {

@@ -4,6 +4,7 @@
   "name": "Docker : entretien hebdomadaire du disque",
   "category": "dev",
   "platforms": ["windows"],
+  "requiresAdmin": true,
   "dependsOn": ["docker-desktop"],
   "actions": [
     {

@@ -396,7 +396,7 @@ Docker stores images, containers, volumes (database data) and the build cache in
 - **Implications**: applied at the next Docker Desktop start (file backed up before modification). Docker Desktop also displays this file in Settings > Docker Engine.
 - **Rollback**: remove the `builder` section from `daemon.json` (Settings > Docker Engine).
 
-`docker-maintenance`: auto (with `docker-desktop`) · script `dotfiles/docker/docker-maintenance.ps1` copied to `%ProgramFiles%\OS-Setup\docker\` (outside the repository, which may be deleted at the end of the setup; the folder inherits the rights of Program Files: users can read the script, only administrators can modify it, since the task runs it with the highest privileges) · `logon-task` provider (scheduled task "OS-Setup - Docker (entretien)" (Docker maintenance), at sign-in, highest privileges, Windows PowerShell 5.1)
+`docker-maintenance`: auto (with `docker-desktop`) · admin · script `dotfiles/docker/docker-maintenance.ps1` copied to `%ProgramFiles%\OS-Setup\docker\` (outside the repository, which may be deleted at the end of the setup; the folder inherits the rights of Program Files: users can read the script, only administrators can modify it, since the task runs it with the highest privileges) · `logon-task` provider (scheduled task "OS-Setup - Docker (entretien)" (Docker maintenance), at sign-in, highest privileges, Windows PowerShell 5.1)
 
 - **Effect**, at each sign-in:
   1. **At most once a week**, **compaction** of Docker's virtual disk (`diskpart`: `attach vdisk readonly`, `compact vdisk`) while Docker and WSL are stopped: the file is brought back to what it really contains, the freed space returns to Windows. If Docker or a WSL distribution is already running, postponed to the next session.

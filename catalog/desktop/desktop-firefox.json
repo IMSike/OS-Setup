@@ -4,6 +4,7 @@
   "name": "Firefox",
   "category": "desktop",
   "platforms": ["windows"],
+  "requiresAdmin": true,
   "dependsOn": ["firefox"],
   "actions": [
     {

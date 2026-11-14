@@ -73,8 +73,8 @@ Les autres réglages ci-dessus sont marqués « session » : effectifs au redém
 
 | Élément | Raccourci | Proposé si |
 |---|---|---|
-| `desktop-firefox` | `Firefox.lnk` (bureau public, copie du raccourci du menu Démarrer) | Firefox est choisi |
-| `desktop-chrome` | `Google Chrome.lnk` (bureau public) | Chrome est choisi |
+| `desktop-firefox` | `Firefox.lnk` (bureau public, copie du raccourci du menu Démarrer ; admin) | Firefox est choisi |
+| `desktop-chrome` | `Google Chrome.lnk` (bureau public ; admin) | Chrome est choisi |
 | `desktop-brave` | `Brave.lnk` (bureau du compte) | Brave est choisi |
 | `desktop-vivaldi` | `Vivaldi.lnk` (bureau du compte) | Vivaldi est choisi |
 | `desktop-discord` | `Discord.lnk` (bureau du compte) | Discord est choisi |

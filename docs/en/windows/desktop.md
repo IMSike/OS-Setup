@@ -73,8 +73,8 @@ The other settings above are marked "session": effective when Explorer restarts,
 
 | Item | Shortcut | Offered if |
 |---|---|---|
-| `desktop-firefox` | `Firefox.lnk` (public desktop, copy of the Start menu shortcut) | Firefox is selected |
-| `desktop-chrome` | `Google Chrome.lnk` (public desktop) | Chrome is selected |
+| `desktop-firefox` | `Firefox.lnk` (public desktop, copy of the Start menu shortcut; admin) | Firefox is selected |
+| `desktop-chrome` | `Google Chrome.lnk` (public desktop; admin) | Chrome is selected |
 | `desktop-brave` | `Brave.lnk` (account's desktop) | Brave is selected |
 | `desktop-vivaldi` | `Vivaldi.lnk` (account's desktop) | Vivaldi is selected |
 | `desktop-discord` | `Discord.lnk` (account's desktop) | Discord is selected |

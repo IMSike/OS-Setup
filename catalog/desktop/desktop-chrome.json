@@ -4,6 +4,7 @@
   "name": "Google Chrome",
   "category": "desktop",
   "platforms": ["windows"],
+  "requiresAdmin": true,
   "dependsOn": ["chrome"],
   "actions": [
     {

@@ -4,6 +4,7 @@
   "name": "Firefox",
   "category": "browsers",
   "platforms": ["windows"],
+  "requiresAdmin": true,
   "actions": [
     { "provider": "winget", "id": "Mozilla.Firefox" },
     {
