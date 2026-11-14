@@ -4,10 +4,14 @@
     lance bootstrap.ps1 comme le ferait un utilisateur, journalise la console et écrit le code de sortie.
     Doit rester compatible Windows PowerShell 5.1 (machine vierge).
 #>
+[CmdletBinding()]
 param(
     [Parameter(ValueFromRemainingArguments)]
     [string[]]$SetupArguments
 )
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -Parent
 $logRoot = Join-Path -Path $repoRoot -ChildPath 'logs'

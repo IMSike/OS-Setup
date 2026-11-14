@@ -1,13 +1,15 @@
 ﻿BeforeDiscovery {
     $analyzerMissing = -not (Get-Module -ListAvailable -Name PSScriptAnalyzer)
 
-    # Scripts exécutés par Windows PowerShell 5.1 : le bootstrap, le nettoyage détaché, et tout script lancé par une action
-    # logon-task du catalogue (sa source dans dotfiles/ est celle de l'action file de même cible).
+    # Scripts exécutés par Windows PowerShell 5.1 : le bootstrap, le nettoyage détaché, la reprise après redémarrage,
+    # le lanceur du bootstrap dans la VM de test, et tout script lancé par une action logon-task du catalogue (sa
+    # source dans dotfiles/ est celle de l'action file de même cible).
     $discoveryRoot = (Resolve-Path -Path (Join-Path -Path $PSScriptRoot -ChildPath '..')).Path
     $windowsPowerShellScripts = [System.Collections.Generic.List[string]]@(
         'bootstrap.ps1'
         'src\cleanup.ps1'
         'src\resume.ps1'
+        'tests\vm\Start-GuestRun.ps1'
         'dotfiles\docker\docker-maintenance.ps1'
     )
     foreach ($file in Get-ChildItem -Path (Join-Path -Path $discoveryRoot -ChildPath 'catalog') -Filter '*.json' -Recurse) {
