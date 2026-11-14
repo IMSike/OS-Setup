@@ -121,7 +121,7 @@ Describe 'Invoke-OSSetupUnelevatedCommand' -Skip:(-not $IsWindows) {
     }
 
     AfterEach {
-        Remove-Variable -Name OSSetupTestWrapper, OSSetupTestCommandBytes -Scope Global -ErrorAction SilentlyContinue
+        Remove-Variable -Name OSSetupTestWrapper, OSSetupTestCommandBytes, OSSetupTestSleeps -Scope Global -ErrorAction SilentlyContinue
     }
 
     It 'enregistre une tâche ponctuelle à jeton limité au nom de l''utilisateur, recopie la sortie et nettoie' {
@@ -182,7 +182,6 @@ Describe 'Invoke-OSSetupUnelevatedCommand' -Skip:(-not $IsWindows) {
         $global:OSSetupTestSleeps = 0
         Invoke-OSSetupUnelevatedCommand -Command 'x' -Label 'le script' -ProgressSeconds 0 -WorkRoot $workRoot
         Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -eq '  le script : toujours en cours (0 min)' }
-        Remove-Variable -Name OSSetupTestSleeps -Scope Global
     }
 
     It 'échoue sans attendre la fin du délai quand la tâche s''arrête sans code de sortie' {

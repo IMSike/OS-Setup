@@ -35,14 +35,45 @@ Describe 'ConvertTo-OSSetupProfileList' {
 }
 
 Describe 'Assert-OSSetupInteractiveUser' {
-    It 'ne lève pas d''erreur pour l''utilisateur de la session courante' {
+    # Élévation et explorer.exe simulés : le résultat ne dépend pas de la console qui lance les tests.
+    BeforeAll {
+        $sessionId = (Get-Process -Id $PID).SessionId
+        $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+    }
+
+    BeforeEach {
+        Mock -ModuleName OSSetup -CommandName Write-OSSetupLog -MockWith {}
+    }
+
+    It 'sans élévation, ne vérifie rien (le nom du propriétaire d''un processus exige les droits administrateur)' {
+        Mock -ModuleName OSSetup -CommandName Test-OSSetupElevated -MockWith { $false }
+        Mock -ModuleName OSSetup -CommandName Get-Process -ParameterFilter { $Name -eq 'explorer' } -MockWith { throw 'inattendu' }
         { Assert-OSSetupInteractiveUser } | Should -Not -Throw
+        Should -Invoke -ModuleName OSSetup -CommandName Get-Process -ParameterFilter { $Name -eq 'explorer' } -Times 0 -Exactly
+    }
+
+    It 'accepte le compte qui a ouvert la session' {
+        Mock -ModuleName OSSetup -CommandName Test-OSSetupElevated -MockWith { $true }
+        Mock -ModuleName OSSetup -CommandName Get-Process -ParameterFilter { $Name -eq 'explorer' } -MockWith {
+            [pscustomobject]@{ SessionId = $sessionId; UserName = $currentUser }
+        }
+        { Assert-OSSetupInteractiveUser } | Should -Not -Throw
+        Should -Invoke -ModuleName OSSetup -CommandName Write-OSSetupLog -Times 0 -Exactly
+    }
+
+    It 'sans explorer.exe dans la session, avertit et laisse continuer' {
+        Mock -ModuleName OSSetup -CommandName Test-OSSetupElevated -MockWith { $true }
+        Mock -ModuleName OSSetup -CommandName Get-Process -ParameterFilter { $Name -eq 'explorer' } -MockWith {
+            [pscustomobject]@{ SessionId = $sessionId + 1000; UserName = 'PC\autre-session' }
+        }
+        { Assert-OSSetupInteractiveUser } | Should -Not -Throw
+        Should -Invoke -ModuleName OSSetup -CommandName Write-OSSetupLog -ParameterFilter { $Level -eq 'Warning' -and $Message -like '*explorer.exe absent*' } -Times 1 -Exactly
     }
 
     It 'refuse un setup élevé avec un autre compte que celui de la session' {
         Mock -ModuleName OSSetup -CommandName Test-OSSetupElevated -MockWith { $true }
         Mock -ModuleName OSSetup -CommandName Get-Process -ParameterFilter { $Name -eq 'explorer' } -MockWith {
-            [pscustomobject]@{ SessionId = (Microsoft.PowerShell.Management\Get-Process -Id $PID).SessionId; UserName = 'PC\utilisateur-standard' }
+            [pscustomobject]@{ SessionId = $sessionId; UserName = 'PC\utilisateur-standard' }
         }
         { Assert-OSSetupInteractiveUser } | Should -Throw '*utilisateur-standard*mauvais profil*'
     }

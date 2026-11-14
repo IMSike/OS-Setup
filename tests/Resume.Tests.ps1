@@ -179,9 +179,14 @@ Describe 'Request-OSSetupLogoff' {
     }
 
     It 'demande la fermeture après le compte à rebours' {
-        $watch = [Diagnostics.Stopwatch]::StartNew()
-        Request-OSSetupLogoff -Seconds 1 | Should -BeTrue
-        $watch.Elapsed.TotalMilliseconds | Should -BeGreaterOrEqual 900
+        Mock -ModuleName OSSetup Wait-OSSetupCountdown { $true }
+        Request-OSSetupLogoff -Seconds 7 | Should -BeTrue
+        Should -Invoke -ModuleName OSSetup Wait-OSSetupCountdown -Times 1 -Exactly -ParameterFilter { $Seconds -eq 7 }
+    }
+
+    It 'ne demande pas la fermeture quand une touche interrompt le compte à rebours' {
+        Mock -ModuleName OSSetup Wait-OSSetupCountdown { $false }
+        Request-OSSetupLogoff | Should -BeFalse
     }
 
     It 'ne demande pas la fermeture en simulation' {
@@ -203,9 +208,9 @@ Describe 'Request-OSSetupRestart' {
     }
 
     It 'redémarre après le compte à rebours' {
-        $watch = [Diagnostics.Stopwatch]::StartNew()
-        Request-OSSetupRestart -Seconds 1 | Should -BeTrue
-        $watch.Elapsed.TotalMilliseconds | Should -BeGreaterOrEqual 900
+        Mock -ModuleName OSSetup Wait-OSSetupCountdown { $true }
+        Request-OSSetupRestart -Seconds 7 | Should -BeTrue
+        Should -Invoke -ModuleName OSSetup Wait-OSSetupCountdown -Times 1 -Exactly -ParameterFilter { $Seconds -eq 7 }
         Should -Invoke -ModuleName OSSetup Restart-Computer -Times 1 -Exactly
     }
 
@@ -219,6 +224,34 @@ Describe 'Request-OSSetupRestart' {
         Request-OSSetupRestart -Manual | Should -BeFalse
         Should -Invoke -ModuleName OSSetup Restart-Computer -Times 0 -Exactly
         Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -like '*Relancez le setup à la main*' }
+    }
+}
+
+Describe 'Wait-OSSetupCountdown' {
+    BeforeEach {
+        Mock -ModuleName OSSetup Write-Host {}
+        Mock -ModuleName OSSetup Test-OSSetupInteractiveConsole { $false }
+        # Horloge simulée : chaque attente avance d'une seconde, sans attente réelle.
+        $global:OSSetupTestClock = [datetime]'2026-01-01'
+        Mock -ModuleName OSSetup Get-Date { $global:OSSetupTestClock }
+        Mock -ModuleName OSSetup Start-Sleep { $global:OSSetupTestClock = $global:OSSetupTestClock.AddSeconds(1) }
+    }
+
+    AfterEach {
+        Remove-Variable -Name OSSetupTestClock -Scope Global -ErrorAction SilentlyContinue
+    }
+
+    It 'décompte chaque seconde puis arrive à son terme' {
+        Wait-OSSetupCountdown -Label 'Redémarrage' -Hint ' — touche' -Seconds 3 | Should -BeTrue
+        Should -Invoke -ModuleName OSSetup Start-Sleep -Times 3 -Exactly
+        foreach ($remaining in 3, 2, 1) {
+            Should -Invoke -ModuleName OSSetup Write-Host -Times 1 -Exactly -ParameterFilter { $Object -like "*Redémarrage dans $remaining s *" }
+        }
+    }
+
+    It 'n''affiche pas l''invite à appuyer sur une touche hors console interactive' {
+        Wait-OSSetupCountdown -Label 'Redémarrage' -Hint ' — touche' -Seconds 1 | Should -BeTrue
+        Should -Invoke -ModuleName OSSetup Write-Host -Times 0 -Exactly -ParameterFilter { $Object -like '*touche*' }
     }
 }
 
