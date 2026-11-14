@@ -34,6 +34,47 @@ Describe 'Provider logon-task : erreurs des cmdlets du Planificateur' {
     }
 }
 
+Describe 'Provider logon-task : conformité' {
+    BeforeAll {
+        $script:logonAction = @{ name = 'OS-Setup - test'; script = 'C:\Program Files\OS-Setup\test.ps1'; description = 'Tâche de test.' }
+    }
+
+    It 'est conforme <Case>' -ForEach @(
+        @{ Case = 'pour la tâche attendue, activée'; Execute = $null; State = 'Ready'; RunLevel = 'Highest'; Expected = $true }
+        @{ Case = 'non quand elle est désactivée'; Execute = $null; State = 'Disabled'; RunLevel = 'Highest'; Expected = $false }
+        @{ Case = 'non quand elle lance un autre programme'; Execute = 'C:\Program Files\PowerShell\7\pwsh.exe'; State = 'Ready'; RunLevel = 'Highest'; Expected = $false }
+        @{ Case = 'non sans les droits les plus élevés'; Execute = $null; State = 'Ready'; RunLevel = 'Limited'; Expected = $false }
+    ) {
+        InModuleScope OSSetup -Parameters @{ Action = $logonAction; Execute = $Execute; State = $State; RunLevel = $RunLevel } {
+            param($Action, $Execute, $State, $RunLevel)
+            if (-not $Execute) { $Execute = Get-OSSetupWindowsPowerShellPath }
+            $task = [pscustomobject]@{
+                TaskName  = $Action['name']
+                State     = $State
+                Actions   = @([pscustomobject]@{ Execute = $Execute; Arguments = (Get-OSSetupLogonTaskArgument -Script $Action['script']) })
+                Principal = [pscustomobject]@{ RunLevel = $RunLevel }
+            }
+            Mock -CommandName Get-OSSetupScheduledTask -MockWith { $task }
+            & (Get-OSSetupProvider -Name 'logon-task').Test $Action @{}
+        } | Should -Be $Expected
+    }
+
+    It 'enregistre la valeur d''origine (état, programme, arguments)' {
+        InModuleScope OSSetup -Parameters @{ Action = $logonAction } {
+            param($Action)
+            Mock -CommandName Get-OSSetupScheduledTask -MockWith {
+                [pscustomobject]@{ State = 'Disabled'; Actions = @([pscustomobject]@{ Execute = 'C:\x.exe'; Arguments = '-a' }) }
+            }
+            $before = & (Get-OSSetupProvider -Name 'logon-task').Read $Action @{}
+            $before['state'] | Should -Be 'Disabled'
+            $before['execute'] | Should -Be 'C:\x.exe'
+            $before['arguments'] | Should -Be '-a'
+            Mock -CommandName Get-OSSetupScheduledTask
+            (& (Get-OSSetupProvider -Name 'logon-task').Read $Action @{})['exists'] | Should -BeFalse
+        }
+    }
+}
+
 Describe 'Provider registry' {
     # TestRegistry: clé jetable de Pester (sous HKCU:\Software\Pester), supprimée à la fin du bloc.
     BeforeEach {

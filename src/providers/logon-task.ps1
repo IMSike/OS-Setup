@@ -16,14 +16,23 @@ param()
         param($Action, $Context)
         $task = Get-OSSetupScheduledTask -TaskName $Action['name']
         if (-not $task) { return $false }
+        # Même programme, mêmes arguments, droits les plus élevés, tâche activée : sinon elle est réenregistrée.
+        $powershell = Get-OSSetupWindowsPowerShellPath
         $expected = Get-OSSetupLogonTaskArgument -Script $Action['script']
-        @($task.Actions | Where-Object { $_.Arguments -eq $expected }).Count -eq 1 -and $task.Principal.RunLevel -eq 'Highest'
+        @($task.Actions | Where-Object { $_.Execute -eq $powershell -and $_.Arguments -eq $expected }).Count -eq 1 -and
+        $task.Principal.RunLevel -eq 'Highest' -and "$($task.State)" -ne 'Disabled'
     }
 
     Read     = {
         param($Action, $Context)
         $task = Get-OSSetupScheduledTask -TaskName $Action['name']
-        if ($task) { [ordered]@{ exists = $true; arguments = "$($task.Actions[0].Arguments)" } } else { [ordered]@{ exists = $false } }
+        if (-not $task) { return [ordered]@{ exists = $false } }
+        [ordered]@{
+            exists    = $true
+            state     = "$($task.State)"
+            execute   = "$(@($task.Actions)[0].Execute)"
+            arguments = "$(@($task.Actions)[0].Arguments)"
+        }
     }
 
     Invoke   = {
