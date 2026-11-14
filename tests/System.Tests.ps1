@@ -141,6 +141,13 @@ Describe 'ConvertTo-OSSetupUninstallCommand' {
         $command.Arguments | Should -Be '/S'
     }
 
+    It 'n''ajoute pas les arguments du catalogue à la commande silencieuse déclarée' {
+        $entry = [pscustomobject]@{ DisplayName = 'App'; UninstallString = '"C:\App\uninst.exe"'; QuietUninstallString = '"C:\App\uninst.exe" /S' }
+        $command = ConvertTo-OSSetupUninstallCommand -Entry $entry -Arguments '/silent'
+        $command.FilePath | Should -Be 'C:\App\uninst.exe'
+        $command.Arguments | Should -Be '/S'
+    }
+
     It 'complète la commande ordinaire avec les arguments du catalogue' {
         $entry = [pscustomobject]@{ DisplayName = 'OneDrive'; UninstallString = 'C:\Users\u\AppData\Local\Microsoft\OneDrive\25.1\OneDriveSetup.exe  /uninstall ' }
         $command = ConvertTo-OSSetupUninstallCommand -Entry $entry -Arguments '/silent'

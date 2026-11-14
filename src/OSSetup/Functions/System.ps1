@@ -211,7 +211,8 @@ function ConvertTo-OSSetupUninstallCommand {
     .SYNOPSIS
         Transforme la commande de désinstallation d'une entrée en { FilePath; Arguments } exécutable sans
         interaction : désinstallation MSI silencieuse, sinon commande silencieuse déclarée, sinon commande
-        ordinaire complétée par les arguments du catalogue.
+        ordinaire complétée par les arguments du catalogue. La commande silencieuse déclarée est utilisée telle quelle :
+        les arguments du catalogue servent à rendre silencieuse la commande ordinaire, ils pourraient la dénaturer.
     #>
     [CmdletBinding()]
     param(
@@ -220,7 +221,9 @@ function ConvertTo-OSSetupUninstallCommand {
 
         [string]$Arguments
     )
-    $raw = if ($Entry.PSObject.Properties['QuietUninstallString'] -and $Entry.QuietUninstallString) { $Entry.QuietUninstallString } else { $Entry.UninstallString }
+    $quiet = $Entry.PSObject.Properties['QuietUninstallString'] -and $Entry.QuietUninstallString
+    $raw = if ($quiet) { $Entry.QuietUninstallString } else { $Entry.UninstallString }
+    $extra = if ($quiet) { '' } else { $Arguments }
     if (-not $raw) { throw "Aucune commande de désinstallation pour « $($Entry.DisplayName) »." }
     if ($raw -match '(?i)msiexec(\.exe)?\s+/[IX]\s*(\{[0-9A-F-]+\})') {
         return [pscustomobject]@{ FilePath = 'msiexec.exe'; Arguments = "/x $($Matches[2]) /qn /norestart" }
@@ -251,8 +254,8 @@ function ConvertTo-OSSetupUninstallCommand {
         }
     }
     if (-not $filePath) { throw "Commande de désinstallation illisible : $raw" }
-    $arguments = (@("$rest".Trim(), $Arguments) | Where-Object { $_ }) -join ' '
-    [pscustomobject]@{ FilePath = $filePath; Arguments = $arguments }
+    $argumentLine = (@("$rest".Trim(), $extra) | Where-Object { $_ }) -join ' '
+    [pscustomobject]@{ FilePath = $filePath; Arguments = $argumentLine }
 }
 
 function Get-OSSetupStartupEntry {
