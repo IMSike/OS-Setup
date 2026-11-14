@@ -2,6 +2,22 @@
 
 Installation (menu « Navigateurs à installer », `catalog/browsers/`) et réglages (menu « Navigateurs : réglages », `catalog/browser-settings/`, tout coché par défaut). Un réglage propre à un navigateur n'est proposé que si ce navigateur est choisi. Les notions communes (stratégie, HKLM, retour arrière) sont expliquées dans [`../how-it-works.md`](../how-it-works.md).
 
+## Installation — `firefox`, `chrome`, `brave`, `vivaldi`
+
+Menu « Navigateurs à installer » : plusieurs choix, seul Vivaldi coché par défaut. Chaque navigateur est installé par winget, puis le raccourci du bureau créé par son installeur est retiré, sauf si l'élément « bureau » correspondant est coché (`desktop-firefox`, `desktop-chrome`, `desktop-brave`, `desktop-vivaldi`, voir [Intégration au bureau](desktop.md)).
+
+| Élément | Paquet winget | Raccourci retiré après l'installation |
+|---|---|---|
+| `firefox` | `Mozilla.Firefox` | `Firefox.lnk`, bureau public (tous les comptes) |
+| `chrome` | `Google.Chrome` | `Google Chrome.lnk`, bureau public, et celui que Chrome ajoute ensuite sur le bureau du compte |
+| `brave` | `Brave.Brave` | `Brave.lnk`, bureau du compte |
+| `vivaldi` | `Vivaldi.Vivaldi` | `Vivaldi.lnk`, bureau du compte |
+
+- **Admin** : `firefox` et `chrome` écrivent sur le bureau public (et, pour Chrome, dans `Program Files`) : droits administrateur.
+- **Préférences initiales de Chrome** : `dotfiles/chrome/initial_preferences.json` est fusionné (`merge-json`, fichier existant sauvegardé) dans `%ProgramFiles%\Google\Chrome\Application\initial_preferences` : `distribution.do_not_create_desktop_shortcut`, `do_not_create_quick_launch_shortcut` et `do_not_create_taskbar_shortcut` = `true`. Chrome le lit quand il configure chaque compte : pas de raccourci sur le bureau ni dans la barre des tâches de ce compte.
+- **Implications** : les mises à jour des navigateurs ne sont jamais désactivées (voir ci-dessous). Leurs réglages sont les éléments du menu « Navigateurs : réglages » ci-dessous ; le navigateur par défaut est une étape à part (fin de cette page).
+- **Revenir en arrière** : Paramètres > Applications > le navigateur > Désinstaller. Pour les préférences initiales de Chrome : retirer les trois clés de `initial_preferences` (ou le fichier).
+
 ## Mécanisme : les stratégies des navigateurs
 
 Edge, Chrome, Brave et Firefox lisent des **stratégies** dans `HKLM\SOFTWARE\Policies\…`, y compris sur un poste personnel. Méthode officielle et documentée par chaque éditeur.
@@ -13,7 +29,7 @@ Edge, Chrome, Brave et Firefox lisent des **stratégies** dans `HKLM\SOFTWARE\Po
 
 ## Edge (conservé et neutralisé)
 
-Sur Windows 10, Edge ne se désinstalle pas (voir [`removable-apps.md`](removable-apps.md)) : il est neutralisé. Il est déjà retiré de la barre des tâches par la disposition (voir [Intégration au bureau](desktop.md)). Désinstallation complète prévue pour Windows 11.
+Sur Windows 10, Edge ne se désinstalle pas (voir [`removable-apps.md`](removable-apps.md)) : il est neutralisé. Il est retiré de la barre des tâches par la disposition (voir [Intégration au bureau](desktop.md)).
 
 ### Pas d'exécution en arrière-plan — `edge-no-background`
 

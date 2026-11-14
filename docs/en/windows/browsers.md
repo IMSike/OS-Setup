@@ -2,6 +2,22 @@
 
 Installation (menu "Navigateurs à installer", Browsers to install, `catalog/browsers/`) and settings (menu "Navigateurs : réglages", Browsers: settings, `catalog/browser-settings/`, everything selected by default). A setting specific to a browser is only offered if that browser is selected. The common concepts (policy, HKLM, rollback) are explained in [`../how-it-works.md`](../how-it-works.md).
 
+## Installation — `firefox`, `chrome`, `brave`, `vivaldi`
+
+"Navigateurs à installer" (Browsers to install) menu: several choices, only Vivaldi checked by default. Each browser is installed with winget, then the desktop shortcut created by its installer is removed, unless the matching "desktop" item is checked (`desktop-firefox`, `desktop-chrome`, `desktop-brave`, `desktop-vivaldi`, see [Desktop integration](desktop.md)).
+
+| Item | winget package | Shortcut removed after installation |
+|---|---|---|
+| `firefox` | `Mozilla.Firefox` | `Firefox.lnk`, public desktop (all accounts) |
+| `chrome` | `Google.Chrome` | `Google Chrome.lnk`, public desktop, and the one Chrome then adds to the account's desktop |
+| `brave` | `Brave.Brave` | `Brave.lnk`, account's desktop |
+| `vivaldi` | `Vivaldi.Vivaldi` | `Vivaldi.lnk`, account's desktop |
+
+- **Admin**: `firefox` and `chrome` write to the public desktop (and, for Chrome, to `Program Files`): administrator rights.
+- **Chrome's initial preferences**: `dotfiles/chrome/initial_preferences.json` is merged (`merge-json`, existing file backed up) into `%ProgramFiles%\Google\Chrome\Application\initial_preferences`: `distribution.do_not_create_desktop_shortcut`, `do_not_create_quick_launch_shortcut` and `do_not_create_taskbar_shortcut` = `true`. Chrome reads it when it sets up each account: no shortcut on that account's desktop or taskbar.
+- **Implications**: browser updates are never disabled (see below). Their settings are the items of the "Navigateurs : réglages" (Browsers: settings) menu below; the default browser is a separate step (end of this page).
+- **Rollback**: Settings > Apps > the browser > Uninstall. For Chrome's initial preferences: delete the three keys from `initial_preferences` (or the file).
+
 ## Mechanism: browser policies
 
 Edge, Chrome, Brave and Firefox read **policies** from `HKLM\SOFTWARE\Policies\…`, including on a personal machine. This is the official method, documented by each vendor.
@@ -13,7 +29,7 @@ Edge, Chrome, Brave and Firefox read **policies** from `HKLM\SOFTWARE\Policies\�
 
 ## Edge (kept and neutralized)
 
-On Windows 10, Edge cannot be uninstalled (see [`removable-apps.md`](removable-apps.md)): it is neutralized. It is already removed from the taskbar by the layout (see [Desktop integration](desktop.md)). Full uninstallation is planned for Windows 11.
+On Windows 10, Edge cannot be uninstalled (see [`removable-apps.md`](removable-apps.md)): it is neutralized. It is removed from the taskbar by the layout (see [Desktop integration](desktop.md)).
 
 ### No background execution — `edge-no-background`
 

@@ -129,7 +129,7 @@ Describe 'Documentation' {
         $pages = @(
             @{ Categories = @('system', 'privacy', 'power'); Page = 'windows\settings.md' }
             @{ Categories = @('desktop'); Page = 'windows\desktop.md' }
-            @{ Categories = @('browser-settings'); Page = 'windows\browsers.md' }
+            @{ Categories = @('browsers', 'browser-settings'); Page = 'windows\browsers.md' }
             @{ Categories = @('apps'); Page = 'windows\apps.md' }
             @{ Categories = @('dev'); Page = 'windows\development.md' }
             @{ Categories = @('drivers'); Page = 'windows\drivers.md' }
