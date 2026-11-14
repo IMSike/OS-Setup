@@ -225,15 +225,15 @@ function Resolve-OSSetupItemList {
         foreach ($itemId in Get-OSSetupSelectedOption -Choice $choice -Answers $Answers) { $requested.Add($itemId) }
     }
 
-    # Parcours en profondeur : les dépendances sont placées avant l'élément, l'ordre de déclaration est conservé.
     # Une dépendance technique (proposée dans aucun menu) est ajoutée ; une dépendance proposée mais non choisie
-    # fait ignorer l'élément qui en dépend (et ses propres dépendants).
-    $ordered = [System.Collections.Generic.List[string]]::new()
+    # fait ignorer l'élément qui en dépend (et ses propres dépendants). Ce tri est fait d'abord, sur toute la chaîne :
+    # une dépendance technique n'est ajoutée que si l'élément qui la demande est gardé.
+    $kept = [System.Collections.Generic.HashSet[string]]::new()
     $visiting = [System.Collections.Generic.HashSet[string]]::new()
     $skipped = [ordered]@{}
-    $visit = {
+    $check = {
         param([string]$Id)
-        if ($ordered.Contains($Id)) { return $true }
+        if ($kept.Contains($Id)) { return $true }
         if ($skipped.Contains($Id)) { return $false }
         if (-not $Data.Items.Contains($Id)) { throw "Élément inconnu : '$Id'." }
         if (-not $visiting.Add($Id)) { throw "Cycle de dépendances impliquant l'élément '$Id'." }
@@ -242,16 +242,25 @@ function Resolve-OSSetupItemList {
                 $skipped[$Id] = "nécessite '$dependency', non choisi"
                 return $false
             }
-            if (-not (& $visit $dependency)) {
+            if (-not (& $check $dependency)) {
                 $skipped[$Id] = "nécessite '$dependency', ignoré"
                 return $false
             }
         }
-        $ordered.Add($Id)
+        [void]$kept.Add($Id)
         $true
     }
+    # Parcours en profondeur des éléments gardés : les dépendances sont placées avant l'élément, l'ordre de
+    # déclaration est conservé.
+    $ordered = [System.Collections.Generic.List[string]]::new()
+    $place = {
+        param([string]$Id)
+        if ($ordered.Contains($Id)) { return }
+        foreach ($dependency in $Data.Items[$Id]['dependsOn']) { & $place $dependency }
+        $ordered.Add($Id)
+    }
     foreach ($id in $requested) {
-        [void](& $visit $id)
+        if (& $check $id) { & $place $id }
     }
     foreach ($id in $skipped.Keys) {
         Write-OSSetupLog -Level Detail -Message "Élément '$id' ignoré : $($skipped[$id])."

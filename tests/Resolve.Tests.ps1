@@ -76,6 +76,21 @@ Describe 'Resolve-OSSetupItemList' {
         Resolve-OSSetupItemList -Data $data -Answers $answers -Facts $windows | Should -Be @('a', 'x', 'c', 'b', 'y')
     }
 
+    It 'n''ajoute pas la dépendance technique d''un élément ignoré' {
+        # 'x' dépend de 'c' (technique) puis de 'y' (proposé, non coché) : 'x' est ignoré, 'c' n'a plus de raison d'être.
+        $data = New-TestData
+        $data.Items['x']['dependsOn'] = @('c', 'y')
+        Mock -ModuleName OSSetup Write-OSSetupLog {}
+        Resolve-OSSetupItemList -Data $data -Answers @{ profiles = @('base'); choices = @{ pick = @('x') } } -Facts $windows | Should -Be @('a')
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -ParameterFilter { $Message -match "'x' ignoré : nécessite 'y', non choisi" }
+
+        # Même chose quand l'élément refusé est plus loin dans la chaîne : 'x' → 'b' → 'c' → 'y'.
+        $data = New-TestData
+        $data.Items['x']['dependsOn'] = @('b')
+        $data.Items['c']['dependsOn'] = @('y')
+        Resolve-OSSetupItemList -Data $data -Answers @{ profiles = @('base'); choices = @{ pick = @('x') } } -Facts $windows | Should -Be @('a')
+    }
+
     It 'ignore les éléments d''une autre plateforme' {
         $data = New-TestData
         $data.Profiles['base']['items'] = @('a', 'lin')
