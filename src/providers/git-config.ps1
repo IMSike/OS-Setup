@@ -12,21 +12,24 @@ param()
         "git config --global $($Action['key']) $($Action['value'])"
     }
 
+    # Git écrit en UTF-8 : lue avec la page de code de la console, une valeur accentuée (ex. un nom) ne serait jamais
+    # égale à celle du catalogue. La valeur lue n'est pas journalisée (lecture répétée à chaque test).
     Test     = {
         param($Action, $Context)
-        $current = & git config --global --get $Action['key']
-        $LASTEXITCODE -eq 0 -and "$current" -ceq $Action['value']
+        if (-not (Get-Command -Name git -CommandType Application -ErrorAction SilentlyContinue)) { return $false }
+        $result = Invoke-OSSetupNativeCommand -FilePath git -ArgumentList 'config', '--global', '--get', $Action['key'] -Utf8 -NoThrow -PassThru -LogFilter '.*'
+        $result.ExitCode -eq 0 -and (@($result.Output) -join "`n") -ceq $Action['value']
     }
 
     Read     = {
         param($Action, $Context)
-        $current = & git config --global --get $Action['key']
-        if ($LASTEXITCODE -eq 0) { [ordered]@{ exists = $true; value = "$current" } } else { [ordered]@{ exists = $false } }
+        if (-not (Get-Command -Name git -CommandType Application -ErrorAction SilentlyContinue)) { return [ordered]@{ exists = $false } }
+        $result = Invoke-OSSetupNativeCommand -FilePath git -ArgumentList 'config', '--global', '--get', $Action['key'] -Utf8 -NoThrow -PassThru -LogFilter '.*'
+        if ($result.ExitCode -eq 0) { [ordered]@{ exists = $true; value = (@($result.Output) -join "`n") } } else { [ordered]@{ exists = $false } }
     }
 
     Invoke   = {
         param($Action, $Context)
-        & git config --global $Action['key'] $Action['value']
-        if ($LASTEXITCODE -ne 0) { throw "git config a échoué (code $LASTEXITCODE)." }
+        Invoke-OSSetupNativeCommand -FilePath git -ArgumentList 'config', '--global', $Action['key'], $Action['value'] -Utf8 -Label 'git config'
     }
 }

@@ -69,6 +69,8 @@ Describe 'Provider git-config' {
         InModuleScope OSSetup {
             $provider = Get-OSSetupProvider -Name 'git-config'
             $action = @{ key = 'pull.rebase'; value = 'true' }
+            Mock -CommandName Get-Command -MockWith { [pscustomobject]@{ Name = 'git.exe' } } -ParameterFilter { $Name -eq 'git' }
+            Mock -CommandName Write-OSSetupLog
             Mock -CommandName git -MockWith { $global:LASTEXITCODE = 0; 'true' }
             & $provider.Test $action @{} | Should -BeTrue
             Mock -CommandName git -MockWith { $global:LASTEXITCODE = 1 }
@@ -77,6 +79,45 @@ Describe 'Provider git-config' {
             Mock -CommandName git -MockWith { $global:LASTEXITCODE = 0 }
             & $provider.Invoke $action @{}
             Should -Invoke -CommandName git -ParameterFilter { ($args -join ' ') -eq 'config --global pull.rebase true' } -Times 1 -Exactly
+
+            Mock -CommandName git -MockWith { $global:LASTEXITCODE = 255 }
+            { & $provider.Invoke $action @{} } | Should -Throw '*git config*255*'
+        }
+    }
+
+    It 'lit une valeur accentuée en UTF-8 (sortie de git), sans la journaliser' {
+        InModuleScope OSSetup {
+            $provider = Get-OSSetupProvider -Name 'git-config'
+            $action = @{ key = 'user.name'; value = 'Prénom Nom' }
+            Mock -CommandName Get-Command -MockWith { [pscustomobject]@{ Name = 'git.exe' } } -ParameterFilter { $Name -eq 'git' }
+            Mock -CommandName Write-OSSetupLog
+            # Git écrit en UTF-8 : décodée avec une autre page de code, la valeur serait corrompue.
+            Mock -CommandName git -MockWith {
+                $global:LASTEXITCODE = 0
+                if ([Console]::OutputEncoding.CodePage -eq 65001) { 'Prénom Nom' } else { 'PrÃ©nom Nom' }
+            }
+            $before = [Console]::OutputEncoding
+            try {
+                [Console]::OutputEncoding = [System.Text.Encoding]::GetEncoding(850)
+                & $provider.Test $action @{} | Should -BeTrue
+                (& $provider.Read $action @{})['value'] | Should -Be 'Prénom Nom'
+                [Console]::OutputEncoding.CodePage | Should -Be 850
+            }
+            finally {
+                [Console]::OutputEncoding = $before
+            }
+            Should -Invoke -CommandName Write-OSSetupLog -Times 0 -Exactly
+        }
+    }
+
+    It 'est non conforme, sans erreur, quand git est absent' {
+        InModuleScope OSSetup {
+            $provider = Get-OSSetupProvider -Name 'git-config'
+            Mock -CommandName Get-Command -ParameterFilter { $Name -eq 'git' }
+            Mock -CommandName git
+            & $provider.Test @{ key = 'pull.rebase'; value = 'true' } @{} | Should -BeFalse
+            (& $provider.Read @{ key = 'pull.rebase'; value = 'true' } @{})['exists'] | Should -BeFalse
+            Should -Invoke -CommandName git -Times 0 -Exactly
         }
     }
 }
