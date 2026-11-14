@@ -17,12 +17,15 @@
     ./setup.ps1 -Profiles base -AcceptDefaults -Yes
     Profil base avec les valeurs par défaut, sans aucune question (redémarrage immédiat si nécessaire).
 #>
-[CmdletBinding(SupportsShouldProcess)]
+# PositionalBinding désactivé : via « pwsh -File », « -Profiles base dev » affecterait sinon « dev » à -AnswerFile ;
+# une valeur sans nom de paramètre est refusée.
+[CmdletBinding(SupportsShouldProcess, PositionalBinding = $false)]
 param(
     # Fichier de réponses à rejouer (aucune question posée).
     [string]$AnswerFile,
 
-    # Profils à appliquer (saute le menu des profils).
+    # Profils à appliquer (saute le menu des profils), en tableau ou séparés par des virgules : « pwsh -File »
+    # transmet « -Profiles base,dev » comme un seul texte.
     [string[]]$Profiles,
 
     # Utilise les valeurs par défaut des choix et variables au lieu des menus.
@@ -63,6 +66,7 @@ if ($Resume) {
     ) -join ';'
 }
 Import-Module -Name (Join-Path -Path $root -ChildPath 'src\OSSetup\OSSetup.psd1') -Force
+if ($Profiles) { $Profiles = ConvertTo-OSSetupProfileList -Value $Profiles }
 
 # Une seule élévation pour toute l'exécution (inutile en simulation, qui ne modifie rien).
 if ($IsWindows -and -not $WhatIfPreference -and -not (Test-OSSetupElevated)) {

@@ -42,7 +42,7 @@ The account used must be an administrator: from a standard account, the setup st
 | Parameter | Effect |
 |---|---|
 | `-AnswerFile <file>` | Replays an answer file: no questions. |
-| `-Profiles <names>` | Profiles to apply (skips the profile menu). |
+| `-Profiles <names>` | Profiles to apply (skips the profile menu), separated by commas: `-Profiles base,dev`, also through `pwsh -File`. |
 | `-AcceptDefaults` | Default values for choices and variables, instead of the menus. |
 | `-SaveAnswers <file>` | Saves the session's answers to this file. |
 | `-Yes` | Unattended: applies the plan without confirmation, reboots or logs off without a countdown, closes the window at the end. |

@@ -37,6 +37,23 @@ function Assert-OSSetupInteractiveUser {
     }
 }
 
+function ConvertTo-OSSetupProfileList {
+    <#
+    .SYNOPSIS
+        Liste des profils donnée en ligne de commande (-Profiles), un profil par élément.
+    .DESCRIPTION
+        « pwsh -File setup.ps1 -Profiles base,dev » transmet « base,dev » comme un seul texte : il est découpé aux
+        virgules. Les espaces autour des noms et les éléments vides sont retirés.
+    #>
+    [CmdletBinding()]
+    [OutputType([string[]])]
+    param(
+        [AllowEmptyCollection()]
+        [string[]]$Value = @()
+    )
+    [string[]]@($Value | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+}
+
 function ConvertTo-OSSetupCommandArgument {
     <#
     .SYNOPSIS

@@ -56,6 +56,7 @@
         # Elevation.ps1
         'Assert-OSSetupInteractiveUser'
         'ConvertTo-OSSetupCommandArgument'
+        'ConvertTo-OSSetupProfileList'
         'Test-OSSetupElevated'
         # Facts.ps1
         'ConvertTo-OSSetupVendor'

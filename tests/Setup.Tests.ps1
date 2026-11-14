@@ -45,7 +45,7 @@
             'Read-OSSetupAnswer'            = @{ profiles = @('base') }
             'Test-OSSetupInteractiveConsole' = $false
             'Get-OSSetupPlan'               = @(@{ Status = 'todo' })
-            'Invoke-OSSetupPlan'            = @(@{ Status = 'done' })
+            'Invoke-OSSetupPlan'            = @(@{ Status = 'done'; RebootRequired = $false; RequiresLogoff = $false })
             'Test-OSSetupResumePwsh'        = $true
             'Request-OSSetupRestart'        = $true
             'Request-OSSetupLogoff'         = $false
@@ -158,6 +158,21 @@ Describe 'setup.ps1 : redémarrage nécessaire' {
         foreach ($name in 'Unregister-OSSetupResumeTask', 'Remove-OSSetupRunState', 'Remove-OSSetupResumeCode', 'Invoke-OSSetupCleanup') {
             $result.Names | Should -Contain $name
         }
+    }
+}
+
+Describe 'setup.ps1 : arguments transmis par pwsh -File' {
+    It 'découpe « -Profiles base,dev » (un seul texte) en deux profils' {
+        $result = Invoke-TestSetup -Argument '-Profiles', 'base,dev', '-AcceptDefaults', '-Yes', '-NoPause'
+        $result.ExitCode | Should -Be 0
+        Get-TestCallArgument -Result $result -Name 'New-OSSetupDefaultAnswer' | Should -Contain 'base|dev'
+    }
+
+    It 'refuse « -Profiles base dev » au lieu de prendre « dev » pour le fichier de réponses' {
+        $result = Invoke-TestSetup -Argument '-Profiles', 'base', 'dev', '-Yes', '-NoPause'
+        $result.ExitCode | Should -Not -Be 0
+        $result.Names | Should -Not -Contain 'Read-OSSetupAnswerFile'
+        $result.Names | Should -Not -Contain 'Invoke-OSSetupPlan'
     }
 }
 

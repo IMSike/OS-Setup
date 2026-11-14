@@ -42,7 +42,7 @@ Le compte utilisé doit être administrateur : depuis un compte standard, le set
 | Paramètre | Effet |
 |---|---|
 | `-AnswerFile <fichier>` | Rejoue un fichier de réponses : aucune question. |
-| `-Profiles <noms>` | Profils à appliquer (saute le menu des profils). |
+| `-Profiles <noms>` | Profils à appliquer (saute le menu des profils), séparés par des virgules : `-Profiles base,dev`, y compris via `pwsh -File`. |
 | `-AcceptDefaults` | Valeurs par défaut des choix et des variables, au lieu des menus. |
 | `-SaveAnswers <fichier>` | Enregistre les réponses de la session dans ce fichier. |
 | `-Yes` | Sans surveillance : applique le plan sans confirmation, redémarre ou ferme la session sans compte à rebours, ferme la fenêtre à la fin. |

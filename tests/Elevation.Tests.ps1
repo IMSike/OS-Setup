@@ -25,6 +25,15 @@ Describe 'ConvertTo-OSSetupCommandArgument' {
     }
 }
 
+Describe 'ConvertTo-OSSetupProfileList' {
+    It 'découpe les profils séparés par des virgules et retire espaces et éléments vides' {
+        ConvertTo-OSSetupProfileList -Value 'base,dev' | Should -Be @('base', 'dev')
+        ConvertTo-OSSetupProfileList -Value 'base', ' dev , ', '' | Should -Be @('base', 'dev')
+        ConvertTo-OSSetupProfileList -Value 'base' | Should -Be @('base')
+        ConvertTo-OSSetupProfileList -Value @() | Should -BeNullOrEmpty
+    }
+}
+
 Describe 'Assert-OSSetupInteractiveUser' {
     It 'ne lève pas d''erreur pour l''utilisateur de la session courante' {
         { Assert-OSSetupInteractiveUser } | Should -Not -Throw
