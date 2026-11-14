@@ -44,7 +44,6 @@
         'Get-OSSetupDiskBoundedSize'
         'Get-OSSetupDockerBuildCacheLimit'
         'Get-OSSetupDockerBuildCacheSetting'
-        'Get-OSSetupLogonTaskArgument'
         'Get-OSSetupSystemDisk'
         'Write-OSSetupDiskSpaceWarning'
         # Drivers.ps1
@@ -71,7 +70,6 @@
         'Start-OSSetupLog'
         'Write-OSSetupLog'
         # Manual.ps1
-        'Get-OSSetupWslDistribution'
         'Invoke-OSSetupManualStep'
         'Start-OSSetupManualAssist'
         'Test-OSSetupManualStep'
@@ -159,6 +157,7 @@
         'Get-OSSetupProvisionedPackage'
         'Get-OSSetupWindowsCapabilityList'
         'Get-OSSetupWindowsCapabilityMatch'
+        'Get-OSSetupLogonTaskArgument'
         # Variables.ps1
         'Expand-OSSetupAction'
         'Expand-OSSetupString'
@@ -176,6 +175,7 @@
         'Get-OSSetupPhysicalMemoryGB'
         'Get-OSSetupWslConfigValue'
         'Get-OSSetupWslMemoryLimit'
+        'Get-OSSetupWslDistribution'
         'Set-OSSetupIniValue'
         # OSSetup.psm1
         'Get-OSSetupProvider'

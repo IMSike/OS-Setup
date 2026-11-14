@@ -1,21 +1,4 @@
-﻿function Get-OSSetupWslDistribution {
-    <#
-    .SYNOPSIS
-        Distributions WSL enregistrées pour le compte courant (registre Lxss) : nom et utilisateur par défaut (0 : root,
-        compte Linux pas encore créé).
-    #>
-    [CmdletBinding()]
-    param()
-    $root = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss'
-    if (-not (Test-Path -Path $root)) { return }
-    foreach ($key in Get-ChildItem -Path $root) {
-        $name = $key.GetValue('DistributionName')
-        if (-not $name) { continue }
-        [pscustomobject]@{ Name = $name; DefaultUid = [int]$key.GetValue('DefaultUid', 0) }
-    }
-}
-
-function Test-OSSetupManualStep {
+﻿function Test-OSSetupManualStep {
     <#
     .SYNOPSIS
         Vérifie le résultat d'une étape manuelle. Chaque vérification est écrite dans le moteur (pas de code dans les données).

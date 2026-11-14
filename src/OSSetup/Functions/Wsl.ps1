@@ -9,6 +9,23 @@
     (Get-CimInstance -ClassName Win32_ComputerSystem).TotalPhysicalMemory / 1GB
 }
 
+function Get-OSSetupWslDistribution {
+    <#
+    .SYNOPSIS
+        Distributions WSL enregistrées pour le compte courant (registre Lxss) : nom et utilisateur par défaut (0 : root,
+        compte Linux pas encore créé).
+    #>
+    [CmdletBinding()]
+    param()
+    $root = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss'
+    if (-not (Test-Path -Path $root)) { return }
+    foreach ($key in Get-ChildItem -Path $root) {
+        $name = $key.GetValue('DistributionName')
+        if (-not $name) { continue }
+        [pscustomobject]@{ Name = $name; DefaultUid = [int]$key.GetValue('DefaultUid', 0) }
+    }
+}
+
 function Get-OSSetupWslMemoryLimit {
     <#
     .SYNOPSIS

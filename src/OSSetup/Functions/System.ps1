@@ -168,6 +168,20 @@ function Get-OSSetupWindowsPowerShellPath {
     Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'WindowsPowerShell\v1.0\powershell.exe'
 }
 
+function Get-OSSetupLogonTaskArgument {
+    <#
+    .SYNOPSIS
+        Arguments de powershell.exe pour une tâche logon-task : script lancé sans profil ni fenêtre.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Script
+    )
+    "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$Script`""
+}
+
 function Invoke-OSSetupWindowsPowerShell {
     <#
     .SYNOPSIS
