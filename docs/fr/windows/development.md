@@ -366,7 +366,7 @@ Facultatives : utiles seulement pour travailler dans un terminal Linux (outils p
 | Élément | Distribution WSL | Revenir en arrière |
 |---|---|---|
 | `wsl-ubuntu` | `Ubuntu` (dernière LTS) | `wsl --unregister Ubuntu` |
-| `wsl-fedora` | `FedoraLinux-44` (le nom WSL de Fedora inclut sa version : à mettre à jour à chaque nouvelle version de Fedora) | `wsl --unregister FedoraLinux-44` |
+| `wsl-fedora` | `FedoraLinux-45` (le nom WSL de Fedora inclut sa version : à mettre à jour à chaque nouvelle version de Fedora) | `wsl --unregister FedoraLinux-45` |
 
 - **Effet** : installe la distribution dans WSL (`wsl --install --distribution <nom>`, dans une nouvelle fenêtre) ; à son premier lancement, elle demande le nom et le mot de passe du **compte Linux** : seule partie manuelle. Le setup vérifie ensuite que la distribution est enregistrée avec un compte autre que root (registre `HKCU\Software\Microsoft\Windows\CurrentVersion\Lxss`, `DefaultUid`).
 - **Implications** : traité après le redémarrage de WSL. Le mot de passe sert à `sudo` ; il n'est connu que de l'utilisateur. `wsl --unregister` supprime la distribution et ses fichiers.

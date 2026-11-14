@@ -366,7 +366,7 @@ Optional: only useful for working in a Linux terminal (Linux-specific tools, pro
 | Item | WSL distribution | Rollback |
 |---|---|---|
 | `wsl-ubuntu` | `Ubuntu` (latest LTS) | `wsl --unregister Ubuntu` |
-| `wsl-fedora` | `FedoraLinux-44` (Fedora's WSL name includes its version: to be updated with each new Fedora version) | `wsl --unregister FedoraLinux-44` |
+| `wsl-fedora` | `FedoraLinux-45` (Fedora's WSL name includes its version: to be updated with each new Fedora version) | `wsl --unregister FedoraLinux-45` |
 
 - **Effect**: installs the distribution in WSL (`wsl --install --distribution <name>`, in a new window); at its first launch, it asks for the name and password of the **Linux account**: the only manual part. The setup then checks that the distribution is registered with a non-root account (registry `HKCU\Software\Microsoft\Windows\CurrentVersion\Lxss`, `DefaultUid`).
 - **Implications**: processed after the WSL restart. The password is used for `sudo`; it is known only to the user. `wsl --unregister` deletes the distribution and its files.
