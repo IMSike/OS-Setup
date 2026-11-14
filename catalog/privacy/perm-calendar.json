@@ -4,7 +4,6 @@
   "name": "Calendrier : accès refusé",
   "category": "privacy",
   "platforms": ["windows"],
-  "notes": "Ne concerne pas les applications de bureau classiques (navigateurs, Zoom…), réglées à part dans Paramètres.",
   "actions": [
     {
       "provider": "registry",
