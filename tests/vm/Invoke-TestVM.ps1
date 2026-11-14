@@ -70,64 +70,69 @@ Assert-TestVMAdministrator -HyperVOnly
 $repoRoot = (Resolve-Path -Path (Join-Path -Path $PSScriptRoot -ChildPath '..\..')).Path
 $credential = Get-TestVMCredential
 
+# Tout ce qui suit le maintien en éveil est dans le try : un échec intermédiaire ne doit laisser ni l'hôte
+# maintenu en éveil, ni l'archive temporaire.
+$archive = $null
+$session = $null
+$exitCode = $null
 Set-TestVMHostAwake -Enabled $true
-$testStarted = Get-Date
-if (-not $Baseline) { $Baseline = if ($PrepareOnly) { $script:BaselineCheckpoint } else { $script:PrerequisiteCheckpoint } }
-if ($Reset) {
-    & (Join-Path -Path $PSScriptRoot -ChildPath 'Reset-TestVM.ps1') -Name $Name -Checkpoint $Baseline
-}
-
-# Test ciblé : fichier de réponses généré à partir des données du dépôt (profils et groupes de choix).
-$onlyAnswers = $null
-if ($Only) {
-    Import-Module -Name (Join-Path -Path $repoRoot -ChildPath 'src\OSSetup\OSSetup.psd1') -Force
-    $data = Import-OSSetupData -Root $repoRoot
-    $choices = [ordered]@{}
-    foreach ($choice in Get-OSSetupChoice -Data $data -ResolvedProfileId (Resolve-OSSetupProfileSet -Data $data -ProfileId $Profiles)) {
-        # @(...) autour du if : sinon un groupe vide deviendrait $null au lieu d'une liste vide.
-        $choices[$choice['id']] = @(if ($choice['id'] -in $Only) { $choice['options'] })
-    }
-    $unknown = @($Only | Where-Object { $_ -notin $choices.Keys })
-    if ($unknown) { throw "Groupe(s) de choix inconnu(s) pour les profils $($Profiles -join ', ') : $($unknown -join ', ')." }
-    $onlyAnswers = [ordered]@{ profiles = @($Profiles); choices = $choices } | ConvertTo-Json -Depth 5
-    $SetupArguments = @('-AnswerFile', 'answers\vm-only.json', '-Yes')
-}
-elseif ($AnswerFile) {
-    $onlyAnswers = Get-Content -Path $AnswerFile -Raw -ErrorAction Stop
-    $SetupArguments = @('-AnswerFile', 'answers\vm-only.json', '-Yes')
-}
-if ((Get-VM -Name $Name).State -ne 'Running') {
-    Write-TestVMStep "Démarrage de '$Name'"
-    Start-VM -Name $Name
-}
-Write-TestVMStep 'Attente de la session de test'
-Wait-TestVMReady -Name $Name
-
-# --- Copie du dépôt ----------------------------------------------------------------------------
-Write-TestVMStep 'Copie du dépôt dans la VM'
-$files = & git -C $repoRoot ls-files --cached --others --exclude-standard
-if ($LASTEXITCODE -ne 0) { throw 'Impossible de lister les fichiers du dépôt (git).' }
-$archive = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "OSSetup-$([guid]::NewGuid()).zip"
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-$zip = [System.IO.Compression.ZipFile]::Open($archive, 'Create')
 try {
-    foreach ($file in $files | Sort-Object -Unique) {
-        $source = Join-Path -Path $repoRoot -ChildPath $file
-        if (Test-Path -Path $source -PathType Leaf) {
-            [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $source, $file)
+    $testStarted = Get-Date
+    if (-not $Baseline) { $Baseline = if ($PrepareOnly) { $script:BaselineCheckpoint } else { $script:PrerequisiteCheckpoint } }
+    if ($Reset) {
+        & (Join-Path -Path $PSScriptRoot -ChildPath 'Reset-TestVM.ps1') -Name $Name -Checkpoint $Baseline
+    }
+
+    # Test ciblé : fichier de réponses généré à partir des données du dépôt (profils et groupes de choix).
+    $onlyAnswers = $null
+    if ($Only) {
+        Import-Module -Name (Join-Path -Path $repoRoot -ChildPath 'src\OSSetup\OSSetup.psd1') -Force
+        $data = Import-OSSetupData -Root $repoRoot
+        $choices = [ordered]@{}
+        foreach ($choice in Get-OSSetupChoice -Data $data -ResolvedProfileId (Resolve-OSSetupProfileSet -Data $data -ProfileId $Profiles)) {
+            # @(...) autour du if : sinon un groupe vide deviendrait $null au lieu d'une liste vide.
+            $choices[$choice['id']] = @(if ($choice['id'] -in $Only) { $choice['options'] })
+        }
+        $unknown = @($Only | Where-Object { $_ -notin $choices.Keys })
+        if ($unknown) { throw "Groupe(s) de choix inconnu(s) pour les profils $($Profiles -join ', ') : $($unknown -join ', ')." }
+        $onlyAnswers = [ordered]@{ profiles = @($Profiles); choices = $choices } | ConvertTo-Json -Depth 5
+        $SetupArguments = @('-AnswerFile', 'answers\vm-only.json', '-Yes')
+    }
+    elseif ($AnswerFile) {
+        $onlyAnswers = Get-Content -Path $AnswerFile -Raw -ErrorAction Stop
+        $SetupArguments = @('-AnswerFile', 'answers\vm-only.json', '-Yes')
+    }
+    if ((Get-VM -Name $Name).State -ne 'Running') {
+        Write-TestVMStep "Démarrage de '$Name'"
+        Start-VM -Name $Name
+    }
+    Write-TestVMStep 'Attente de la session de test'
+    Wait-TestVMReady -Name $Name
+
+    # --- Copie du dépôt ----------------------------------------------------------------------------
+    Write-TestVMStep 'Copie du dépôt dans la VM'
+    $files = & git -C $repoRoot ls-files --cached --others --exclude-standard
+    if ($LASTEXITCODE -ne 0) { throw 'Impossible de lister les fichiers du dépôt (git).' }
+    $archive = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "OSSetup-$([guid]::NewGuid()).zip"
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip = [System.IO.Compression.ZipFile]::Open($archive, 'Create')
+    try {
+        foreach ($file in $files | Sort-Object -Unique) {
+            $source = Join-Path -Path $repoRoot -ChildPath $file
+            if (Test-Path -Path $source -PathType Leaf) {
+                [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $source, $file)
+            }
+        }
+        if ($onlyAnswers) {
+            $writer = [System.IO.StreamWriter]::new($zip.CreateEntry('answers/vm-only.json').Open(), [Text.UTF8Encoding]::new($false))
+            try { $writer.Write($onlyAnswers) } finally { $writer.Dispose() }
         }
     }
-    if ($onlyAnswers) {
-        $writer = [System.IO.StreamWriter]::new($zip.CreateEntry('answers/vm-only.json').Open(), [Text.UTF8Encoding]::new($false))
-        try { $writer.Write($onlyAnswers) } finally { $writer.Dispose() }
+    finally {
+        $zip.Dispose()
     }
-}
-finally {
-    $zip.Dispose()
-}
 
-$session = New-PSSession -VMName $Name -Credential $credential
-try {
+    $session = New-PSSession -VMName $Name -Credential $credential
     $guestArchive = 'C:\Windows\Temp\OSSetup.zip'
     Copy-Item -Path $archive -Destination $guestArchive -ToSession $session -Force
     $bootstrapHash = (Get-FileHash -Path (Join-Path -Path $repoRoot -ChildPath 'bootstrap.ps1') -Algorithm SHA256).Hash
@@ -286,7 +291,7 @@ try {
 }
 finally {
     if ($session) { Remove-PSSession -Session $session -ErrorAction SilentlyContinue }
-    Remove-Item -Path $archive -Force -ErrorAction SilentlyContinue
+    if ($archive) { Remove-Item -Path $archive -Force -ErrorAction SilentlyContinue }
     Set-TestVMHostAwake -Enabled $false
 }
 
