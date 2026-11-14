@@ -123,8 +123,9 @@ if ($Resume) {
         $abandon = "aucune exécution en attente ($(Join-Path -Path $runStateRoot -ChildPath 'run.json') absent)"
     }
     if (-not $abandon) {
-        # Écritures élevées dans le dépôt de l'utilisateur : jamais au travers d'une jonction ou d'un lien.
-        Enable-OSSetupDataGuard -Root $dataRoot
+        # Écritures élevées dans le dépôt de l'utilisateur et dans l'historique : jamais au travers d'une jonction ou
+        # d'un lien.
+        Enable-OSSetupDataGuard
         try { Assert-OSSetupDataPath -Path $dataRoot }
         catch { $abandon = $_.Exception.Message.TrimEnd('.') }
     }

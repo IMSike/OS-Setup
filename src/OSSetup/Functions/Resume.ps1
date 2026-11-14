@@ -155,21 +155,21 @@ function Write-OSSetupRunResult {
     }
 }
 
-# Dossier des données (dépôt de l'utilisateur) protégé pendant la reprise élevée ; $null hors reprise.
-$script:DataGuardRoot = $null
+# Vrai pendant la reprise élevée : chaque écriture de données est alors contrôlée (Assert-OSSetupDataPath).
+$script:DataGuardEnabled = $false
 
 function Enable-OSSetupDataGuard {
     <#
     .SYNOPSIS
-        Active, pour la reprise élevée, la vérification des chemins écrits dans le dossier des données (ADR 0005).
+        Active, pour la reprise élevée, la vérification des chemins écrits (ADR 0005).
+    .DESCRIPTION
+        Le contrôle porte sur tout chemin écrit, pas seulement sur le dépôt : l'historique, hors du dépôt, est
+        protégé de la même façon. D'où l'absence de dossier racine.
     #>
     [CmdletBinding()]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'État du module seulement.')]
-    param(
-        [Parameter(Mandatory)]
-        [string]$Root
-    )
-    $script:DataGuardRoot = [IO.Path]::GetFullPath($Root)
+    param()
+    $script:DataGuardEnabled = $true
 }
 
 function Assert-OSSetupDataPath {
@@ -190,7 +190,7 @@ function Assert-OSSetupDataPath {
         [Parameter(Mandatory)]
         [string]$Path
     )
-    if (-not $script:DataGuardRoot) { return }
+    if (-not $script:DataGuardEnabled) { return }
     $current = [IO.Path]::GetFullPath($Path)
     $leaf = $true
     while ($current) {
