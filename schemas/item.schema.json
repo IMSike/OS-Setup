@@ -84,7 +84,7 @@
       "enum": ["empty"]
     },
     "runLast": {
-      "description": "Vrai si l'élément doit être traité après tous les autres (ex. la disposition, qui redémarre l'Explorateur).",
+      "description": "Vrai si l'élément doit être traité après tous les autres (ex. la disposition, qui redémarre l'Explorateur). Seul un autre élément runLast peut en dépendre (vérifié au chargement).",
       "type": "boolean",
       "default": false
     },

@@ -329,6 +329,20 @@ Describe 'Test-OSSetupDataReference' {
         $problems -join "`n" | Should -Match "'feature' installe"
     }
 
+    It 'refuse qu''un élément dépende d''un élément « runLast » sans l''être lui-même' {
+        $data = [pscustomobject]@{
+            Items    = @{
+                layout = @{ id = 'layout'; runLast = $true }
+                early  = @{ id = 'early'; dependsOn = @('layout') }
+                late   = @{ id = 'late'; runLast = $true; dependsOn = @('layout') }
+            }
+            Profiles = @{}
+        }
+        $problems = @(Test-OSSetupDataReference -Data $data)
+        $problems.Count | Should -Be 1
+        $problems[0] | Should -BeLike "élément 'early' : la dépendance 'layout' est traitée en dernier*"
+    }
+
     It 'accepte dans ''items'' un élément sans action (épingle seule)' {
         $data = [pscustomobject]@{
             Items    = @{ pin = @{ id = 'pin'; taskbarPin = @{ link = 'x.lnk' } } }

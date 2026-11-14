@@ -189,6 +189,10 @@ function Test-OSSetupDataReference {
     foreach ($item in $Data.Items.Values) {
         foreach ($dependency in $item['dependsOn']) {
             if (-not $Data.Items.Contains($dependency)) { "élément '$($item['id'])' : dépendance inconnue '$dependency'." }
+            elseif ($Data.Items[$dependency]['runLast'] -and -not $item['runLast']) {
+                # Les éléments « runLast » passent en fin de plan : l'élément serait traité avant sa dépendance.
+                "élément '$($item['id'])' : la dépendance '$dependency' est traitée en dernier (runLast), après lui."
+            }
         }
     }
 }
