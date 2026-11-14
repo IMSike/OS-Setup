@@ -1,8 +1,8 @@
 ﻿function Get-OSSetupClaudePlugin {
     <#
     .SYNOPSIS
-        Plugins de Claude Code installés pour le compte (`claude plugin list --json`) : identifiant et état d'activation.
-        Vide si Claude Code est absent ou si la liste est illisible.
+        Plugins de Claude Code installés (`claude plugin list --json`) : identifiant, portée (user, project…) et état
+        d'activation. Vide si Claude Code est absent ou si la liste est illisible.
     #>
     [CmdletBinding()]
     [OutputType([pscustomobject])]
@@ -14,7 +14,8 @@
     $output = @($result.Output | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] })
     try {
         foreach ($plugin in @(($output -join "`n") | ConvertFrom-Json)) {
-            [pscustomobject]@{ Id = [string]$plugin.id; Enabled = [bool]$plugin.enabled }
+            $scope = if ($plugin.PSObject.Properties['scope']) { [string]$plugin.scope } else { '' }
+            [pscustomobject]@{ Id = [string]$plugin.id; Scope = $scope; Enabled = [bool]$plugin.enabled }
         }
     }
     catch {

@@ -259,12 +259,28 @@ Describe 'Provider claude-plugin' {
         InModuleScope OSSetup -Parameters @{ Action = $action } {
             param($Action)
             $provider = Get-OSSetupProvider -Name 'claude-plugin'
-            Mock -CommandName Get-OSSetupClaudePlugin -MockWith { [pscustomobject]@{ Id = 'dx@cc-plugins'; Enabled = $true } }
+            Mock -CommandName Get-OSSetupClaudePlugin -MockWith { [pscustomobject]@{ Id = 'dx@cc-plugins'; Scope = 'user'; Enabled = $true } }
             & $provider.Test $Action @{} | Should -BeTrue
-            Mock -CommandName Get-OSSetupClaudePlugin -MockWith { [pscustomobject]@{ Id = 'dx@cc-plugins'; Enabled = $false } }
+            Mock -CommandName Get-OSSetupClaudePlugin -MockWith { [pscustomobject]@{ Id = 'dx@cc-plugins'; Scope = 'user'; Enabled = $false } }
             & $provider.Test $Action @{} | Should -BeFalse
-            Mock -CommandName Get-OSSetupClaudePlugin -MockWith { [pscustomobject]@{ Id = 'other@cc-plugins'; Enabled = $true } }
+            Mock -CommandName Get-OSSetupClaudePlugin -MockWith { [pscustomobject]@{ Id = 'other@cc-plugins'; Scope = 'user'; Enabled = $true } }
             & $provider.Test $Action @{} | Should -BeFalse
+            # Installé pour un projet seulement : pas pour le compte.
+            Mock -CommandName Get-OSSetupClaudePlugin -MockWith { [pscustomobject]@{ Id = 'dx@cc-plugins'; Scope = 'project'; Enabled = $true } }
+            & $provider.Test $Action @{} | Should -BeFalse
+        }
+    }
+
+    It 'installe pour le compte un plugin installé seulement pour un projet, sans toucher à ce dernier' {
+        InModuleScope OSSetup -Parameters @{ Action = $action } {
+            param($Action)
+            $provider = Get-OSSetupProvider -Name 'claude-plugin'
+            Mock -CommandName Write-OSSetupLog
+            Mock -CommandName claude -MockWith { $global:LASTEXITCODE = 0 }
+            Mock -CommandName Get-OSSetupClaudePlugin -MockWith { [pscustomobject]@{ Id = 'dx@cc-plugins'; Scope = 'project'; Enabled = $false } }
+            & $provider.Invoke $Action @{}
+            Should -Invoke -CommandName claude -Times 1 -Exactly -ParameterFilter { ($args -join ' ') -eq 'plugin install dx --marketplace IMSike/CC-Plugins --scope user' }
+            Should -Invoke -CommandName claude -Times 0 -Exactly -ParameterFilter { $args -contains 'enable' }
         }
     }
 
@@ -274,7 +290,7 @@ Describe 'Provider claude-plugin' {
             $provider = Get-OSSetupProvider -Name 'claude-plugin'
             Mock -CommandName Write-OSSetupLog
             Mock -CommandName claude -MockWith { $global:LASTEXITCODE = 0 }
-            Mock -CommandName Get-OSSetupClaudePlugin -MockWith { [pscustomobject]@{ Id = 'dx@cc-plugins'; Enabled = $false } }
+            Mock -CommandName Get-OSSetupClaudePlugin -MockWith { [pscustomobject]@{ Id = 'dx@cc-plugins'; Scope = 'user'; Enabled = $false } }
             & $provider.Invoke $Action @{}
             Should -Invoke -CommandName claude -Times 1 -Exactly -ParameterFilter { ($args -join ' ') -eq 'plugin install dx --marketplace IMSike/CC-Plugins --scope user' }
             Should -Invoke -CommandName claude -Times 1 -Exactly -ParameterFilter { ($args -join ' ') -eq 'plugin enable dx@cc-plugins' }
@@ -295,7 +311,9 @@ Describe 'Provider claude-plugin' {
             $plugins.Count | Should -Be 2
             $plugins[0].Id | Should -Be 'dx@cc-plugins'
             $plugins[0].Enabled | Should -BeTrue
+            $plugins[0].Scope | Should -Be 'user'
             $plugins[1].Enabled | Should -BeFalse
+            $plugins[1].Scope | Should -BeNullOrEmpty
         }
     }
 }

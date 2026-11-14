@@ -13,10 +13,11 @@ param()
         "claude plugin install $($Action['plugin'])@$($Action['marketplace']) (marketplace $($Action['source']))"
     }
 
+    # Seule l'installation pour le compte (portée user) compte : une installation propre à un projet ne sert pas ailleurs.
     Test     = {
         param($Action, $Context)
         $id = "$($Action['plugin'])@$($Action['marketplace'])"
-        [bool](Get-OSSetupClaudePlugin | Where-Object { $_.Id -eq $id -and $_.Enabled })
+        [bool](Get-OSSetupClaudePlugin | Where-Object { $_.Id -eq $id -and $_.Scope -eq 'user' -and $_.Enabled })
     }
 
     Invoke   = {
@@ -25,7 +26,7 @@ param()
         # Déjà installé : la commande réussit sans rien changer.
         Invoke-OSSetupNativeCommand -FilePath claude -ArgumentList 'plugin', 'install', $Action['plugin'], '--marketplace', $Action['source'], '--scope', 'user' -Utf8 -Label 'claude plugin install'
 
-        if (Get-OSSetupClaudePlugin | Where-Object { $_.Id -eq $id -and -not $_.Enabled }) {
+        if (Get-OSSetupClaudePlugin | Where-Object { $_.Id -eq $id -and $_.Scope -eq 'user' -and -not $_.Enabled }) {
             Invoke-OSSetupNativeCommand -FilePath claude -ArgumentList 'plugin', 'enable', $id -Utf8 -Label 'claude plugin enable'
         }
     }
