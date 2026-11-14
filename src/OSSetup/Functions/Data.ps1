@@ -69,6 +69,61 @@ function Format-OSSetupSchemaError {
     "${message} :" + (@($lines | ForEach-Object { "`n     $_" }) -join '')
 }
 
+function Read-OSSetupJsonFileSet {
+    <#
+    .SYNOPSIS
+        Lit et valide plusieurs fichiers JSON contre le même schéma. Retourne { File; Data } pour chaque fichier
+        valide, dans l'ordre donné ; les problèmes sont ajoutés à Errors, fichier par fichier.
+    .DESCRIPTION
+        Test-Json recompile le schéma à chaque appel : valider le catalogue fichier par fichier prenait plus d'une
+        seconde de plus. Les fichiers sont donc validés ensemble, comme les éléments d'un tableau, en un seul appel ;
+        en cas d'échec, chacun est revalidé seul pour que le message nomme le fichier fautif.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [System.IO.FileInfo[]]$File,
+
+        [Parameter(Mandatory)]
+        [string]$SchemaPath,
+
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [System.Collections.Generic.List[string]]$Errors
+    )
+    # Un texte par fichier, à la même position (un fichier vide donne $null).
+    $texts = [string[]]::new($File.Count)
+    for ($i = 0; $i -lt $File.Count; $i++) {
+        $texts[$i] = Get-Content -LiteralPath $File[$i].FullName -Raw -Encoding utf8
+    }
+    $valid = $false
+    if ($File.Count -gt 0 -and -not @($texts | Where-Object { [string]::IsNullOrWhiteSpace($_) })) {
+        # Schéma d'un fichier appliqué à chaque élément du tableau ; ses définitions restent à la racine, où les
+        # références « #/definitions/… » les cherchent.
+        $schema = Get-Content -LiteralPath $SchemaPath -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable
+        $definitions = $schema['definitions']
+        foreach ($key in '$schema', '$id', 'definitions') { $schema.Remove($key) }
+        $arraySchema = [ordered]@{ '$schema' = 'http://json-schema.org/draft-07/schema#'; type = 'array'; items = $schema }
+        if ($null -ne $definitions) { $arraySchema['definitions'] = $definitions }
+        $json = '[' + ($texts -join ",`n") + ']'
+        $valid = Test-Json -Json $json -Schema (ConvertTo-Json -InputObject $arraySchema -Depth 64) -ErrorAction SilentlyContinue
+    }
+    for ($i = 0; $i -lt $File.Count; $i++) {
+        $data = $null
+        if ($valid) {
+            # Un fichier qui ne serait valide qu'au sein du tableau (ex. deux objets séparés par une virgule) échoue ici.
+            $data = try { $texts[$i] | ConvertFrom-Json -AsHashtable -ErrorAction Stop } catch { $null }
+        }
+        if ($null -eq $data) {
+            $data = Read-OSSetupJsonFile -Path $File[$i].FullName -SchemaPath $SchemaPath -Errors $Errors
+        }
+        if ($null -ne $data) {
+            [pscustomobject]@{ File = $File[$i]; Data = $data }
+        }
+    }
+}
+
 function Import-OSSetupData {
     <#
     .SYNOPSIS
@@ -85,9 +140,10 @@ function Import-OSSetupData {
     $profiles = [ordered]@{}
 
     $catalogRoot = Join-Path -Path $Root -ChildPath 'catalog'
-    foreach ($file in Get-ChildItem -Path $catalogRoot -Filter '*.json' -Recurse | Sort-Object -Property FullName) {
-        $item = Read-OSSetupJsonFile -Path $file.FullName -SchemaPath (Join-Path -Path $schemaRoot -ChildPath 'item.schema.json') -Errors $errors
-        if ($null -eq $item) { continue }
+    $catalogFiles = @(Get-ChildItem -Path $catalogRoot -Filter '*.json' -Recurse | Sort-Object -Property FullName)
+    foreach ($entry in Read-OSSetupJsonFileSet -File $catalogFiles -SchemaPath (Join-Path -Path $schemaRoot -ChildPath 'item.schema.json') -Errors $errors) {
+        $file = $entry.File
+        $item = $entry.Data
         if ($item['id'] -ne $file.BaseName) {
             $errors.Add("$($file.FullName) : l'id '$($item['id'])' doit correspondre au nom du fichier.")
         }
@@ -109,9 +165,10 @@ function Import-OSSetupData {
     }
 
     $profileRoot = Join-Path -Path $Root -ChildPath 'profiles'
-    foreach ($file in Get-ChildItem -Path $profileRoot -Filter '*.json' | Sort-Object -Property Name) {
-        $setupProfile = Read-OSSetupJsonFile -Path $file.FullName -SchemaPath (Join-Path -Path $schemaRoot -ChildPath 'profile.schema.json') -Errors $errors
-        if ($null -eq $setupProfile) { continue }
+    $profileFiles = @(Get-ChildItem -Path $profileRoot -Filter '*.json' | Sort-Object -Property Name)
+    foreach ($entry in Read-OSSetupJsonFileSet -File $profileFiles -SchemaPath (Join-Path -Path $schemaRoot -ChildPath 'profile.schema.json') -Errors $errors) {
+        $file = $entry.File
+        $setupProfile = $entry.Data
         if ($setupProfile['id'] -ne $file.BaseName) {
             $errors.Add("$($file.FullName) : l'id '$($setupProfile['id'])' doit correspondre au nom du fichier.")
         }

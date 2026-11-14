@@ -21,6 +21,7 @@
         'Get-OSSetupPlatform'
         'Import-OSSetupData'
         'Read-OSSetupJsonFile'
+        'Read-OSSetupJsonFileSet'
         'Test-OSSetupDataReference'
         'Test-OSSetupItemInstall'
         # Desktop.ps1

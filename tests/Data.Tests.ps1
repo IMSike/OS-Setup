@@ -320,6 +320,53 @@ Describe 'Schéma des éléments' {
     }
 }
 
+Describe 'Read-OSSetupJsonFileSet' {
+    BeforeAll {
+        $schema = Join-Path -Path $repoRoot -ChildPath 'schemas\item.schema.json'
+        $newFile = {
+            param([string]$Name, [string]$Text)
+            $path = Join-Path -Path $TestDrive -ChildPath $Name
+            Set-Content -Path $path -Value $Text
+            Get-Item -Path $path
+        }
+        $itemText = { param([string]$Id) "{ ""id"": ""$Id"", ""name"": ""X"", ""category"": ""test"", ""platforms"": [""windows""], ""actions"": [ { ""provider"": ""directory"", ""path"": ""C:\\x"" } ] }" }
+    }
+
+    It 'retourne les fichiers valides dans l''ordre, validés en un seul appel' {
+        $files = @((& $newFile 'a.json' (& $itemText 'a')), (& $newFile 'b.json' (& $itemText 'b')))
+        $errors = [System.Collections.Generic.List[string]]::new()
+        $result = @(Read-OSSetupJsonFileSet -File $files -SchemaPath $schema -Errors $errors)
+        $errors.Count | Should -Be 0
+        @($result | ForEach-Object { $_.Data['id'] }) | Should -Be @('a', 'b')
+        $result[0].File.Name | Should -Be 'a.json'
+    }
+
+    It 'nomme le fichier fautif et garde les autres' {
+        $files = @(
+            (& $newFile 'ok.json' (& $itemText 'ok'))
+            (& $newFile 'bad.json' '{ "id": "bad" }')
+            (& $newFile 'two.json' ((& $itemText 'two') + ', ' + (& $itemText 'three')))
+            (& $newFile 'empty.json' '')
+        )
+        $errors = [System.Collections.Generic.List[string]]::new()
+        $result = @(Read-OSSetupJsonFileSet -File $files -SchemaPath $schema -Errors $errors)
+        @($result | ForEach-Object { $_.Data['id'] }) | Should -Be @('ok')
+        $errors.Count | Should -Be 3
+        $errors[0] | Should -BeLike '*bad.json : non conforme au schéma item.schema.json*'
+        $errors[1] | Should -BeLike '*two.json : *'
+        $errors[2] | Should -BeLike '*empty.json : fichier vide.'
+    }
+
+    It 'refuse un fichier qui ne serait valide qu''au sein du tableau' {
+        $files = @((& $newFile 'seul.json' (& $itemText 'seul')), (& $newFile 'deux.json' ((& $itemText 'un') + ', ' + (& $itemText 'deux'))))
+        $errors = [System.Collections.Generic.List[string]]::new()
+        $result = @(Read-OSSetupJsonFileSet -File $files -SchemaPath $schema -Errors $errors)
+        @($result | ForEach-Object { $_.Data['id'] }) | Should -Be @('seul')
+        $errors.Count | Should -Be 1
+        $errors[0] | Should -BeLike '*deux.json : *'
+    }
+}
+
 Describe 'Format-OSSetupSchemaError' {
     BeforeAll {
         $newError = { param([string]$Message) [System.Management.Automation.ErrorRecord]::new([Exception]::new($Message), 'x', 'InvalidData', $null) }
