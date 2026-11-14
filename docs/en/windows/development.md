@@ -1,6 +1,6 @@
 # Development (Windows 10)
 
-The `dev` profile (`profiles/dev.json`, items in `catalog/dev/`) extends the `base` profile. Its software is offered in the menus, in this order: "Outils de développement" (development tools), "Avec WSL" (with WSL), "Éditeur de code" (code editor), "Extensions VS Code" (VS Code extensions), "JavaScript / TypeScript", "Agents et terminal" (agents and terminal), "Logiciels de développement" (development software), "Comptes (étapes manuelles guidées)" (accounts, guided manual steps), "Extensions GitHub CLI" (GitHub CLI extensions) and "Épinglés à la barre des tâches (développement)" (pinned to the taskbar, development). A menu only offers what depends on items checked earlier (e.g. VS Code extensions are not offered without VS Code). The profile's settings (its `items`) are applied automatically when the related software is chosen, and ignored otherwise. Concepts shared across pages (JSON merge, backup, rollback, manual steps) are explained in [`../how-it-works.md`](../how-it-works.md).
+The `dev` profile (`profiles/dev.json`, items in `catalog/dev/`) extends the `base` profile. Its software is offered in the menus, in this order: "Outils de développement" (development tools), "Avec WSL" (with WSL), "Éditeurs de code" (code editors), "Extensions VS Code" (VS Code extensions), "Extensions Cursor" (Cursor extensions), "JavaScript / TypeScript", "Agents et terminal" (agents and terminal), "Claude Code : options" (Claude Code: options), "Plugins herdr" (herdr plugins), "Navigateur de Playwright CLI" (Playwright CLI browser), "Logiciels de développement" (development software), "Comptes (étapes manuelles guidées)" (accounts, guided manual steps), "Extensions GitHub CLI" (GitHub CLI extensions) and "Épinglés à la barre des tâches (développement)" (pinned to the taskbar, development). A menu only offers what depends on items checked earlier (e.g. VS Code extensions are not offered without VS Code). The profile's settings (its `items`) are applied automatically when the related software is chosen, and ignored otherwise. Concepts shared across pages (JSON merge, backup, rollback, manual steps) are explained in [`../how-it-works.md`](../how-it-works.md).
 
 Legend: **✔** checked by default · **○** offered, unchecked by default · **auto**: applied when its dependencies are chosen · **technical**: added automatically as a dependency, never offered.
 
@@ -10,7 +10,7 @@ Legend: **✔** checked by default · **○** offered, unchecked by default · *
 
 auto · folder
 
-- **Effect**: creates the root folder for projects, `{{DevRoot}}` (by default `Documents\repo`, which can be changed with "Personaliser les emplacements ?" (customize locations?) or in the answer file).
+- **Effect**: creates the root folder for projects, `{{DevRoot}}` (by default `Documents\repo`, which can be changed with "Personnaliser…" (customize) at the "Emplacements" (locations) step or in the answer file).
 - **Rollback**: delete the folder if it is empty.
 
 ## Git — `git`

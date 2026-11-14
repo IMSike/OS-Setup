@@ -1,6 +1,6 @@
 # Développement (Windows 10)
 
-Profil `dev` (`profiles/dev.json`, éléments dans `catalog/dev/`) : il étend le profil `base`. Ses logiciels sont proposés dans les menus, dans cet ordre : « Outils de développement », « Avec WSL », « Éditeur de code », « Extensions VS Code », « JavaScript / TypeScript », « Agents et terminal », « Logiciels de développement », « Comptes (étapes manuelles guidées) », « Extensions GitHub CLI » et « Épinglés à la barre des tâches (développement) ». Un menu ne propose que ce qui dépend d'éléments cochés auparavant (ex. extensions VS Code sans VS Code). Leurs réglages (`items` du profil) sont appliqués automatiquement quand le logiciel concerné est choisi, et ignorés sinon. Les notions communes (fusion JSON, sauvegarde, retour arrière, étapes manuelles) sont expliquées dans [`../how-it-works.md`](../how-it-works.md).
+Profil `dev` (`profiles/dev.json`, éléments dans `catalog/dev/`) : il étend le profil `base`. Ses logiciels sont proposés dans les menus, dans cet ordre : « Outils de développement », « Avec WSL », « Éditeurs de code », « Extensions VS Code », « Extensions Cursor », « JavaScript / TypeScript », « Agents et terminal », « Claude Code : options », « Plugins herdr », « Navigateur de Playwright CLI », « Logiciels de développement », « Comptes (étapes manuelles guidées) », « Extensions GitHub CLI » et « Épinglés à la barre des tâches (développement) ». Un menu ne propose que ce qui dépend d'éléments cochés auparavant (ex. extensions VS Code sans VS Code). Leurs réglages (`items` du profil) sont appliqués automatiquement quand le logiciel concerné est choisi, et ignorés sinon. Les notions communes (fusion JSON, sauvegarde, retour arrière, étapes manuelles) sont expliquées dans [`../how-it-works.md`](../how-it-works.md).
 
 Légende : **✔** coché par défaut · **○** proposé, décoché par défaut · **auto** : appliqué quand ses dépendances sont choisies · **technique** : ajouté automatiquement comme dépendance, jamais proposé.
 
@@ -10,7 +10,7 @@ Paquets winget « portables » (fnm, pnpm, lazygit, rtk) : winget les décompres
 
 auto · dossier
 
-- **Effet** : crée le dossier racine des projets, `{{DevRoot}}` (par défaut `Documents\repo`, modifiable avec « Personnaliser les emplacements ? » ou le fichier de réponses).
+- **Effet** : crée le dossier racine des projets, `{{DevRoot}}` (par défaut `Documents\repo`, modifiable avec « Personnaliser… » à l'étape « Emplacements » ou le fichier de réponses).
 - **Revenir en arrière** : supprimer le dossier s'il est vide.
 
 ## Git — `git`
