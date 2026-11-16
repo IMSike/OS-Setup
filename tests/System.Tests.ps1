@@ -95,6 +95,20 @@ Describe 'Provider scheduled-task' {
         Invoke-TestProviderTest -Name scheduled-task -Action @{ task = '\X\Y'; enabled = $false } | Should -BeFalse
         Invoke-TestProviderTest -Name scheduled-task -Action @{ task = '\X\Y'; enabled = $true } | Should -BeTrue
     }
+
+    It 'enregistre l''état d''origine de la tâche de ce dossier, ou son absence' {
+        Mock -ModuleName OSSetup Get-ScheduledTask {
+            [pscustomobject]@{ TaskPath = '\X\'; TaskName = 'Y'; State = 'Ready' }
+            [pscustomobject]@{ TaskPath = '\Autre\'; TaskName = 'Y'; State = 'Disabled' }
+        }
+        InModuleScope OSSetup {
+            $provider = Get-OSSetupProvider -Name scheduled-task
+            $before = & $provider.Read @{ task = '\X\Y'; enabled = $false } @{}
+            $before['exists'] | Should -BeTrue
+            $before['state'] | Should -Be 'Ready'
+            (& $provider.Read @{ task = '\Z\Y'; enabled = $false } @{})['exists'] | Should -BeFalse
+        }
+    }
 }
 
 Describe 'Get-OSSetupScheduledTask' {
@@ -290,6 +304,44 @@ Describe 'Provider windows-feature' {
         { Invoke-TestProviderTest -Name windows-feature -Action @{ name = 'Microsoft-Windows-Subsystem-Linux' } } | Should -Throw '*introuvable*'
     }
 
+    It 'avec droits administrateur, lit l''état donné par dism (<State>) : conforme <Expected> pour enabled = <Enabled>' -ForEach @(
+        @{ State = 'Enabled'; Enabled = $true; Expected = $true }
+        @{ State = 'Enable Pending'; Enabled = $true; Expected = $false }
+        @{ State = 'Disabled'; Enabled = $true; Expected = $false }
+        @{ State = 'Disabled'; Enabled = $false; Expected = $true }
+        @{ State = 'Disable Pending'; Enabled = $false; Expected = $false }
+        @{ State = 'Enabled'; Enabled = $false; Expected = $false }
+    ) {
+        Mock -ModuleName OSSetup Test-OSSetupElevated { $true }
+        Mock -ModuleName OSSetup dism.exe { $global:LASTEXITCODE = 0; 'Feature Name : X'; "State : $State"; 'Restart Required : Possible' }
+        Invoke-TestProviderTest -Name windows-feature -Action @{ name = 'X'; enabled = $Enabled } | Should -Be $Expected
+    }
+
+    It 'active avec ses dépendances sans redémarrer, et signale le redémarrage demandé (3010)' {
+        Mock -ModuleName OSSetup dism.exe { $global:LASTEXITCODE = 3010 }
+        $result = InModuleScope OSSetup { & (Get-OSSetupProvider -Name windows-feature).Invoke @{ name = 'VirtualMachinePlatform' } @{} }
+        $result.RebootRequired | Should -BeTrue
+        Should -Invoke -ModuleName OSSetup dism.exe -Times 1 -Exactly -ParameterFilter {
+            ($args -join ' ') -eq '/English /Online /Enable-Feature /FeatureName:VirtualMachinePlatform /All /NoRestart'
+        }
+    }
+
+    It 'désactive sans redémarrer, et ne signale rien quand dism réussit' {
+        Mock -ModuleName OSSetup dism.exe { $global:LASTEXITCODE = 0 }
+        InModuleScope OSSetup { & (Get-OSSetupProvider -Name windows-feature).Invoke @{ name = 'X'; enabled = $false } @{} } | Should -BeNullOrEmpty
+        Should -Invoke -ModuleName OSSetup dism.exe -Times 1 -Exactly -ParameterFilter { ($args -join ' ') -eq '/English /Online /Disable-Feature /FeatureName:X /NoRestart' }
+    }
+
+    It 'échoue avec le code et les lignes d''erreur de dism' {
+        Mock -ModuleName OSSetup dism.exe { $global:LASTEXITCODE = 87; 'Deployment Image Servicing'; 'Error: 87'; 'The option is unknown.' }
+        { InModuleScope OSSetup { & (Get-OSSetupProvider -Name windows-feature).Invoke @{ name = 'X' } @{} } } | Should -Throw '*code 87*Error: 87*'
+    }
+
+    It 'enregistre l''état d''origine lu par dism' {
+        Mock -ModuleName OSSetup dism.exe { $global:LASTEXITCODE = 0; 'Feature Name : X'; 'State : Disable Pending' }
+        (InModuleScope OSSetup { & (Get-OSSetupProvider -Name windows-feature).Read @{ name = 'X' } @{} })['state'] | Should -Be 'Disable Pending'
+    }
+
     It 'sans droits administrateur, traite de même une fonctionnalité inexistante' {
         Mock -ModuleName OSSetup Test-OSSetupElevated { $false }
         Mock -ModuleName OSSetup Get-CimInstance {}
@@ -477,6 +529,77 @@ Describe 'Provider win32-uninstall' {
         Mock -ModuleName OSSetup Clear-OSSetupWingetExportCache
         InModuleScope OSSetup { & (Get-OSSetupProvider -Name win32-uninstall).Invoke @{ displayName = 'App' } @{} } | Out-Null
         Should -Invoke -ModuleName OSSetup Clear-OSSetupWingetExportCache -Times 1 -Exactly
+    }
+
+    Context 'codes de retour du désinstalleur' {
+        BeforeEach {
+            Mock -ModuleName OSSetup Write-OSSetupLog {}
+            Mock -ModuleName OSSetup Clear-OSSetupWingetExportCache
+            Mock -ModuleName OSSetup Get-OSSetupUninstallEntry {
+                [pscustomobject]@{ DisplayName = 'App'; UninstallString = 'MsiExec.exe /X{0F5E7A11-0000-4000-8000-0000000000AA}' }
+            }
+        }
+
+        It 'lance la commande silencieuse et signale le redémarrage demandé (3010)' {
+            Mock -ModuleName OSSetup Start-Process { [pscustomobject]@{ ExitCode = 3010 } }
+            $result = InModuleScope OSSetup { & (Get-OSSetupProvider -Name win32-uninstall).Invoke @{ displayName = 'App' } @{} }
+            $result.RebootRequired | Should -BeTrue
+            Should -Invoke -ModuleName OSSetup Start-Process -Times 1 -Exactly -ParameterFilter {
+                $FilePath -eq 'msiexec.exe' -and "$ArgumentList" -eq '/x {0F5E7A11-0000-4000-8000-0000000000AA} /qn /norestart' -and $Wait -and $PassThru
+            }
+        }
+
+        It 'accepte un code inattendu quand le logiciel a bien disparu' {
+            Mock -ModuleName OSSetup Start-Process { [pscustomobject]@{ ExitCode = -2147220837 } }
+            Mock -ModuleName OSSetup Wait-OSSetupUninstallEntryRemoval { $true }
+            InModuleScope OSSetup { & (Get-OSSetupProvider -Name win32-uninstall).Invoke @{ displayName = 'App' } @{} } | Should -BeNullOrEmpty
+            Should -Invoke -ModuleName OSSetup Wait-OSSetupUninstallEntryRemoval -Times 1 -Exactly -ParameterFilter { $DisplayName -eq 'App' }
+        }
+
+        It 'échoue avec le code en hexadécimal quand le logiciel est toujours là' {
+            Mock -ModuleName OSSetup Start-Process { [pscustomobject]@{ ExitCode = 1603 } }
+            Mock -ModuleName OSSetup Wait-OSSetupUninstallEntryRemoval { $false }
+            { InModuleScope OSSetup { & (Get-OSSetupProvider -Name win32-uninstall).Invoke @{ displayName = 'App' } @{} } } |
+                Should -Throw '*App*0x00000643*'
+        }
+    }
+}
+
+Describe 'Provider windows-update : installation' {
+    BeforeEach {
+        Mock -ModuleName OSSetup Write-OSSetupLog {}
+        Mock -ModuleName OSSetup Find-OSSetupWindowsUpdate { [pscustomobject]@{ Title = 'Pilote A' }; [pscustomobject]@{ Title = 'Pilote B' } }
+    }
+
+    It 'installe les mises à jour trouvées et signale le redémarrage demandé' {
+        Mock -ModuleName OSSetup Install-OSSetupWindowsUpdate { [pscustomobject]@{ Failed = @(); RebootRequired = $true } }
+        $result = InModuleScope OSSetup { & (Get-OSSetupProvider -Name windows-update).Invoke @{ category = 'drivers' } @{} }
+        $result.RebootRequired | Should -BeTrue
+        Should -Invoke -ModuleName OSSetup Install-OSSetupWindowsUpdate -Times 1 -Exactly -ParameterFilter { @($Update).Count -eq 2 }
+    }
+
+    It 'échoue en nommant les mises à jour en échec' {
+        Mock -ModuleName OSSetup Install-OSSetupWindowsUpdate { [pscustomobject]@{ Failed = @('Pilote B'); RebootRequired = $false } }
+        { InModuleScope OSSetup { & (Get-OSSetupProvider -Name windows-update).Invoke @{ category = 'drivers' } @{} } } | Should -Throw '*Pilote B*'
+    }
+}
+
+Describe 'Provider service : application' {
+    BeforeEach {
+        Mock -ModuleName OSSetup Set-Service
+        Mock -ModuleName OSSetup Stop-Service
+    }
+
+    It 'désactive puis arrête le service' {
+        InModuleScope OSSetup { & (Get-OSSetupProvider -Name service).Invoke @{ name = 'DiagTrack'; startupType = 'Disabled' } @{} }
+        Should -Invoke -ModuleName OSSetup Set-Service -Times 1 -Exactly -ParameterFilter { $Name -eq 'DiagTrack' -and $StartupType -eq 'Disabled' }
+        Should -Invoke -ModuleName OSSetup Stop-Service -Times 1 -Exactly -ParameterFilter { $Name -eq 'DiagTrack' -and $Force }
+    }
+
+    It 'n''arrête pas un service passé en démarrage manuel' {
+        InModuleScope OSSetup { & (Get-OSSetupProvider -Name service).Invoke @{ name = 'DiagTrack'; startupType = 'Manual' } @{} }
+        Should -Invoke -ModuleName OSSetup Set-Service -Times 1 -Exactly -ParameterFilter { $StartupType -eq 'Manual' }
+        Should -Invoke -ModuleName OSSetup Stop-Service -Times 0 -Exactly
     }
 }
 
