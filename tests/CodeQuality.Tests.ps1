@@ -72,13 +72,15 @@ Describe 'Compatibilité Windows PowerShell 5.1' {
 
 Describe 'Cmdlets qui n''héritent pas de la préférence d''erreur du module' {
     It 'chaque appel aux cmdlets ScheduledTasks (CDXML), Appx (relayées par Windows PowerShell) et DISM précise -ErrorAction' {
-        # Sans -ErrorAction, leur erreur reste non bloquante malgré $ErrorActionPreference = 'Stop' dans le module.
-        # Cmdlets DISM (capacités et fonctionnalités facultatives) : même règle que dans le code, l'action échoue
-        # explicitement quelle que soit la préférence d'erreur en vigueur.
+        # Constaté pour ScheduledTasks (CDXML) : appelée depuis le module, Get-ScheduledTask d'une tâche absente n'y lève
+        # pas d'exception malgré $ErrorActionPreference = 'Stop'. Appx et DISM : même règle, sans compter sur la
+        # préférence du module. Seule la présence de -ErrorAction est vérifiée, pas sa valeur : Stop pour échouer,
+        # SilentlyContinue pour une absence tolérée.
+        # Appx et DISM : seules les cmdlets appelées par src et setup.ps1 (les fonctionnalités facultatives passent par
+        # dism.exe) ; une nouvelle cmdlet de ces familles est à ajouter ici.
         $names = @(Get-Command -Module ScheduledTasks -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }) +
-            @('Add-AppxPackage', 'Get-AppxPackage', 'Get-AppxProvisionedPackage', 'Remove-AppxPackage', 'Remove-AppxProvisionedPackage') +
-            @('Add-WindowsCapability', 'Get-WindowsCapability', 'Remove-WindowsCapability') +
-            @('Disable-WindowsOptionalFeature', 'Enable-WindowsOptionalFeature', 'Get-WindowsOptionalFeature')
+            @('Get-AppxPackage', 'Get-AppxProvisionedPackage', 'Remove-AppxPackage', 'Remove-AppxProvisionedPackage') +
+            @('Get-WindowsCapability', 'Remove-WindowsCapability')
         $files = @(Get-ChildItem -LiteralPath (Join-Path -Path $repoRoot -ChildPath 'src') -Filter '*.ps1' -Recurse) +
             @(Get-Item -LiteralPath (Join-Path -Path $repoRoot -ChildPath 'setup.ps1'))
         $missing = foreach ($file in $files) {
