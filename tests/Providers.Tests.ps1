@@ -237,14 +237,14 @@ Describe 'Provider vscode-extension : liste des extensions' {
 Describe 'Provider windows-feature : fonctionnalité inexistante' {
     It 'ne journalise son absence qu''une fois, quel que soit le nombre de tests' {
         InModuleScope OSSetup {
-            Remove-Variable -Name WindowsFeatureMissingLogged -Scope Script -ErrorAction SilentlyContinue
+            $script:LoggedOnce.Clear()
             Mock -CommandName Write-OSSetupLog
             Mock -CommandName Test-OSSetupElevated -MockWith { $false }
             Mock -CommandName Get-CimInstance
             $provider = Get-OSSetupProvider -Name 'windows-feature'
             foreach ($i in 1..3) { & $provider.Test @{ name = 'MicrosoftWindowsPowerShellV2Root'; enabled = $false } @{} | Should -BeTrue }
             Should -Invoke -CommandName Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -like '*MicrosoftWindowsPowerShellV2Root inexistante*' }
-            Remove-Variable -Name WindowsFeatureMissingLogged -Scope Script -ErrorAction SilentlyContinue
+            $script:LoggedOnce.Clear()
         }
     }
 }

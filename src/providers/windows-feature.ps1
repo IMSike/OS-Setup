@@ -21,12 +21,8 @@ param()
         # Test est appelé plusieurs fois par action (plan, revérification, contrôle final) : l'absence de la
         # fonctionnalité n'est journalisée qu'une fois par exécution.
         $logMissing = {
-            if (-not (Get-Variable -Name WindowsFeatureMissingLogged -Scope Script -ErrorAction SilentlyContinue)) {
-                $script:WindowsFeatureMissingLogged = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-            }
-            if ($script:WindowsFeatureMissingLogged.Add($Action['name'])) {
-                Write-OSSetupLog -Level Detail -Message "  fonctionnalité $($Action['name']) inexistante dans cette version de Windows : rien à désactiver"
-            }
+            Write-OSSetupLogOnce -Key "windows-feature:$($Action['name'])" -Level Detail `
+                -Message "  fonctionnalité $($Action['name']) inexistante dans cette version de Windows : rien à désactiver"
         }
         if (Test-OSSetupElevated) {
             # « Enable Pending » (activée, redémarrage en attente) n'est pas conforme : l'activation est relancée

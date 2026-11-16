@@ -22,7 +22,9 @@ param()
         if (-not (Test-OSSetupElevated)) { return $false }
         $matching = @(Get-OSSetupWindowsCapabilityMatch -Name $Action['name'])
         if ($matching.Count -eq 0) {
-            Write-OSSetupLog -Level Detail -Message "  composant $($Action['name']) inexistant dans cette version de Windows : rien à retirer"
+            # Test est appelé plusieurs fois par action (plan, revérification, contrôle final) : une seule ligne au journal.
+            Write-OSSetupLogOnce -Key "windows-capability:$($Action['name'])" -Level Detail `
+                -Message "  composant $($Action['name']) inexistant dans cette version de Windows : rien à retirer"
             return $true
         }
         -not ($matching | Where-Object { $_.State -eq 'Installed' })

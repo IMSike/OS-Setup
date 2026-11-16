@@ -352,7 +352,7 @@ Describe 'Provider windows-feature' {
 
 Describe 'Provider windows-capability' {
     BeforeEach {
-        InModuleScope OSSetup { Clear-OSSetupStateCache }
+        InModuleScope OSSetup { Clear-OSSetupStateCache; $script:LoggedOnce.Clear() }
     }
 
     It 'compare l''état des capacités dont le nom commence par le nom donné' {
@@ -376,6 +376,14 @@ Describe 'Provider windows-capability' {
         Mock -ModuleName OSSetup Get-WindowsCapability { [pscustomobject]@{ Name = 'App.StepsRecorder~~~~0.0.1.0'; State = 'Installed' } }
         Mock -ModuleName OSSetup Write-OSSetupLog {}
         Invoke-TestProviderTest -Name windows-capability -Action @{ name = 'Microsoft.Windows.WordPad' } | Should -BeTrue
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -ParameterFilter { $Message -like '*Microsoft.Windows.WordPad inexistant*' } -Times 1 -Exactly
+    }
+
+    It 'ne signale le composant inexistant qu''une fois, quel que soit le nombre de tests' {
+        Mock -ModuleName OSSetup Test-OSSetupElevated { $true }
+        Mock -ModuleName OSSetup Get-WindowsCapability { [pscustomobject]@{ Name = 'App.StepsRecorder~~~~0.0.1.0'; State = 'Installed' } }
+        Mock -ModuleName OSSetup Write-OSSetupLog {}
+        foreach ($i in 1..3) { Invoke-TestProviderTest -Name windows-capability -Action @{ name = 'Microsoft.Windows.WordPad' } | Should -BeTrue }
         Should -Invoke -ModuleName OSSetup Write-OSSetupLog -ParameterFilter { $Message -like '*Microsoft.Windows.WordPad inexistant*' } -Times 1 -Exactly
     }
 

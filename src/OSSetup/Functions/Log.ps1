@@ -1,5 +1,8 @@
 ﻿$script:LogPath = $null
 
+# Clés des messages déjà journalisés par Write-OSSetupLogOnce pendant cette exécution.
+$script:LoggedOnce = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+
 function Start-OSSetupLog {
     [CmdletBinding()]
     [OutputType([string])]
@@ -45,4 +48,24 @@ function Write-OSSetupLog {
             throw
         }
     }
+}
+
+function Write-OSSetupLogOnce {
+    <#
+    .SYNOPSIS
+        Journalise un message une seule fois par exécution pour une clé donnée. Pour les constats faits dans le Test d'un
+        provider, appelé plusieurs fois par action (plan, revérification, contrôle final).
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Key,
+
+        [Parameter(Mandatory)]
+        [string]$Message,
+
+        [ValidateSet('Info', 'Success', 'Warning', 'Error', 'Detail')]
+        [string]$Level = 'Info'
+    )
+    if ($script:LoggedOnce.Add($Key)) { Write-OSSetupLog -Level $Level -Message $Message }
 }

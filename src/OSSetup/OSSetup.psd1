@@ -72,6 +72,7 @@
         # Log.ps1
         'Start-OSSetupLog'
         'Write-OSSetupLog'
+        'Write-OSSetupLogOnce'
         # Manual.ps1
         'Invoke-OSSetupManualStep'
         'Start-OSSetupManualAssist'
