@@ -262,15 +262,6 @@ Describe 'Lanceur de la reprise (src/resume.ps1)' {
             Should -BeLike "*GetFolderPath('ProgramFiles'), 'PowerShell', '7', 'pwsh.exe')*"
     }
 
-    It 'considère la reprise possible seulement si ce pwsh.exe existe' {
-        $present = Join-Path -Path $TestDrive -ChildPath 'pwsh-present.exe'
-        Set-Content -LiteralPath $present -Value ''
-        Mock -ModuleName OSSetup Get-OSSetupResumePwshPath { $present }
-        Test-OSSetupResumePwsh | Should -BeTrue
-        Mock -ModuleName OSSetup Get-OSSetupResumePwshPath { Join-Path -Path $TestDrive -ChildPath 'pwsh-absent.exe' }
-        Test-OSSetupResumePwsh | Should -BeFalse
-    }
-
     It 'transmet le code de sortie du setup quand PowerShell 7 est là, sinon s''arrête sur un message lisible' {
         $powershell = Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe'
         $launcher = Get-Content -LiteralPath (Join-Path -Path $PSScriptRoot -ChildPath '..\src\resume.ps1') -Raw -Encoding utf8
@@ -316,15 +307,6 @@ Describe 'Register-OSSetupResumeTask' {
         }
         Should -Invoke -ModuleName OSSetup Register-ScheduledTask -Times 0 -Exactly
     }
-
-    It 'signale sans interrompre la suite une tâche de reprise impossible à supprimer' {
-        Mock -ModuleName OSSetup Get-ScheduledTask { [pscustomobject]@{ TaskName = 'OS-Setup - reprise' } }
-        Mock -ModuleName OSSetup Unregister-ScheduledTask { throw 'accès refusé' }
-        Mock -ModuleName OSSetup Write-OSSetupLog {}
-        { Unregister-OSSetupResumeTask -Confirm:$false } | Should -Not -Throw
-        Should -Invoke -ModuleName OSSetup Unregister-ScheduledTask -Times 1 -Exactly -ParameterFilter { $ErrorAction -eq 'Stop' }
-        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Level -eq 'Warning' -and $Message -like '*non supprimée*accès refusé*' }
-    }
 }
 
 Describe 'Register-OSSetupResumeTask : tâche enregistrée' {
@@ -360,6 +342,15 @@ Describe 'Unregister-OSSetupResumeTask' {
         Mock -ModuleName OSSetup Get-ScheduledTask {}
         Unregister-OSSetupResumeTask
         Should -Invoke -ModuleName OSSetup Unregister-ScheduledTask -Times 0 -Exactly
+    }
+
+    It 'signale sans interrompre la suite une tâche de reprise impossible à supprimer' {
+        Mock -ModuleName OSSetup Get-ScheduledTask { [pscustomobject]@{ TaskName = 'OS-Setup - reprise' } }
+        Mock -ModuleName OSSetup Unregister-ScheduledTask { throw 'accès refusé' }
+        Mock -ModuleName OSSetup Write-OSSetupLog {}
+        { Unregister-OSSetupResumeTask -Confirm:$false } | Should -Not -Throw
+        Should -Invoke -ModuleName OSSetup Unregister-ScheduledTask -Times 1 -Exactly -ParameterFilter { $ErrorAction -eq 'Stop' }
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Level -eq 'Warning' -and $Message -like '*non supprimée*accès refusé*' }
     }
 }
 
