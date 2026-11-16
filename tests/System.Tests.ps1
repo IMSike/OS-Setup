@@ -287,6 +287,8 @@ Describe 'Provider appx' {
 
 Describe 'Provider windows-feature' {
     BeforeEach {
+        # Le constat « inexistante » n'est journalisé qu'une fois par exécution : chaque test repart à zéro.
+        InModuleScope OSSetup { $script:LoggedOnce.Clear() }
         Mock -ModuleName OSSetup Write-OSSetupLog {}
     }
 
@@ -346,6 +348,7 @@ Describe 'Provider windows-feature' {
         Mock -ModuleName OSSetup Test-OSSetupElevated { $false }
         Mock -ModuleName OSSetup Get-CimInstance {}
         Invoke-TestProviderTest -Name windows-feature -Action @{ name = 'MicrosoftWindowsPowerShellV2Root'; enabled = $false } | Should -BeTrue
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -ParameterFilter { $Message -like '*MicrosoftWindowsPowerShellV2Root inexistante*' } -Times 1 -Exactly
         { Invoke-TestProviderTest -Name windows-feature -Action @{ name = 'Microsoft-Windows-Subsystem-Linux' } } | Should -Throw '*introuvable*'
     }
 }
