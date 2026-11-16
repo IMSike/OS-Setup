@@ -56,15 +56,21 @@
             if ($script:realCommands.ContainsKey($name)) { $script:realCommands[$name] }
             else { "function $name { Invoke-TestStub -Name '$name' -Arguments `$args }" }
         }
+        # Chemins insérés entre apostrophes dans le code généré : apostrophes doublées (profil « O'Brien »).
+        $scenarioText = $scenario -replace "'", "''"
+        $callsText = $calls -replace "'", "''"
         $module = @(
-            "`$script:Scenario = Get-Content -LiteralPath '$scenario' -Raw | ConvertFrom-Json -AsHashtable"
+            "`$script:Scenario = Get-Content -LiteralPath '$scenarioText' -Raw | ConvertFrom-Json -AsHashtable"
             'function Invoke-TestStub {'
             '    param([string]$Name, [object[]]$Arguments)'
             '    $values = @($Arguments | ForEach-Object { if ($_ -is [System.Collections.IList]) { @($_ | ForEach-Object { "$_" }) -join ''|'' } else { "$_" } })'
-            "    Add-Content -LiteralPath '$calls' -Value ([ordered]@{ name = `$Name; args = `$values } | ConvertTo-Json -Compress) -Encoding utf8"
+            "    Add-Content -LiteralPath '$callsText' -Value ([ordered]@{ name = `$Name; args = `$values } | ConvertTo-Json -Compress) -Encoding utf8"
             '    if ($script:Scenario.throws.ContainsKey($Name)) { throw $script:Scenario.throws[$Name] }'
             '    if ($script:Scenario.returns.ContainsKey($Name)) { $script:Scenario.returns[$Name] }'
             '}'
+            # Garde : une fonction du module masque la cmdlet dans setup.ps1. Aucune relance élevée (invite UAC) ne peut
+            # partir de ces tests, quel que soit le scénario.
+            'function Start-Process { Invoke-TestStub -Name ''Start-Process'' -Arguments $args; throw ''Start-Process interdit dans les tests.'' }'
         ) + $stubs
         Set-Content -LiteralPath (Join-Path -Path $root -ChildPath 'src\OSSetup\OSSetup.psm1') -Value $module -Encoding utf8
         Set-Content -LiteralPath (Join-Path -Path $root -ChildPath 'src\OSSetup\OSSetup.psd1') -Encoding utf8 `
@@ -75,7 +81,7 @@
         if ($Before) {
             # Noms de paramètres tels quels, valeurs entre apostrophes.
             $quoted = @($Argument | ForEach-Object { if ($_ -match '^-\w+$') { $_ } else { "'" + ($_ -replace "'", "''") + "'" } }) -join ' '
-            & $pwsh -NoProfile -NonInteractive -Command "$Before; & '$setupCopy' $quoted; exit `$LASTEXITCODE" *> $null
+            & $pwsh -NoProfile -NonInteractive -Command "$Before; & '$($setupCopy -replace "'", "''")' $quoted; exit `$LASTEXITCODE" *> $null
         }
         else {
             & $pwsh -NoProfile -NonInteractive -File $setupCopy @Argument *> $null
@@ -90,6 +96,15 @@
         param($Result, [string]$Name)
         $call = $Result.Calls | Where-Object { $_.name -eq $Name } | Select-Object -First 1
         if ($call) { @($call.args) } else { $null }
+    }
+}
+
+Describe 'setup.ps1 : garde des tests' {
+    It 'ne lance jamais la relance en administrateur, même sans droits administrateur' {
+        $result = Invoke-TestSetup -Argument '-Profiles', 'base', '-AcceptDefaults', '-Yes', '-NoPause' -Returns @{ 'Test-OSSetupElevated' = $false }
+        $result.ExitCode | Should -Be 1
+        $result.Names | Should -Contain 'Start-Process'
+        $result.Names | Should -Not -Contain 'Invoke-OSSetupPlan'
     }
 }
 

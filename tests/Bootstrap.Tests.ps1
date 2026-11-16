@@ -238,7 +238,7 @@ Describe 'bootstrap.ps1 -WhatIf : simulation' {
         $probe = Join-Path -Path $TestDrive -ChildPath 'probe.ps1'
         Set-Content -LiteralPath $probe -Value '[CmdletBinding(SupportsShouldProcess)] param() [bool]$WhatIfPreference'
         foreach ($form in '-What', '-wh', '-wi', '-WhatIf') {
-            & ([scriptblock]::Create("& '$probe' $form")) | Should -BeTrue -Because $form
+            & ([scriptblock]::Create("& '$($probe -replace "'", "''")' $form")) | Should -BeTrue -Because $form
             Test-WhatIfArgument -Argument $form | Should -BeTrue -Because $form
         }
         { & ([scriptblock]::Create("& '$probe' -W")) } | Should -Throw '*ambigu*'
