@@ -55,11 +55,18 @@ $logKeepLines = 200
 function Write-MaintenanceLog {
     [CmdletBinding()]
     param([string]$Message)
-    if ((Test-Path -LiteralPath $logPath -PathType Leaf) -and (Get-Item -LiteralPath $logPath).Length -gt $logMaxBytes) {
-        $kept = @(Get-Content -LiteralPath $logPath -Encoding UTF8 | Select-Object -Last $logKeepLines)
-        Set-Content -LiteralPath $logPath -Value $kept -Encoding UTF8
+    # Journal commun à tous les comptes : verrouillé par la session d'un autre compte, il ne doit pas interrompre
+    # l'entretien (démarrage de Docker, écriture de l'état). Le message est alors perdu.
+    try {
+        if ((Test-Path -LiteralPath $logPath -PathType Leaf) -and (Get-Item -LiteralPath $logPath).Length -gt $logMaxBytes) {
+            $kept = @(Get-Content -LiteralPath $logPath -Encoding UTF8 | Select-Object -Last $logKeepLines)
+            Set-Content -LiteralPath $logPath -Value $kept -Encoding UTF8
+        }
+        Add-Content -LiteralPath $logPath -Value ('{0:yyyy-MM-dd HH:mm:ss} {1}' -f (Get-Date), $Message) -Encoding UTF8
     }
-    Add-Content -LiteralPath $logPath -Value ('{0:yyyy-MM-dd HH:mm:ss} {1}' -f (Get-Date), $Message) -Encoding UTF8
+    catch {
+        Write-Verbose "journal indisponible ($($_.Exception.Message)) : $Message"
+    }
 }
 
 function Get-MaintenanceState {
