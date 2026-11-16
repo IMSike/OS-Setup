@@ -360,6 +360,34 @@ Describe 'Provider registry' {
     }
 }
 
+Describe 'Provider registry : écriture puis vérification de chaque type' {
+    # TestRegistry: clé jetable de Pester (sous HKCU:\Software\Pester), supprimée à la fin du bloc.
+    BeforeEach {
+        $key = "TestRegistry:\$([guid]::NewGuid())"
+        $provider = InModuleScope OSSetup { Get-OSSetupProvider -Name 'registry' }
+    }
+
+    It '<Type> : conforme après écriture, avec le type et la donnée attendus' -ForEach @(
+        @{ Type = 'DWord'; Value = 1; Other = 2 }
+        @{ Type = 'QWord'; Value = 5000000000; Other = 5000000001 }
+        @{ Type = 'String'; Value = 'Valeur à accents'; Other = 'valeur à accents' }
+        # Variable non développée : la donnée écrite et relue est le texte brut.
+        @{ Type = 'ExpandString'; Value = '%LOCALAPPDATA%\CrashDumps'; Other = '%LOCALAPPDATA%\crashdumps' }
+        # Tableau lu dans le JSON du catalogue ; l'ordre et la casse comptent.
+        @{ Type = 'MultiString'; Value = [object[]]@('Premier', 'Second élément', '%TEMP%'); Other = [object[]]@('Second élément', 'Premier', '%TEMP%') }
+        @{ Type = 'MultiString'; Value = [object[]]@('Seul'); Other = [object[]]@('seul') }
+    ) {
+        $action = @{ path = $key; name = 'V'; type = $Type; value = $Value }
+        & $provider.Test $action @{} | Should -BeFalse
+        & $provider.Invoke $action @{}
+        & $provider.Test $action @{} | Should -BeTrue
+        $read = & $provider.Read $action @{}
+        $read['type'] | Should -Be $Type
+        @($read['value']) | Should -Be @($Value)
+        & $provider.Test @{ path = $key; name = 'V'; type = $Type; value = $Other } @{} | Should -BeFalse
+    }
+}
+
 Describe 'ConvertTo-OSSetupRegistryNumber' {
     It 'convertit <Value> (<Type>) en <Signed> signé et <Unsigned> non signé' -ForEach @(
         @{ Value = 0; Type = 'DWord'; Signed = 0; Unsigned = 0 }
