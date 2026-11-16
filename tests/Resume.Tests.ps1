@@ -493,6 +493,7 @@ Describe 'Écritures de la reprise élevée dans le dépôt' {
 
         { Write-OSSetupLog -Message 'ligne' } | Should -Throw
         InModuleScope OSSetup { $script:LogPath } | Should -BeNullOrEmpty
+        Should -Invoke -ModuleName OSSetup Write-Host -Times 1 -Exactly -ParameterFilter { $Object -like 'Journal arrêté : *' }
         { Write-OSSetupLog -Level Error -Message 'échec' } | Should -Not -Throw
     }
 
