@@ -98,7 +98,8 @@ function Read-OSSetupJsonFileSet {
         $texts[$i] = Get-Content -LiteralPath $File[$i].FullName -Raw -Encoding utf8
     }
     $valid = $false
-    if ($File.Count -gt 0 -and -not @($texts | Where-Object { [string]::IsNullOrWhiteSpace($_) })) {
+    # Compte, pas valeur de vérité : un seul fichier vide donnerait @('') ou @($null), évalué faux.
+    if ($File.Count -gt 0 -and @($texts | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -eq 0) {
         # Schéma d'un fichier appliqué à chaque élément du tableau ; ses définitions restent à la racine, où les
         # références « #/definitions/… » les cherchent.
         $schema = Get-Content -LiteralPath $SchemaPath -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable

@@ -17,7 +17,7 @@ param()
     Test     = {
         param($Action, $Context)
         $wanted = $Action['path'].TrimEnd('\')
-        [bool](Get-OSSetupPathEntry -Scope ($Action['scope'] ?? 'user') | Where-Object { $_.TrimEnd('\') -eq $wanted })
+        @(Get-OSSetupPathEntry -Scope ($Action['scope'] ?? 'user') | Where-Object { $_.TrimEnd('\') -eq $wanted }).Count -gt 0
     }
 
     Invoke   = {

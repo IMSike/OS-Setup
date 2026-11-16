@@ -46,7 +46,7 @@ function Add-OSSetupPathEntry {
     $key = Get-Item -LiteralPath $keyPath
     $raw = $key.GetValue('Path', '', 'DoNotExpandEnvironmentNames')
     $entries = @(ConvertTo-OSSetupPathList -Value $raw)
-    if ($entries | Where-Object { $_.TrimEnd('\') -eq $Path.TrimEnd('\') }) { return }
+    if (@($entries | Where-Object { $_.TrimEnd('\') -eq $Path.TrimEnd('\') }).Count -gt 0) { return }
 
     if ($PSCmdlet.ShouldProcess("PATH ($Scope)", "Ajouter $Path")) {
         $newValue = (@($entries) + $Path) -join [System.IO.Path]::PathSeparator

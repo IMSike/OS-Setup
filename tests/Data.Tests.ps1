@@ -381,6 +381,19 @@ Describe 'Read-OSSetupJsonFileSet' {
         $errors[2] | Should -BeLike '*empty.json : fichier vide.'
     }
 
+    It 'ne valide pas en un seul appel un ensemble qui contient un fichier de 0 octet' {
+        # Get-Content -Raw donne $null pour un fichier de 0 octet : il doit compter comme vide.
+        $zero = Join-Path -Path $TestDrive -ChildPath 'zero.json'
+        New-Item -Path $zero -ItemType File -Force | Out-Null
+        $files = @((& $newFile 'z-ok.json' (& $itemText 'z-ok')), (Get-Item -LiteralPath $zero))
+        Mock -ModuleName OSSetup Test-Json { $false } -ParameterFilter { $Json.StartsWith('[') }
+        $errors = [System.Collections.Generic.List[string]]::new()
+        $result = @(Read-OSSetupJsonFileSet -File $files -SchemaPath $schema -Errors $errors)
+        Should -Invoke -ModuleName OSSetup Test-Json -Times 0 -Exactly -ParameterFilter { $Json.StartsWith('[') }
+        @($result | ForEach-Object { $_.Data['id'] }) | Should -Be @('z-ok')
+        @($errors) | Should -Be @("${zero} : fichier vide.")
+    }
+
     It 'refuse un fichier qui ne serait valide qu''au sein du tableau' {
         $files = @((& $newFile 'seul.json' (& $itemText 'seul')), (& $newFile 'deux.json' ((& $itemText 'un') + ', ' + (& $itemText 'deux'))))
         $errors = [System.Collections.Generic.List[string]]::new()
