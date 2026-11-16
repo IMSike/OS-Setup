@@ -32,7 +32,7 @@ param(
 
     [int]$DiskGB = 100,
 
-    # Supprime et recrée la VM si elle existe déjà.
+    # Supprime et recrée la VM si elle existe déjà, ou son disque virtuel resté sans VM.
     [switch]$Force
 )
 
@@ -53,7 +53,15 @@ if (Get-VM -Name $Name -ErrorAction SilentlyContinue) {
     Remove-Item -Path (Split-Path -Path $vhdPath -Parent) -Recurse -Force -ErrorAction SilentlyContinue
 }
 elseif (Test-Path -Path (Split-Path -Path $vhdPath -Parent)) {
-    # Dossier sans VM : reste d'une création interrompue (la VM n'est créée qu'en dernier), sans quoi New-VHD échouerait.
+    # Dossier sans VM : reste d'une création interrompue (la VM n'est créée qu'en dernier), sans quoi New-VHD échouerait,
+    # ou VM simplement retirée de Hyper-V, dont le disque n'est supprimé qu'avec -Force.
+    if (Test-Path -Path $vhdPath) {
+        if (-not $Force) {
+            throw "Disque virtuel sans VM '$Name' : $vhdPath (création interrompue ou VM retirée de Hyper-V). Utiliser -Force pour le supprimer et recréer la VM."
+        }
+        # Disque resté monté (création interrompue pendant l'application de l'image) : verrouillé tant qu'il l'est.
+        Dismount-VHD -Path $vhdPath -ErrorAction SilentlyContinue
+    }
     Write-TestVMStep "Suppression des restes d'une création interrompue ($(Split-Path -Path $vhdPath -Parent))"
     Remove-Item -Path (Split-Path -Path $vhdPath -Parent) -Recurse -Force
 }
