@@ -16,7 +16,8 @@
     .PARAMETER NoThrow
         Pas d'exception en cas d'échec ; avec -PassThru, l'appelant lit le code de sortie.
     .PARAMETER PassThru
-        Retourne la sortie et le code de sortie ({ Output; ExitCode }).
+        Retourne la sortie et le code de sortie ({ Output; StandardOutput; ExitCode }) : Output mêle les deux sorties,
+        StandardOutput n'a que la sortie standard (une valeur lue, sans les avertissements de la sortie d'erreur).
     #>
     [CmdletBinding()]
     [OutputType([pscustomobject])]
@@ -56,7 +57,13 @@
         if (-not $Label) { $Label = (@($FilePath) + @($ArgumentList | Select-Object -First 1)) -join ' ' }
         throw "$Label a échoué (code $exitCode)."
     }
-    if ($PassThru) { [pscustomobject]@{ Output = @($output); ExitCode = $exitCode } }
+    if ($PassThru) {
+        [pscustomobject]@{
+            Output         = @($output)
+            StandardOutput = @($output | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] })
+            ExitCode       = $exitCode
+        }
+    }
 }
 
 # Préfixe des tâches ponctuelles d'Invoke-OSSetupUnelevatedCommand (suivi d'un identifiant propre à chaque exécution).

@@ -11,9 +11,8 @@
     # Claude Code écrit en UTF-8. La liste (JSON) n'est pas journalisée ; la sortie d'erreur est écartée.
     $result = Invoke-OSSetupNativeCommand -FilePath claude -ArgumentList 'plugin', 'list', '--json' -Utf8 -NoThrow -PassThru -NoLog
     if ($result.ExitCode -ne 0) { return }
-    $output = @($result.Output | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] })
     try {
-        foreach ($plugin in @(($output -join "`n") | ConvertFrom-Json)) {
+        foreach ($plugin in @(($result.StandardOutput -join "`n") | ConvertFrom-Json)) {
             # Champ absent de la sortie ou nul : $null (le provider le signale et compare strictement, donc non conforme).
             # Pas de conversion d'un null : [string] en ferait '' et [bool] $false, que le provider ne signalerait pas.
             $scopeProperty = $plugin.PSObject.Properties['scope']
