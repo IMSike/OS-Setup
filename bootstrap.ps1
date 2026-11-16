@@ -415,7 +415,9 @@ function Show-BootstrapSimulation {
         # Comme Initialize-BootstrapRepository, en lecture seule : branche courante et modifications locales.
         $repositoryState = "serait mis à jour (git pull --ff-only) dans $repoRoot"
         if ($BranchRequested) {
-            # Inconnus si git est absent ou échoue : la simulation annonce alors les deux issues possibles.
+            # Inconnus si git est absent (le vrai bootstrap l'installerait d'abord) : la simulation annonce alors les deux
+            # issues possibles. Elle les annonce aussi si git échoue, mais le vrai bootstrap s'arrêterait alors sans rien
+            # changer (« Branche de la copie du dépôt illisible », « État de la copie du dépôt illisible »).
             $current = $null
             $changes = $null
             if (Get-Command -Name git -ErrorAction SilentlyContinue) {

@@ -398,8 +398,8 @@ function Clear-OSSetupStateCache {
     <#
     .SYNOPSIS
         Oublie les listes d'état lues (tâches planifiées, applications du Store installées et provisionnées, capacités
-        Windows, extensions des éditeurs) : appelé au début
-        de chaque passe et autour de chaque action exécutée, pour que les vérifications relisent l'état réel.
+        Windows, extensions des éditeurs) : appelé au début de chaque passe et autour de chaque action exécutée, pour
+        que les vérifications relisent l'état réel.
     #>
     [CmdletBinding()]
     param()

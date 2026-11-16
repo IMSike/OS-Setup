@@ -2,11 +2,13 @@
 .SYNOPSIS
     Nettoyage de fin de setup, exécuté après la fermeture du setup (Windows PowerShell 5.1, processus détaché).
 .DESCRIPTION
-    Copié dans %ProgramFiles%\OS-Setup\cleanup (droits hérités de Program Files : modifiable par les seuls administrateurs, car il s'exécute élevé, ADR 0005) puis
-    lancé par le setup : un script ne peut pas supprimer son propre dossier pendant
-    qu'il s'exécute, et PowerShell 7 ne peut pas être désinstallé tant qu'il est en cours d'utilisation.
+    Copié dans %ProgramFiles%\OS-Setup\cleanup (droits hérités de Program Files : modifiable par les seuls
+    administrateurs, car il s'exécute élevé, ADR 0005) puis lancé par le setup : un script ne peut pas supprimer son
+    propre dossier pendant qu'il s'exécute, et PowerShell 7 ne peut pas être désinstallé tant qu'il est en cours
+    d'utilisation.
     Lit sa configuration (JSON) : processus à attendre, paquets winget à désinstaller, chemins à supprimer,
-    journal où consigner le résultat, fermeture de session. Supprime ensuite sa configuration et lui-même, puis ferme la session si demandé.
+    journal où consigner le résultat, fermeture de session. Supprime ensuite sa configuration et lui-même, puis ferme
+    la session si demandé.
     Les chemins sont supprimés sans suivre les jonctions ni les liens symboliques : un lien placé dans le dépôt est
     retiré lui-même, jamais le contenu du dossier qu'il désigne (le nettoyage s'exécute en administrateur).
     Modules chargés depuis les seuls dossiers réservés aux administrateurs : voir PSModulePath ci-dessous.

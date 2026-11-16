@@ -22,7 +22,7 @@
 # une valeur sans nom de paramètre est refusée.
 [CmdletBinding(SupportsShouldProcess, PositionalBinding = $false)]
 param(
-    # Fichier de réponses à rejouer (aucune question posée).
+    # Fichier de réponses à rejouer : aucune question sur les choix ; la validation du plan reste demandée sans -Yes.
     [string]$AnswerFile,
 
     # Profils à appliquer (saute le menu des profils), en tableau ou séparés par des virgules : « pwsh -File »
