@@ -35,13 +35,14 @@ function Write-OSSetupLog {
         $line = '{0:yyyy-MM-dd HH:mm:ss} [{1}] {2}' -f (Get-Date), $Level.ToUpperInvariant(), $Message
         try {
             Assert-OSSetupDataPath -Path $script:LogPath
+            Add-Content -LiteralPath $script:LogPath -Value $line -Encoding utf8 -WhatIf:$false
         }
         catch {
-            # Journal arrêté (la suite s'affiche seulement), puis échec de l'opération en cours.
+            # Journal arrêté (la suite s'affiche seulement), puis échec de l'opération en cours : le message d'erreur qui
+            # suit (bloc catch de l'appelant) s'affiche au lieu de lever à son tour.
             $script:LogPath = $null
-            Write-Host -Object $_.Exception.Message -ForegroundColor Red
+            Write-Host -Object "Journal arrêté : $($_.Exception.Message)" -ForegroundColor Red
             throw
         }
-        Add-Content -LiteralPath $script:LogPath -Value $line -Encoding utf8 -WhatIf:$false
     }
 }

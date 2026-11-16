@@ -115,6 +115,18 @@ Describe 'setup.ps1 : reprise abandonnée avant de commencer' {
         $result.Names | Should -Not -Contain 'Import-OSSetupData'
     }
 
+    It 'quand le fichier journal ne peut pas être écrit, abandonne la reprise au lieu de fermer la fenêtre sans raison' {
+        $state = @{ runId = 'r1'; pass = 1; yes = $true; failed = $false; answers = @{ profiles = @('base') } }
+        $result = Invoke-TestSetup -Argument '-Resume', '-NoPause' -Returns @{ 'Read-OSSetupRunState' = $state } `
+            -Throws @{ 'Write-OSSetupLog' = 'accès refusé' }
+        $result.ExitCode | Should -Be 1
+        $result.Names | Should -Contain 'Unregister-OSSetupResumeTask'
+        $result.Names | Should -Contain 'Remove-OSSetupResumeCode'
+        foreach ($name in 'Save-OSSetupRunState', 'Import-OSSetupData', 'Write-OSSetupRunResult', 'Invoke-OSSetupCleanup') {
+            $result.Names | Should -Not -Contain $name
+        }
+    }
+
     It 'hors reprise, s''arrête aussi proprement quand le journal ne peut pas être créé' {
         $result = Invoke-TestSetup -Argument '-NoPause' -Throws @{ 'Start-OSSetupLog' = 'accès refusé' }
         $result.ExitCode | Should -Be 1

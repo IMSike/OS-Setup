@@ -138,9 +138,12 @@ $runId = if ($runState) { $runState['runId'] } else { Get-Date -Format 'yyyyMMdd
 if (-not $abandon) {
     try {
         $logPath = Start-OSSetupLog -Directory (Join-Path -Path $dataRoot -ChildPath 'logs') -RunId $runId
+        # Première ligne écrite ici : un fichier journal impossible à écrire (verrouillé, accès refusé) est une raison
+        # d'abandonner comme un dossier impossible à créer. Write-OSSetupLog arrête alors le journal.
+        Write-OSSetupLog -Message "OS-Setup — journal : $logPath"
     }
     catch {
-        $abandon = "journal impossible à créer ($($_.Exception.Message.TrimEnd('.')))"
+        $abandon = "journal impossible à créer ou à écrire ($($_.Exception.Message.TrimEnd('.')))"
     }
 }
 if ($abandon) {
@@ -167,7 +170,6 @@ $logoff = $false
 $data = $null
 $itemIds = $null
 try {
-    Write-OSSetupLog -Message "OS-Setup — journal : $logPath"
     if ($Resume) {
         $runState['pass']++
         Write-OSSetupLog -Message ''

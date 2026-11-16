@@ -470,6 +470,18 @@ Describe 'Écritures de la reprise élevée dans le dépôt' {
         Test-Path -LiteralPath "$outside\setup.log" | Should -BeFalse
     }
 
+    It 'arrête le journal impossible à écrire : l''écriture suivante (message d''erreur) ne lève plus' {
+        # Un dossier à la place du fichier journal : Add-Content échoue.
+        $unwritable = Join-Path -Path $work -ChildPath 'repo\setup.log'
+        New-Item -Path $unwritable -ItemType Directory -Force | Out-Null
+        InModuleScope OSSetup -Parameters @{ Path = $unwritable } { param($Path) $script:LogPath = $Path }
+        Mock -ModuleName OSSetup Write-Host {}
+
+        { Write-OSSetupLog -Message 'ligne' } | Should -Throw
+        InModuleScope OSSetup { $script:LogPath } | Should -BeNullOrEmpty
+        { Write-OSSetupLog -Level Error -Message 'échec' } | Should -Not -Throw
+    }
+
     It 'pendant la reprise, ne copie pas dans l''historique une sauvegarde qui contient une jonction' {
         Enable-OSSetupDataGuard
         Set-Content -Path "$outside\secret.txt" -Value 'protégé'
