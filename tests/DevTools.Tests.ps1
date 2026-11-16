@@ -137,6 +137,23 @@ Describe 'Provider git-config' {
             Should -Invoke -CommandName git -Times 0 -Exactly
         }
     }
+
+    It 'compare et relève la valeur sans les lignes de la sortie d''erreur, sans rien journaliser' {
+        Mock -ModuleName OSSetup -CommandName Write-OSSetupLog
+        Mock -ModuleName OSSetup -CommandName Get-Command -ParameterFilter { $Name -eq 'git' -and $CommandType -eq 'Application' } -MockWith { 'git.exe' }
+        # Avertissement de Git sur la sortie d'erreur (mêlée à la sortie par Invoke-OSSetupNativeCommand), puis la valeur.
+        Mock -ModuleName OSSetup -CommandName git -MockWith {
+            $global:LASTEXITCODE = 0
+            [System.Management.Automation.ErrorRecord]::new([System.Exception]::new('warning: unable to access ''C:/x/.config/git/attributes'''), 'NativeCommandError', 'NotSpecified', $null)
+            'Prénom Nom'
+        }
+        $provider = InModuleScope OSSetup { Get-OSSetupProvider -Name 'git-config' }
+        $action = @{ key = 'user.name'; value = 'Prénom Nom' }
+        & $provider.Test $action @{} | Should -BeTrue
+        (& $provider.Read $action @{}).value | Should -BeExactly 'Prénom Nom'
+        Should -Invoke -ModuleName OSSetup -CommandName git -Times 2 -Exactly -ParameterFilter { ($args -join ' ') -eq 'config --global --get user.name' }
+        Should -Invoke -ModuleName OSSetup -CommandName Write-OSSetupLog -Times 0 -Exactly
+    }
 }
 
 Describe 'Étapes manuelles' {
