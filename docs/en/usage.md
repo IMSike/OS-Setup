@@ -21,6 +21,18 @@ The account used must be an administrator: from a standard account, the setup st
 
 `powershell -NoProfile -ExecutionPolicy Bypass -File .\bootstrap.ps1 -WhatIf` changes nothing: no elevation, no install of winget, Git or PowerShell 7, no clone or update of the repository, no `state\bootstrap.json`. The bootstrap only shows what it would do (each tool present or to install, repository to clone, update or use as is), then runs `setup.ps1 -WhatIf` if PowerShell 7 and a copy of the repository are already there (the copy is used as it is, without `git pull`). Otherwise it stops and explains why: on a blank machine, the setup simulation can only run once the tools and the repository are in place. Run the bootstrap without `-WhatIf` (the plan is shown and must be confirmed before any change), or `./setup.ps1 -WhatIf` from a copy of the repository.
 
+### Bootstrap parameters
+
+| Parameter | Effect |
+|---|---|
+| `-RepoUrl <url>` | Repository to clone (default: `https://github.com/IMSike/OS-Setup.git`). Only used for a new clone. |
+| `-Branch <name>` | Branch to clone (default: `main`). A copy already in `-Destination` is switched to it only if it has no local changes, otherwise the bootstrap stops without changing anything; without `-Branch`, that copy stays on its current branch. |
+| `-Destination <folder>` | Folder of the repository copy (default: `%USERPROFILE%\OS-Setup`): cloned there, or updated (`git pull --ff-only`) if a copy is already there. |
+| `-NoPause` | Do not wait for `Enter` before closing the administrator window opened by the bootstrap. |
+| other arguments | Passed on to `setup.ps1` (e.g. `-AnswerFile <file>`, `-Profiles base,dev`, `-Yes`). `-WhatIf` is recognized in every form the setup accepts (`-WhatIf:$true`, an unambiguous prefix such as `-WhatI`, the `-wi` alias, any case) and turns the bootstrap into a simulation. |
+
+When the bootstrap is run from a copy of the repository (a `setup.ps1` next to it), that copy is used as it is: `-RepoUrl`, `-Branch` and `-Destination` have no effect (a message says so for `-Branch`).
+
 ### In the menus
 
 | Key | Effect |
@@ -34,20 +46,20 @@ The account used must be an administrator: from a standard account, the setup st
 
 ```powershell
 ./setup.ps1                                          # interactive wizard
-./setup.ps1 -WhatIf                                  # simulation: plan and simulated actions, nothing is changed
-./setup.ps1 -AnswerFile answers/dev.example.json     # replays an answer file, no questions
+./setup.ps1 -WhatIf                                  # simulation: plan and simulated actions, nothing is changed on the system
+./setup.ps1 -AnswerFile answers/dev.example.json     # replays an answer file, without the wizard
 ./setup.ps1 -Profiles base -AcceptDefaults -Yes      # base profile, default values, no questions at all
 ```
 
 | Parameter | Effect |
 |---|---|
-| `-AnswerFile <file>` | Replays an answer file: no questions. |
+| `-AnswerFile <file>` | Replays an answer file instead of the wizard. Without `-Yes`, the plan validation screen is still shown (apply, modify a step or cancel) and manual steps are still guided. |
 | `-Profiles <names>` | Profiles to apply (skips the profile menu), separated by commas: `-Profiles base,dev`, also through `pwsh -File`. |
-| `-AcceptDefaults` | Default values for choices and variables, instead of the menus. |
+| `-AcceptDefaults` | Default values for choices and variables, instead of the menus. Requires `-Profiles`. |
 | `-SaveAnswers <file>` | Saves the session's answers to this file. |
 | `-Yes` | Unattended: applies the plan without confirmation, reboots or logs off without a countdown, closes the window at the end. |
 | `-NoPause` | Do not wait for `Enter` before closing the window. |
-| `-WhatIf` | Simulation: no changes, no elevation. |
+| `-WhatIf` | Simulation: nothing is changed on the system, no elevation. The log (`logs/`) and `state/answers-last.json` are still written in the repository copy, as is the `-SaveAnswers` file. |
 
 ## Answer files
 
@@ -69,7 +81,7 @@ An answer file contains the profiles, the choices of each group and the variable
 
 A group missing from the file takes its default values. Examples: [`answers/dev.example.json`](../../answers/dev.example.json), [`answers/base-all.example.json`](../../answers/base-all.example.json) (all the settings of the `base` profile).
 
-An option that is no longer offered by its group (for example an item removed from the catalog since the file was saved) is **ignored with a warning** (`Choix 'claude-options' : option 'claude-statusline' inconnue, ignorée.`), and the rest of the file is applied; it is not written back to `state/answers-last.json`. Likewise, a choice group that no profile declares any more (group removed from the catalog) is ignored with a warning (`Groupe de choix 'claude-options' inconnu, ignoré.`), and so is a variable that none of the selected profiles declares (`Variable 'DevRot' déclarée par aucun profil choisi, ignorée.`). Group, option and variable names are case-sensitive, like JSON keys. The other inconsistencies still reject the whole file before any action: a group that exists but belongs to none of the selected profiles, too many or too few selections in a group (counted without the ignored options), a variable named like a built-in variable (`UserProfile`, `ProgramFiles`…), a file that does not follow the schema.
+An option that is no longer offered by its group (for example an item removed from the catalog since the file was saved) is **ignored with a warning** (`Choix 'claude-options' : option 'claude-statusline' inconnue, ignorée.`), and the rest of the file is applied; it is not written back to `state/answers-last.json`. Likewise, a choice group that no profile declares (for example a group removed from the profiles since the file was saved) is ignored with a warning (`Groupe de choix 'old-group' inconnu, ignoré.`), and so is a variable that none of the selected profiles declares (`Variable 'DevRot' déclarée par aucun profil choisi, ignorée.`). Group, option and variable names are case-sensitive, like JSON keys. The other inconsistencies still reject the whole file before any action: a group that exists but belongs to none of the selected profiles, too many or too few selections in a group (counted without the ignored options), a variable named like a built-in variable (`UserProfile`, `ProgramFiles`…), a file that does not follow the schema.
 
 The answers of each session are saved in `state/answers-last.json`: to replay the same installation on another machine, copy this file **outside the public repository** (it may contain your personal information).
 
@@ -81,7 +93,8 @@ The answers of each session are saved in `state/answers-last.json`: to replay th
 | `state/answers-last.json` | Answers of the last session |
 | `state/backups/<date>/` | Backups of replaced files and `original-values.json` (original values of each modified setting, to roll back by hand) |
 | `%ProgramFiles%\OS-Setup\resume\` | Copy of the setup run by the resume task, with `state\run.json` (state of a run waiting for a reboot); deleted at the end of the setup |
-| `state/last-result.json` | Summary of the last run |
+| `state/last-result.json` | Result of the last finished run: identifier, exit code, end time |
+| `state/bootstrap.json` | Written by the bootstrap: tools it installed, whether it cloned the copy, path of its script (read by the end-of-setup cleanup) |
 
 Apart from the resume copy, these folders are inside the repository copy and ignored by Git. At the end of the setup, if the copy was created by the bootstrap, a menu offers to delete it while keeping the history (log, answers, backups) in `%LOCALAPPDATA%\OS-Setup\<date>`: see [End-of-setup cleanup](architecture.md#end-of-setup-cleanup).
 
