@@ -241,7 +241,7 @@ Describe 'bootstrap.ps1 -WhatIf : simulation' {
             & ([scriptblock]::Create("& '$($probe -replace "'", "''")' $form")) | Should -BeTrue -Because $form
             Test-WhatIfArgument -Argument $form | Should -BeTrue -Because $form
         }
-        { & ([scriptblock]::Create("& '$probe' -W")) } | Should -Throw '*ambigu*'
+        { & ([scriptblock]::Create("& '$($probe -replace "'", "''")' -W")) } | Should -Throw '*ambigu*'
     }
 
     It 'sur une machine vierge, annonce les installations et le clonage puis s''arrête en expliquant pourquoi' {
