@@ -297,7 +297,7 @@ Describe 'bootstrap.ps1 -WhatIf : simulation' {
 
         It 'annonce le basculement d''une copie sans modification locale' {
             Show-BootstrapSimulation @script:simulationParameters -ScriptRoot '' -BranchRequested | Out-Null
-            $global:OSSetupTestHost -join "`n" | Should -BeLike '*serait basculé de la branche dev vers main puis mis à jour*'
+            $global:OSSetupTestHost -join "`n" | Should -BeLike '*serait basculé de la branche « dev » vers « main » puis mis à jour*'
         }
 
         It 'annonce l''arrêt quand la copie a des modifications locales' {
@@ -316,7 +316,7 @@ Describe 'bootstrap.ps1 -WhatIf : simulation' {
         It 'sans git, annonce les deux issues possibles' {
             Mock Get-Command { $null } -ParameterFilter { $Name -eq 'git' }
             Show-BootstrapSimulation @script:simulationParameters -ScriptRoot '' -BranchRequested | Out-Null
-            $global:OSSetupTestHost -join "`n" | Should -BeLike '*serait basculé sur la branche main*s''il n''a aucune modification locale*'
+            $global:OSSetupTestHost -join "`n" | Should -BeLike '*serait basculé sur la branche « main »*s''il n''a aucune modification locale*'
             Should -Invoke git -Times 0
         }
 
@@ -336,8 +336,8 @@ Describe 'bootstrap.ps1 -WhatIf : simulation' {
                 Remove-Variable -Name OSSetupTestGitFailing -Scope Global -ErrorAction SilentlyContinue
             }
             $text = $global:OSSetupTestHost -join "`n"
-            $text | Should -BeLike '*serait basculé sur la branche main*s''il n''a aucune modification locale*'
-            $text | Should -Not -BeLike '*branche dev vers main*'
+            $text | Should -BeLike '*serait basculé sur la branche « main »*s''il n''a aucune modification locale*'
+            $text | Should -Not -BeLike '*branche « dev » vers « main »*'
             Should -Invoke git -Times $Calls -Exactly
         }
     }

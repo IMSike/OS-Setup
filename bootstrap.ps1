@@ -265,10 +265,10 @@ function Initialize-BootstrapRepository {
                         "elle n'est pas basculée sur « {2} ». Enregistrez ou mettez de côté ces modifications, ou changez " +
                         "de branche vous-même (git -C ""{0}"" switch {2}), puis relancez le bootstrap.") -f $Destination, $current, $Branch
                 }
-                Write-Step "Basculement du dépôt dans $Destination de la branche $current vers $Branch"
+                Write-Step "Basculement du dépôt dans $Destination de la branche « $current » vers « $Branch »"
                 & git -C $Destination fetch origin
                 if ($LASTEXITCODE -eq 0) { & git -C $Destination checkout $Branch }
-                if ($LASTEXITCODE -ne 0) { throw "Échec du basculement du dépôt sur la branche $Branch." }
+                if ($LASTEXITCODE -ne 0) { throw "Échec du basculement du dépôt sur la branche « $Branch »." }
             }
         }
         Write-Step "Mise à jour du dépôt dans $Destination"
@@ -430,7 +430,7 @@ function Show-BootstrapSimulation {
                 }
             }
             if (-not $current -or ($current -ne $Branch -and $null -eq $changes)) {
-                $repositoryState = ("serait basculé sur la branche $Branch puis mis à jour dans $repoRoot, s'il n'a aucune " +
+                $repositoryState = ("serait basculé sur la branche « $Branch » puis mis à jour dans $repoRoot, s'il n'a aucune " +
                     'modification locale (sinon le bootstrap s''arrêterait sans rien changer)')
             }
             elseif ($current -ne $Branch -and $changes.Count -gt 0) {
@@ -438,13 +438,13 @@ function Show-BootstrapSimulation {
                     "bootstrap s'arrêterait sans le basculer sur « $Branch »")
             }
             elseif ($current -ne $Branch) {
-                $repositoryState = "serait basculé de la branche $current vers $Branch puis mis à jour dans $repoRoot"
+                $repositoryState = "serait basculé de la branche « $current » vers « $Branch » puis mis à jour dans $repoRoot"
             }
         }
         Write-Host -Object "    Dépôt : $repositoryState ; la simulation utilise la copie actuelle"
     }
     else {
-        Write-Host -Object "    Dépôt : $RepoUrl (branche $Branch) serait cloné dans $Destination"
+        Write-Host -Object "    Dépôt : $RepoUrl (branche « $Branch ») serait cloné dans $Destination"
     }
     Write-Host -Object '    state\bootstrap.json : non écrit en simulation.'
 
