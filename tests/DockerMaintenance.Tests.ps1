@@ -49,6 +49,23 @@ Describe 'docker-maintenance.ps1 : journal borné' {
         Write-MaintenanceLog 'suite'
         @(Get-Content -LiteralPath $logPath -Encoding UTF8).Count | Should -Be 11
     }
+
+    It 'n''interrompt pas l''entretien quand le journal est verrouillé (<Case>)' -TestCases @(
+        @{ Case = 'ajout seul'; Lines = 1 }
+        @{ Case = 'troncature puis ajout'; Lines = 2000 }
+    ) {
+        Set-Content -LiteralPath $logPath -Value (1..$Lines | ForEach-Object { 'ligne {0:D4} {1}' -f $_, ('x' * 60) }) -Encoding UTF8
+        if ($Lines -gt 1) { (Get-Item -LiteralPath $logPath).Length | Should -BeGreaterThan $logMaxBytes }
+        $ErrorActionPreference = 'Stop'
+        $lock = [IO.File]::Open($logPath, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+        try {
+            { Write-MaintenanceLog 'pendant le verrou' } | Should -Not -Throw
+        }
+        finally {
+            $lock.Dispose()
+        }
+        Get-Content -LiteralPath $logPath -Raw -Encoding UTF8 | Should -Not -Match 'pendant le verrou'
+    }
 }
 
 Describe 'docker-maintenance.ps1 : compactage du disque virtuel' {
