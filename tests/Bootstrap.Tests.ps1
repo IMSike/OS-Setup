@@ -155,9 +155,13 @@ Describe 'bootstrap.ps1 : copie du dépôt et trace pour le nettoyage de fin' {
 
 Describe 'bootstrap.ps1 -WhatIf : simulation' {
     BeforeAll {
-        foreach ($name in 'Test-WhatIfArgument', 'Show-BootstrapSimulation', 'Test-Elevated') {
+        foreach ($name in 'Test-WhatIfArgument', 'Get-SimulationSetupArgument', 'Show-BootstrapSimulation', 'Test-Elevated') {
             $definition = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }, $true)
             . ([scriptblock]::Create($definition.Extent.Text))
+        }
+        foreach ($variable in 'WhatIfArgumentPattern', 'WhatIfValuePattern') {
+            $assignment = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and "$($node.Left)" -eq "`$script:$variable" }, $true)
+            . ([scriptblock]::Create($assignment.Extent.Text))
         }
         $script:simulationAst = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Show-BootstrapSimulation' }, $true)
         $script:simulationParameters = @{ RepoUrl = 'https://example.invalid/repo.git'; Branch = 'main'; Destination = 'C:\OSSetupTest\OS-Setup' }
@@ -177,18 +181,56 @@ Describe 'bootstrap.ps1 -WhatIf : simulation' {
 
     It 'reconnaît -WhatIf parmi les arguments du setup' {
         Test-WhatIfArgument -Argument '-AnswerFile', 'x.json', '-WhatIf' | Should -BeTrue
-        Test-WhatIfArgument -Argument '-WhatIf:$true' | Should -BeTrue
-        Test-WhatIfArgument -Argument '-WhatIf:$false' | Should -BeFalse
         Test-WhatIfArgument -Argument 'WhatIf' | Should -BeFalse
         Test-WhatIfArgument -Argument $null | Should -BeFalse
     }
 
-    It 'reconnaît aussi <_>, que setup.ps1 accepte comme -WhatIf' -ForEach @('-What', '-wh', '-WHATI', '-wi', '-wi:$true') {
+    It 'reconnaît aussi <_>, que setup.ps1 accepte comme -WhatIf' -ForEach @('-What', '-wh', '-WHATI', '-wi', '-WhatIf:', '-wi:', '-WhatIf:$true') {
         Test-WhatIfArgument -Argument '-Profiles', 'base', $_ | Should -BeTrue
     }
 
-    It 'ne prend pas pour -WhatIf <_>' -ForEach @('-W', '-wa', '-WarningAction', '-What:$false', '-WhatIfX') {
+    It 'reconnaît -WhatIf introduit par le tiret typographique U+<_> (texte copié depuis une page web)' -ForEach @('2013', '2014', '2015') {
+        $dash = [string][char][Convert]::ToInt32($_, 16)
+        Test-WhatIfArgument -Argument "${dash}WhatIf" | Should -BeTrue
+        Test-WhatIfArgument -Argument "${dash}wi" | Should -BeTrue
+        Get-SimulationSetupArgument -Argument '-Yes', "${dash}WhatIf" | Should -Be @('-Yes', '-WhatIf')
+    }
+
+    It 'dans le doute, simule aussi avec une valeur fausse (<_>)' -ForEach @('-WhatIf:$false', '-What:$false', '-wi:0') {
+        Test-WhatIfArgument -Argument $_ | Should -BeTrue
+    }
+
+    It 'ne prend pas pour -WhatIf <_>' -ForEach @('-W', '-wa', '-WarningAction', '-WhatIfX', 'x-WhatIf') {
         Test-WhatIfArgument -Argument $_ | Should -BeFalse
+    }
+
+    It 'transmet à setup.ps1 un seul -WhatIf, sans la valeur reçue séparément' {
+        Get-SimulationSetupArgument -Argument '-WhatIf', '$false', '-Yes' | Should -Be @('-Yes', '-WhatIf')
+        Get-SimulationSetupArgument -Argument '-WhatIf:', 'True', '-Profiles', 'base' | Should -Be @('-Profiles', 'base', '-WhatIf')
+        Get-SimulationSetupArgument -Argument '-wi', '0' | Should -Be @('-WhatIf')
+        # Valeur collée : l'argument suivant n'est pas une valeur de -WhatIf.
+        Get-SimulationSetupArgument -Argument '-WhatIf:$true', '1' | Should -Be @('1', '-WhatIf')
+        Get-SimulationSetupArgument -Argument '-AnswerFile', 'true.json', '-WhatIf' | Should -Be @('-AnswerFile', 'true.json', '-WhatIf')
+        Get-SimulationSetupArgument -Argument $null | Should -Be @('-WhatIf')
+    }
+
+    It 'reconnaît -WhatIf avec une valeur tel que le reçoit le bootstrap lancé par <_> -File' -ForEach @('powershell.exe', 'pwsh.exe') {
+        # Script témoin déclaré comme le bootstrap : ses arguments restants, tels que PowerShell les lui remet.
+        $probe = Join-Path -Path $TestDrive -ChildPath 'remaining.ps1'
+        Set-Content -LiteralPath $probe -Encoding utf8 -Value @(
+            '[CmdletBinding(PositionalBinding = $false)]'
+            'param([string]$Branch, [Parameter(ValueFromRemainingArguments)][string[]]$SetupArguments)'
+            '$SetupArguments | ConvertTo-Json -Compress'
+        )
+        # Get-Command est remplacé dans ce bloc : chemins connus.
+        $exe = if ($_ -eq 'pwsh.exe') { (Get-Process -Id $PID).Path } else { "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" }
+        foreach ($form in '-WhatIf:$false', '-WhatIf:$true', '-wi:0') {
+            $received = @(& $exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $probe '-Yes' $form | ConvertFrom-Json)
+            # Découpé en deux arguments : nom, puis valeur.
+            $received.Count | Should -Be 3 -Because $form
+            Test-WhatIfArgument -Argument $received | Should -BeTrue -Because $form
+            Get-SimulationSetupArgument -Argument $received | Should -Be @('-Yes', '-WhatIf') -Because $form
+        }
     }
 
     It 'reconnaît exactement les formes que PowerShell lie au paramètre WhatIf d''un script' {

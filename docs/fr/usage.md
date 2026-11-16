@@ -29,7 +29,7 @@ Le compte utilisé doit être administrateur : depuis un compte standard, le set
 | `-Branch <nom>` | Branche à cloner (par défaut : `main`). Une copie déjà présente dans `-Destination` n'y est basculée que si elle n'a aucune modification locale, sinon le bootstrap s'arrête sans rien changer ; sans `-Branch`, cette copie reste sur sa branche courante. |
 | `-Destination <dossier>` | Dossier de la copie du dépôt (par défaut : `%USERPROFILE%\OS-Setup`) : clonée là, ou mise à jour (`git pull --ff-only`) si une copie s'y trouve déjà. |
 | `-NoPause` | Ne pas attendre `Entrée` avant de fermer la fenêtre administrateur ouverte par le bootstrap. |
-| autres arguments | Transmis à `setup.ps1` (ex. `-AnswerFile <fichier>`, `-Profiles base,dev`, `-Yes`). `-WhatIf` est reconnu sous toutes les formes qu'accepte le setup (`-WhatIf:$true`, un préfixe non ambigu comme `-WhatI`, l'alias `-wi`, quelle que soit la casse) et fait du bootstrap une simulation. |
+| autres arguments | Transmis à `setup.ps1` (ex. `-AnswerFile <fichier>`, `-Profiles base,dev`, `-Yes`). `-WhatIf` est reconnu sous toutes les formes qu'accepte PowerShell (un préfixe non ambigu comme `-WhatI`, l'alias `-wi`, quelle que soit la casse, un tiret typographique `–` ou `—` copié depuis une page web) et fait du bootstrap une simulation ; `setup.ps1` reçoit alors un simple `-WhatIf`. Dans le doute, c'est une simulation : `-WhatIf:$false` aussi. |
 
 Quand le bootstrap est lancé depuis une copie du dépôt (un `setup.ps1` à côté de lui), cette copie est utilisée telle quelle : `-RepoUrl`, `-Branch` et `-Destination` sont sans effet (un message le signale pour `-Branch`).
 

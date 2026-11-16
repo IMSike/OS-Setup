@@ -320,11 +320,20 @@ function Save-BootstrapInfo {
         ConvertTo-Json | Set-Content -LiteralPath $path -Encoding UTF8
 }
 
+# Argument transmis à setup.ps1 qui désigne -WhatIf, sous toutes les formes que PowerShell lie à ce paramètre :
+# préfixe non ambigu (-Wh … -WhatIf ; -W seul est ambigu avec -WarningAction) ou alias -wi, sans tenir compte de la
+# casse, introduit par un tiret ou par un tiret typographique (U+2013, U+2014, U+2015 : texte copié depuis une page
+# web), avec ou sans valeur collée (« -WhatIf: » d'un appel depuis une session PowerShell).
+$script:WhatIfArgumentPattern = '^[-\u2013\u2014\u2015](wh|wha|what|whati|whatif|wi)(:.*)?$'
+# Valeur d'un -WhatIf:<valeur> transmise comme argument séparé : « powershell -File » et « pwsh -File » découpent
+# « -WhatIf:$false » en « -WhatIf » puis « $false » (ou « False ») ; une session PowerShell transmet « -WhatIf: » puis
+# la valeur.
+$script:WhatIfValuePattern = '^(\$?(true|false)|\d+)$'
+
 function Test-WhatIfArgument {
-    # Vrai si -WhatIf (ou -WhatIf:$true) fait partie des arguments transmis à setup.ps1, sous toutes les formes que
-    # PowerShell y reconnaît : préfixe non ambigu (-Wh … -WhatI ; -W seul est ambigu avec -WarningAction) et alias -wi,
-    # sans tenir compte de la casse. Sinon le bootstrap ferait élévation et installations réelles, puis setup.ps1
-    # accepterait l'argument comme -WhatIf.
+    # Vrai si -WhatIf fait partie des arguments transmis à setup.ps1 (voir WhatIfArgumentPattern). Sinon le bootstrap
+    # ferait élévation et installations réelles, puis setup.ps1 accepterait l'argument comme -WhatIf. Une valeur,
+    # même fausse (-WhatIf:$false), compte comme une simulation : dans le doute, rien n'est modifié.
     [CmdletBinding()]
     [OutputType([bool])]
     param(
@@ -333,9 +342,36 @@ function Test-WhatIfArgument {
         [string[]]$Argument
     )
     foreach ($value in @($Argument)) {
-        if ($value -match '^-(wh|wha|what|whati|whatif|wi)(:\$?true)?$') { return $true }
+        if ($value -match $script:WhatIfArgumentPattern) { return $true }
     }
     $false
+}
+
+function Get-SimulationSetupArgument {
+    # Arguments de setup.ps1 pour la simulation : chaque forme de -WhatIf (et sa valeur transmise séparément) est
+    # remplacée par un seul -WhatIf, que setup.ps1 reçoit toujours, sous une forme qu'il lie à coup sûr.
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [AllowNull()]
+        [AllowEmptyCollection()]
+        [string[]]$Argument
+    )
+    $values = @($Argument | Where-Object { $null -ne $_ })
+    $result = @()
+    for ($index = 0; $index -lt $values.Count; $index++) {
+        $value = $values[$index]
+        if ($value -match $script:WhatIfArgumentPattern) {
+            # Sans valeur collée (« -WhatIf » ou « -WhatIf: ») : la valeur éventuelle est l'argument suivant.
+            if ($value -notmatch ':.' -and $index + 1 -lt $values.Count -and $values[$index + 1] -match $script:WhatIfValuePattern) {
+                $index++
+            }
+            continue
+        }
+        $result += $value
+    }
+    $result
+    '-WhatIf'
 }
 
 function Show-BootstrapSimulation {
@@ -409,7 +445,8 @@ if (Test-WhatIfArgument -Argument $SetupArguments) {
     Write-Host -Object ''
     Write-Step 'Simulation de setup.ps1 (PowerShell 7)'
     # Sortie non capturée, comme hors simulation (accents préservés).
-    & $simulation.Pwsh -NoProfile -ExecutionPolicy Bypass -File $simulation.SetupScript @SetupArguments
+    $simulationArguments = @(Get-SimulationSetupArgument -Argument $SetupArguments)
+    & $simulation.Pwsh -NoProfile -ExecutionPolicy Bypass -File $simulation.SetupScript @simulationArguments
     exit $LASTEXITCODE
 }
 
