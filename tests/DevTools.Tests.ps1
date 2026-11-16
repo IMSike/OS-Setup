@@ -351,3 +351,193 @@ Describe 'Réglages de herdr' {
         ($explorer[0..($keys - 1)] -join "`n").Trim() | Should -Be (($base -join "`n").Trim())
     }
 }
+
+Describe 'Providers d''outils : outil présent' {
+    BeforeAll {
+        # Pester ne simule qu'une commande existante, et pas un script npm.ps1 appelé « npm » : des fonctions vides
+        # masquent les outils, présents ou non (ex. runner CI).
+        $script:toolStubs = @('gh', 'npm', 'fnm' | Where-Object { -not (Test-Path -Path "Function:\$_") })
+        foreach ($stub in $script:toolStubs) { New-Item -Path "Function:\global:$stub" -Value {} | Out-Null }
+    }
+
+    AfterAll {
+        foreach ($stub in $script:toolStubs) { Remove-Item -Path "Function:\$stub" -ErrorAction SilentlyContinue }
+    }
+
+    BeforeEach {
+        Mock -ModuleName OSSetup Get-Command { [pscustomobject]@{ Name = "$Name.exe" } } -ParameterFilter { $Name -in 'gh', 'npm', 'fnm' -and $CommandType -eq 'Application' }
+    }
+
+    It 'gh-extension reconnaît le dépôt exact dans gh extension list, pas un dépôt au nom plus long' {
+        Mock -ModuleName OSSetup gh {
+            $global:LASTEXITCODE = 0
+            "gh dash`tdlvhdr/gh-dash`tv4.7.0"
+            "gh copilot-x`tgithub/gh-copilot-x`tv1.0.0"
+        }
+        $provider = InModuleScope OSSetup { Get-OSSetupProvider -Name 'gh-extension' }
+        & $provider.Test @{ repo = 'dlvhdr/gh-dash' } @{} | Should -BeTrue
+        & $provider.Test @{ repo = 'github/gh-copilot' } @{} | Should -BeFalse
+        & $provider.Test @{ repo = 'gh-dash' } @{} | Should -BeFalse
+    }
+
+    It 'npm-global est conforme selon le code de sortie de npm ls pour ce paquet' {
+        Mock -ModuleName OSSetup npm { $global:LASTEXITCODE = if ($args -contains 'typescript') { 0 } else { 1 } }
+        $provider = InModuleScope OSSetup { Get-OSSetupProvider -Name 'npm-global' }
+        & $provider.Test @{ package = 'typescript' } @{} | Should -BeTrue
+        & $provider.Test @{ package = 'absent' } @{} | Should -BeFalse
+        Should -Invoke -ModuleName OSSetup npm -Times 1 -Exactly -ParameterFilter { ($args -join ' ') -eq 'ls --global typescript --depth=0' }
+    }
+
+    It 'fnm-node est conforme seulement avec une version par défaut, et installe la LTS avant d''en faire la version par défaut' {
+        Mock -ModuleName OSSetup fnm { $global:LASTEXITCODE = 1 }
+        $provider = InModuleScope OSSetup { Get-OSSetupProvider -Name 'fnm-node' }
+        & $provider.Test @{} @{} | Should -BeFalse
+        Mock -ModuleName OSSetup fnm { $global:LASTEXITCODE = 0 }
+        & $provider.Test @{} @{} | Should -BeTrue
+
+        $global:OSSetupTestCalls = [System.Collections.Generic.List[string]]::new()
+        try {
+            Mock -ModuleName OSSetup Invoke-OSSetupNativeCommand { $global:OSSetupTestCalls.Add("$FilePath $($ArgumentList -join ' ')") }
+            & $provider.Invoke @{} @{}
+            $global:OSSetupTestCalls | Should -Be @('fnm install --lts', 'fnm default lts-latest')
+        }
+        finally {
+            Remove-Variable -Name OSSetupTestCalls -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+Describe 'Provider playwright-cli' {
+    BeforeEach {
+        $saved = @{ USERPROFILE = $env:USERPROFILE; LOCALAPPDATA = $env:LOCALAPPDATA; PLAYWRIGHT_BROWSERS_PATH = $env:PLAYWRIGHT_BROWSERS_PATH }
+        $root = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid())
+        $env:USERPROFILE = Join-Path -Path $root -ChildPath 'profil'
+        $env:LOCALAPPDATA = Join-Path -Path $root -ChildPath 'local'
+        $env:PLAYWRIGHT_BROWSERS_PATH = $null
+        New-Item -Path $env:USERPROFILE -ItemType Directory -Force | Out-Null
+        $provider = InModuleScope OSSetup { Get-OSSetupProvider -Name 'playwright-cli' }
+    }
+
+    AfterEach {
+        foreach ($name in $saved.Keys) { Set-Item -Path "Env:\$name" -Value $saved[$name] }
+    }
+
+    It 'reconnaît le dossier du navigateur, pas celui d''une variante headless ni sans révision' {
+        $browsers = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'ms-playwright'
+        & $provider.Test @{ browser = 'chromium' } @{} | Should -BeFalse
+        New-Item -Path (Join-Path -Path $browsers -ChildPath 'chromium_headless_shell-1247') -ItemType Directory -Force | Out-Null
+        New-Item -Path (Join-Path -Path $browsers -ChildPath 'chromium-tip') -ItemType Directory -Force | Out-Null
+        & $provider.Test @{ browser = 'chromium' } @{} | Should -BeFalse
+        New-Item -Path (Join-Path -Path $browsers -ChildPath 'chromium-1247') -ItemType Directory -Force | Out-Null
+        & $provider.Test @{ browser = 'chromium' } @{} | Should -BeTrue
+    }
+
+    It 'cherche les navigateurs dans PLAYWRIGHT_BROWSERS_PATH quand elle est définie' {
+        $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid())
+        New-Item -Path (Join-Path -Path $env:LOCALAPPDATA -ChildPath 'ms-playwright\chromium-1247') -ItemType Directory -Force | Out-Null
+        & $provider.Test @{ browser = 'chromium' } @{} | Should -BeFalse
+        New-Item -Path (Join-Path -Path $env:PLAYWRIGHT_BROWSERS_PATH -ChildPath 'chromium-1247') -ItemType Directory -Force | Out-Null
+        & $provider.Test @{ browser = 'chromium' } @{} | Should -BeTrue
+    }
+
+    It 'vérifie les skills dans le dossier de l''agent demandé' {
+        & $provider.Test @{ skills = 'claude' } @{} | Should -BeFalse
+        $skill = Join-Path -Path $env:USERPROFILE -ChildPath '.agents\skills\playwright-cli\SKILL.md'
+        New-Item -Path (Split-Path -Path $skill -Parent) -ItemType Directory -Force | Out-Null
+        Set-Content -LiteralPath $skill -Value ''
+        & $provider.Test @{ skills = 'claude' } @{} | Should -BeFalse
+        & $provider.Test @{ skills = 'agents' } @{} | Should -BeTrue
+    }
+
+    It 'installe depuis le profil de l''utilisateur, puis revient au dossier courant, même en cas d''échec' {
+        $here = (Get-Location).Path
+        Mock -ModuleName OSSetup Invoke-OSSetupNativeCommand { $global:OSSetupTestLocation = (Get-Location).Path; throw 'échec simulé' }
+        try {
+            { & $provider.Invoke @{ skills = 'claude' } @{} } | Should -Throw '*échec simulé*'
+            $global:OSSetupTestLocation | Should -Be $env:USERPROFILE
+            (Get-Location).Path | Should -Be $here
+            Should -Invoke -ModuleName OSSetup Invoke-OSSetupNativeCommand -Times 1 -Exactly -ParameterFilter {
+                $FilePath -eq 'playwright-cli' -and ($ArgumentList -join ' ') -eq 'install --skills=claude --global'
+            }
+        }
+        finally {
+            Remove-Variable -Name OSSetupTestLocation -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+Describe 'Fichiers de configuration du profil : .wslconfig et daemon.json de Docker' {
+    BeforeEach {
+        $savedProfile = $env:USERPROFILE
+        $env:USERPROFILE = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid())
+        New-Item -Path $env:USERPROFILE -ItemType Directory -Force | Out-Null
+        $context = @{ BackupRoot = Join-Path -Path $TestDrive -ChildPath "backups-$([guid]::NewGuid())" }
+        Mock -ModuleName OSSetup Write-OSSetupLog
+    }
+
+    AfterEach {
+        $env:USERPROFILE = $savedProfile
+    }
+
+    It 'wsl-config écrit la clé dans .wslconfig, en gardant le reste, après sauvegarde' {
+        $path = Join-Path -Path $env:USERPROFILE -ChildPath '.wslconfig'
+        $original = "# perso`r`n[wsl2]`r`nswap=0`r`n"
+        [IO.File]::WriteAllText($path, $original)
+        $action = @{ section = 'wsl2'; key = 'memory'; value = '8GB' }
+        $provider = InModuleScope OSSetup { Get-OSSetupProvider -Name 'wsl-config' }
+        & $provider.Test $action $context | Should -BeFalse
+        (& $provider.Read $action $context)['exists'] | Should -BeFalse
+        & $provider.Invoke $action $context
+        & $provider.Test $action $context | Should -BeTrue
+        [IO.File]::ReadAllText($path) | Should -BeLike '# perso*swap=0*memory=8GB*'
+        $backup = @(Get-ChildItem -Path $context.BackupRoot -Recurse -File)
+        $backup.Count | Should -Be 1
+        [IO.File]::ReadAllText($backup[0].FullName) | Should -Be $original
+    }
+
+    It 'wsl-config crée .wslconfig sans BOM quand il n''existe pas' {
+        $provider = InModuleScope OSSetup { Get-OSSetupProvider -Name 'wsl-config' }
+        & $provider.Invoke @{ section = 'wsl2'; key = 'memory'; value = '8GB' } $context
+        $bytes = [IO.File]::ReadAllBytes((Join-Path -Path $env:USERPROFILE -ChildPath '.wslconfig'))
+        $bytes[0] | Should -Be ([byte][char]'[')
+    }
+
+    It 'wsl-config n''écrit rien quand la machine est trop petite pour un plafond' {
+        Mock -ModuleName OSSetup Get-OSSetupPhysicalMemoryGB { 4 }
+        $action = @{ section = 'wsl2'; key = 'memory'; memoryPercent = 40 }
+        $provider = InModuleScope OSSetup { Get-OSSetupProvider -Name 'wsl-config' }
+        & $provider.Test $action $context | Should -BeTrue
+        & $provider.Invoke $action $context
+        Join-Path -Path $env:USERPROFILE -ChildPath '.wslconfig' | Should -Not -Exist
+    }
+
+    It 'docker-build-cache fusionne le plafond dans daemon.json en gardant les autres réglages, après sauvegarde' {
+        Mock -ModuleName OSSetup Get-OSSetupSystemDisk { [pscustomobject]@{ Drive = 'C:'; SizeGB = 119; FreeGB = 50 } }
+        $path = Join-Path -Path $env:USERPROFILE -ChildPath '.docker\daemon.json'
+        New-Item -Path (Split-Path -Path $path -Parent) -ItemType Directory -Force | Out-Null
+        $original = '{ "experimental": true, "builder": { "gc": { "enabled": false, "policy": [] } } }'
+        Set-Content -LiteralPath $path -Value $original -NoNewline
+        $action = @{ maxGB = 30; diskPercent = 10 }
+        $provider = InModuleScope OSSetup { Get-OSSetupProvider -Name 'docker-build-cache' }
+        & $provider.Test $action $context | Should -BeFalse
+        & $provider.Invoke $action $context
+        & $provider.Test $action $context | Should -BeTrue
+        $json = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json -AsHashtable
+        $json['experimental'] | Should -BeTrue
+        $json['builder']['gc']['enabled'] | Should -BeTrue
+        $json['builder']['gc']['defaultKeepStorage'] | Should -Be '11GB'
+        $json['builder']['gc'].ContainsKey('policy') | Should -BeTrue
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Level -eq 'Warning' -and $Message -like '*11 Go*' }
+        $backup = @(Get-ChildItem -Path $context.BackupRoot -Recurse -File)
+        Get-Content -LiteralPath $backup[0].FullName -Raw | Should -Be $original
+    }
+
+    It 'docker-build-cache crée daemon.json et son dossier au besoin' {
+        Mock -ModuleName OSSetup Get-OSSetupSystemDisk { [pscustomobject]@{ Drive = 'C:'; SizeGB = 476; FreeGB = 200 } }
+        $provider = InModuleScope OSSetup { Get-OSSetupProvider -Name 'docker-build-cache' }
+        (& $provider.Read @{ maxGB = 30; diskPercent = 10 } $context)['exists'] | Should -BeFalse
+        & $provider.Invoke @{ maxGB = 30; diskPercent = 10 } $context
+        $json = Get-Content -LiteralPath (Join-Path -Path $env:USERPROFILE -ChildPath '.docker\daemon.json') -Raw | ConvertFrom-Json -AsHashtable
+        $json['builder']['gc']['defaultKeepStorage'] | Should -Be '30GB'
+    }
+}
