@@ -62,6 +62,23 @@ Describe 'Informations personnelles' {
         $results.Status | Should -Be @('skipped', 'skipped')
         Should -Invoke -ModuleName OSSetup -CommandName git -ParameterFilter { $args -notcontains '--get' } -Times 0 -Exactly
     }
+
+    It 'ignore aussi une action qui ne l''utilise que dans un tableau ou un objet' {
+        $data = New-TestData
+        $data.Items['identity']['actions'] = @(
+            [ordered]@{ provider = 'registry'; path = 'HKCU:\Software\OSSetupTest'; name = 'Names'; type = 'MultiString'; value = @('x', '{{UserName}}') }
+            [ordered]@{ provider = 'file'; target = 'C:\x.json'; mode = 'merge-json'; source = 'x.json'; options = [ordered]@{ user = [ordered]@{ name = '{{UserName}}' } } }
+        )
+        $answers = @{ profiles = @('dev') }
+        $context = @{
+            Variables        = Resolve-OSSetupVariable -Data $data -Answers $answers
+            MissingVariables = Get-OSSetupMissingVariable -Data $data -Answers $answers
+        }
+        $plan = @(Get-OSSetupPlan -Data $data -ItemId 'identity' -Context $context)
+        $plan.Status | Should -Be @('skipped', 'skipped')
+        $plan[0].Detail | Should -Match 'Nom pour Git'
+        $plan[1].Detail | Should -Match 'Nom pour Git'
+    }
 }
 
 Describe 'Provider git-config' {

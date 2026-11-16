@@ -220,6 +220,29 @@ Describe 'Save-OSSetupAnswerFile' {
         $answers['choices'].Count | Should -Be 0
         $answers['variables'].Count | Should -Be 0
     }
+
+    It 'restitue profils, choix et informations personnelles (accents compris) à la relecture' {
+        $path = Join-Path -Path $TestDrive -ChildPath 'complet.json'
+        $root = Join-Path -Path $PSScriptRoot -ChildPath '..'
+        $saved = @{
+            profiles  = @('base', 'dev')
+            choices   = [ordered]@{ browsers = @('firefox'); 'claude-options' = @() }
+            variables = [ordered]@{ GitUserName = 'Hélène Dupré'; DevRoot = 'D:\dev' }
+        }
+        Save-OSSetupAnswerFile -Answers $saved -Path $path
+        $answers = Read-OSSetupAnswerFile -Path $path -Root $root
+        $answers['profiles'] | Should -Be @('base', 'dev')
+        , $answers['choices']['browsers'] | Should -Be @('firefox')
+        $answers['choices']['claude-options'].Count | Should -Be 0
+        $answers['variables']['GitUserName'] | Should -BeExactly 'Hélène Dupré'
+        $answers['variables']['DevRoot'] | Should -Be 'D:\dev'
+    }
+
+    It 'refuse un fichier non conforme au schéma, en citant l''écart' {
+        $path = Join-Path -Path $TestDrive -ChildPath 'invalide.json'
+        Set-Content -LiteralPath $path -Value '{ "profiles": ["base"], "variables": { "GitUserName": 42 } }'
+        { Read-OSSetupAnswerFile -Path $path -Root (Join-Path -Path $PSScriptRoot -ChildPath '..') } | Should -Throw '*Fichier de réponses invalide*variables*'
+    }
 }
 
 Describe 'Read-OSSetupAnswer' {
