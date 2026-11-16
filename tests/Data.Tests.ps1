@@ -304,7 +304,8 @@ Describe 'Import-OSSetupData' {
 Describe 'Save-OSSetupOriginalValue : chemin à crochets' {
     It 'ajoute les valeurs d''origine dans une sauvegarde dont le chemin contient des crochets' {
         $backupRoot = Join-Path -Path $TestDrive -ChildPath 'brackets\sauvegardes [1]\run'
-        $provider = @{ Read = { param($Action, $Context) [ordered]@{ value = $Action['v'] } } }
+        # Read reçoit aussi le contexte (ignoré ici).
+        $provider = @{ Read = { param($Action) [ordered]@{ value = $Action['v'] } } }
         foreach ($value in 1, 2) {
             $step = [pscustomobject]@{ ItemId = 'x'; Description = "pas $value"; Action = @{ v = $value } }
             InModuleScope OSSetup -Parameters @{ BackupRoot = $backupRoot; Step = $step; Provider = $provider } {
