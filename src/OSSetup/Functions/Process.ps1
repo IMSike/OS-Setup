@@ -50,8 +50,10 @@
     finally {
         if ($Utf8) { [Console]::OutputEncoding = $previousEncoding }
     }
-    foreach ($line in $(if (-not $NoLog) { $output })) {
-        if ("$line".Trim() -and -not ($LogFilter -and "$line" -match $LogFilter)) { Write-OSSetupLog -Level Detail -Message "  $line" }
+    if (-not $NoLog) {
+        foreach ($line in $output) {
+            if ("$line".Trim() -and -not ($LogFilter -and "$line" -match $LogFilter)) { Write-OSSetupLog -Level Detail -Message "  $line" }
+        }
     }
     if ($exitCode -ne 0 -and -not $NoThrow) {
         if (-not $Label) { $Label = (@($FilePath) + @($ArgumentList | Select-Object -First 1)) -join ' ' }
