@@ -76,7 +76,7 @@ function Get-OSSetupInstalledAppxPackage {
     $key = if ($AllUsers) { 'AppxPackages:AllUsers' } else { 'AppxPackages:User' }
     if (-not $script:StateCache.ContainsKey($key)) {
         Import-OSSetupAppxModule
-        $script:StateCache[$key] = @(@(if ($AllUsers) { Get-AppxPackage -AllUsers } else { Get-AppxPackage }) |
+        $script:StateCache[$key] = @(@(if ($AllUsers) { Get-AppxPackage -AllUsers -ErrorAction Stop } else { Get-AppxPackage -ErrorAction Stop }) |
                 ForEach-Object { [pscustomobject]@{ Name = [string]$_.Name; PackageFullName = [string]$_.PackageFullName } })
     }
     $script:StateCache[$key]
@@ -92,7 +92,7 @@ function Get-OSSetupProvisionedPackage {
     param()
     if (-not $script:StateCache.ContainsKey('ProvisionedPackages')) {
         Import-OSSetupAppxModule
-        $script:StateCache['ProvisionedPackages'] = @(Get-AppxProvisionedPackage -Online |
+        $script:StateCache['ProvisionedPackages'] = @(Get-AppxProvisionedPackage -Online -ErrorAction Stop |
                 ForEach-Object { [pscustomobject]@{ DisplayName = [string]$_.DisplayName; PackageName = [string]$_.PackageName } })
     }
     $script:StateCache['ProvisionedPackages']
@@ -107,7 +107,7 @@ function Get-OSSetupWindowsCapabilityList {
     [CmdletBinding()]
     param()
     if (-not $script:StateCache.ContainsKey('WindowsCapabilities')) {
-        $script:StateCache['WindowsCapabilities'] = @(Get-WindowsCapability -Online |
+        $script:StateCache['WindowsCapabilities'] = @(Get-WindowsCapability -Online -ErrorAction Stop |
                 ForEach-Object { [pscustomobject]@{ Name = [string]$_.Name; State = [string]$_.State } })
     }
     $script:StateCache['WindowsCapabilities']

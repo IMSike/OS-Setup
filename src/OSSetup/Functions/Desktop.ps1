@@ -233,16 +233,18 @@ function Start-OSSetupUnelevatedExplorer {
     # (HKCU\Environment) sans droits administrateur, et schtasks.exe est lancé avec ceux du setup.
     $systemDirectory = [Environment]::SystemDirectory
     $explorer = Join-Path -Path (Split-Path -Path $systemDirectory -Parent) -ChildPath 'explorer.exe'
-    $action = New-ScheduledTaskAction -Execute $explorer
-    $principal = New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited
-    Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -Force | Out-Null
+    # Cmdlets CDXML (module ScheduledTasks) : elles n'héritent pas de $ErrorActionPreference du module, d'où
+    # -ErrorAction Stop (sinon l'erreur reste non bloquante et sa cause se perd).
+    $action = New-ScheduledTaskAction -Execute $explorer -ErrorAction Stop
+    $principal = New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited -ErrorAction Stop
+    Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -Force -ErrorAction Stop | Out-Null
     try {
         # Un échec ici n'est pas fatal en soi : l'appelant vérifie ensuite que l'Explorateur tourne.
         Invoke-OSSetupNativeCommand -FilePath (Join-Path -Path $systemDirectory -ChildPath 'schtasks.exe') -ArgumentList '/run', '/tn', $taskName -NoThrow
         Start-Sleep -Seconds 2
     }
     finally {
-        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction Stop
     }
 }
 

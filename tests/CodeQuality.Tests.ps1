@@ -70,6 +70,27 @@ Describe 'Compatibilité Windows PowerShell 5.1' {
     }
 }
 
+Describe 'Cmdlets qui n''héritent pas de la préférence d''erreur du module' {
+    It 'chaque appel aux cmdlets ScheduledTasks (CDXML) et Appx (relayées par Windows PowerShell) précise -ErrorAction' {
+        # Sans -ErrorAction, leur erreur reste non bloquante malgré $ErrorActionPreference = 'Stop' dans le module.
+        $names = @(Get-Command -Module ScheduledTasks -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }) +
+            @('Add-AppxPackage', 'Get-AppxPackage', 'Get-AppxProvisionedPackage', 'Remove-AppxPackage', 'Remove-AppxProvisionedPackage')
+        $files = @(Get-ChildItem -LiteralPath (Join-Path -Path $repoRoot -ChildPath 'src') -Filter '*.ps1' -Recurse) +
+            @(Get-Item -LiteralPath (Join-Path -Path $repoRoot -ChildPath 'setup.ps1'))
+        $missing = foreach ($file in $files) {
+            $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$null)
+            foreach ($command in $ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.CommandAst] }, $true)) {
+                if ($command.GetCommandName() -notin $names) { continue }
+                $parameters = @($command.CommandElements | Where-Object { $_ -is [System.Management.Automation.Language.CommandParameterAst] } |
+                        ForEach-Object { $_.ParameterName })
+                if ('ErrorAction' -notin $parameters) { '{0}:{1} {2}' -f $file.Name, $command.Extent.StartLineNumber, $command.GetCommandName() }
+            }
+        }
+        $names.Count | Should -BeGreaterThan 5
+        $missing | Should -BeNullOrEmpty
+    }
+}
+
 Describe 'Manifeste du module' {
     It 'exporte toutes les fonctions du module, et seulement elles' {
         $moduleRoot = Join-Path -Path $repoRoot -ChildPath 'src\OSSetup'

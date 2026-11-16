@@ -229,14 +229,17 @@ function Register-OSSetupResumeTask {
     $user = [Security.Principal.WindowsIdentity]::GetCurrent().Name
     $powershell = Get-OSSetupWindowsPowerShellPath
     $launcher = Join-Path -Path $ResumeRoot -ChildPath 'resume.ps1'
+    # Cmdlets CDXML (module ScheduledTasks) : elles n'héritent pas de $ErrorActionPreference du module, d'où
+    # -ErrorAction Stop. Un échec doit lever : setup.ps1 retire alors la copie et l'état au lieu d'attendre une reprise
+    # sans tâche.
     $action = New-ScheduledTaskAction -Execute $powershell -WorkingDirectory (Split-Path -Path $ResumeRoot -Parent) `
-        -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$launcher`""
-    $trigger = New-ScheduledTaskTrigger -AtLogOn -User $user
-    $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Highest
-    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)
+        -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$launcher`"" -ErrorAction Stop
+    $trigger = New-ScheduledTaskTrigger -AtLogOn -User $user -ErrorAction Stop
+    $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Highest -ErrorAction Stop
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -ErrorAction Stop
     if ($PSCmdlet.ShouldProcess($script:ResumeTaskName, 'Créer la tâche de reprise')) {
         Register-ScheduledTask -TaskName $script:ResumeTaskName -Action $action -Trigger $trigger -Principal $principal `
-            -Settings $settings -Description 'Reprise d''OS-Setup après redémarrage (supprimée à la fin).' -Force | Out-Null
+            -Settings $settings -Description 'Reprise d''OS-Setup après redémarrage (supprimée à la fin).' -Force -ErrorAction Stop | Out-Null
     }
 }
 
@@ -270,7 +273,15 @@ function Unregister-OSSetupResumeTask {
     param()
     $task = Get-ScheduledTask -TaskName $script:ResumeTaskName -ErrorAction SilentlyContinue
     if ($task -and $PSCmdlet.ShouldProcess($script:ResumeTaskName, 'Supprimer la tâche de reprise')) {
-        Unregister-ScheduledTask -TaskName $script:ResumeTaskName -Confirm:$false
+        # Appelée en fin d'exécution et quand une reprise est abandonnée : un échec est signalé sans interrompre la
+        # suite (état, nettoyage). -ErrorAction Stop : cmdlet CDXML, qui n'hérite pas de la préférence du module.
+        try {
+            Unregister-ScheduledTask -TaskName $script:ResumeTaskName -Confirm:$false -ErrorAction Stop
+        }
+        catch {
+            Write-OSSetupLog -Level Warning -Message ("Tâche de reprise « $($script:ResumeTaskName) » non supprimée : " +
+                "$($_.Exception.Message) Supprimez-la dans le Planificateur de tâches.")
+        }
     }
 }
 

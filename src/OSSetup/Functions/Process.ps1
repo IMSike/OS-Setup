@@ -187,14 +187,16 @@ function Invoke-OSSetupUnelevatedCommand {
         [System.IO.File]::WriteAllText($commandScript, "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8`r`n$Command`r`n", $utf8Bom)
         [System.IO.File]::WriteAllText($wrapper, $wrapperText + "`r`n", $utf8Bom)
         $user = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+        # Cmdlets CDXML (module ScheduledTasks) : elles n'héritent pas de $ErrorActionPreference du module, d'où
+        # -ErrorAction Stop (sinon l'erreur reste non bloquante et sa cause se perd).
         $action = New-ScheduledTaskAction -Execute $powershell -Argument (Get-OSSetupLogonTaskArgument -Script $wrapper) `
-            -WorkingDirectory ([Environment]::GetFolderPath('UserProfile'))
-        $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
+            -WorkingDirectory ([Environment]::GetFolderPath('UserProfile')) -ErrorAction Stop
+        $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited -ErrorAction Stop
         $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
-            -ExecutionTimeLimit ([TimeSpan]::FromSeconds([Math]::Max($TimeoutSeconds + 60, 4 * 3600)))
+            -ExecutionTimeLimit ([TimeSpan]::FromSeconds([Math]::Max($TimeoutSeconds + 60, 4 * 3600))) -ErrorAction Stop
         Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -Settings $settings `
-            -Description 'OS-Setup : exécution ponctuelle sans droits administrateur (supprimée après sa fin).' -Force | Out-Null
-        Start-ScheduledTask -TaskName $taskName
+            -Description 'OS-Setup : exécution ponctuelle sans droits administrateur (supprimée après sa fin).' -Force -ErrorAction Stop | Out-Null
+        Start-ScheduledTask -TaskName $taskName -ErrorAction Stop
         $started = Get-Date
         $deadline = $started.AddSeconds($TimeoutSeconds)
         $nextProgress = $started.AddSeconds($ProgressSeconds)

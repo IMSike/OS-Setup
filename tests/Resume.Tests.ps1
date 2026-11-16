@@ -316,6 +316,15 @@ Describe 'Register-OSSetupResumeTask' {
         }
         Should -Invoke -ModuleName OSSetup Register-ScheduledTask -Times 0 -Exactly
     }
+
+    It 'signale sans interrompre la suite une tâche de reprise impossible à supprimer' {
+        Mock -ModuleName OSSetup Get-ScheduledTask { [pscustomobject]@{ TaskName = 'OS-Setup - reprise' } }
+        Mock -ModuleName OSSetup Unregister-ScheduledTask { throw 'accès refusé' }
+        Mock -ModuleName OSSetup Write-OSSetupLog {}
+        { Unregister-OSSetupResumeTask -Confirm:$false } | Should -Not -Throw
+        Should -Invoke -ModuleName OSSetup Unregister-ScheduledTask -Times 1 -Exactly -ParameterFilter { $ErrorAction -eq 'Stop' }
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Level -eq 'Warning' -and $Message -like '*non supprimée*accès refusé*' }
+    }
 }
 
 Describe 'Register-OSSetupResumeTask : tâche enregistrée' {
