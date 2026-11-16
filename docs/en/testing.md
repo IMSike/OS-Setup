@@ -61,10 +61,10 @@ Reboots requested by the setup are handled: the harness waits for the automatic 
 
 Automated tests go through an already-elevated scheduled task: they exercise **neither the UAC prompt nor the menus**. For those two, test manually: `-PrepareOnly`, then in the VM console (Hyper-V Manager) run `powershell -NoProfile -ExecutionPolicy Bypass -File C:\OS-Setup\bootstrap.ps1`.
 
-From a console other than this one, pass the arrays with `-Command`: `pwsh -File` would forward `'-AnswerFile','…'` as a single string.
+The examples above are typed in a PowerShell 7 console. To call these scripts from another shell (cmd, Windows PowerShell), go through `pwsh -Command` to pass the arrays: `pwsh -File` would forward `'-AnswerFile','…'` as a single string.
 
 The images and virtual disks are stored outside the repository, in `%ProgramData%\OSSetup-Tests`.
 
 VM account: `tester` / `OSSetup-Test`. This password is **deliberately public**: it only protects a disposable, local VM, and PowerShell Direct refuses accounts without a password.
 
-**WSL 2 and Docker Desktop cannot be tested in the VM** on the current host (AMD processor, Windows 10): Hyper-V does not support nested virtualization there ("this platform does not support nested virtualization" when the VM starts). They are verified on a physical machine; the parts of their setup that do not depend on virtualization (enabling features, reboot, resume) remain testable.
+**WSL 2 and Docker Desktop cannot be tested in the VM** when the host does not support nested virtualization, as is the case of Hyper-V on Windows 10 with an AMD processor ("this platform does not support nested virtualization" when the VM starts). They are verified on a physical machine; the parts of their setup that do not depend on virtualization (enabling features, reboot, resume) remain testable.

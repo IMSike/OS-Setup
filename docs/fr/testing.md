@@ -61,10 +61,10 @@ Les redémarrages demandés par le setup sont gérés : le harnais attend la rep
 
 Les tests automatiques passent par une tâche planifiée déjà élevée : ils n'exercent **ni l'invite UAC ni les menus**. Pour ces deux points, test manuel : `-PrepareOnly`, puis dans la console de la VM (Gestionnaire Hyper-V) lancer `powershell -NoProfile -ExecutionPolicy Bypass -File C:\OS-Setup\bootstrap.ps1`.
 
-Depuis une autre console que celle-ci, passer les tableaux avec `-Command` : `pwsh -File` transmettrait `'-AnswerFile','…'` comme une seule chaîne.
+Les exemples ci-dessus se tapent dans une console PowerShell 7. Pour appeler ces scripts depuis un autre interpréteur (cmd, Windows PowerShell), passer par `pwsh -Command` pour transmettre les tableaux : `pwsh -File` transmettrait `'-AnswerFile','…'` comme une seule chaîne.
 
 Les images et disques virtuels sont stockés hors dépôt, dans `%ProgramData%\OSSetup-Tests`.
 
 Compte de la VM : `tester` / `OSSetup-Test`. Ce mot de passe est **volontairement public** : il ne protège qu'une VM jetable et locale, et PowerShell Direct refuse les comptes sans mot de passe.
 
-**WSL 2 et Docker Desktop ne sont pas testables dans la VM** sur l'hôte actuel (processeur AMD, Windows 10) : Hyper-V n'y prend pas en charge la virtualisation imbriquée (« cette plateforme ne prend pas en charge la virtualisation imbriquée » au démarrage de la VM). Ils sont vérifiés sur une machine physique ; leurs étapes de setup qui ne dépendent pas de la virtualisation (activation des fonctionnalités, redémarrage, reprise) restent testables.
+**WSL 2 et Docker Desktop ne sont pas testables dans la VM** quand l'hôte ne prend pas en charge la virtualisation imbriquée, ce qui est le cas de Hyper-V sous Windows 10 avec un processeur AMD (« cette plateforme ne prend pas en charge la virtualisation imbriquée » au démarrage de la VM). Ils sont vérifiés sur une machine physique ; leurs étapes de setup qui ne dépendent pas de la virtualisation (activation des fonctionnalités, redémarrage, reprise) restent testables.
