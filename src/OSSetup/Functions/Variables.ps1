@@ -11,7 +11,7 @@
         Documents       = [Environment]::GetFolderPath('MyDocuments')
         AppData         = [Environment]::GetFolderPath('ApplicationData')
         LocalAppData    = [Environment]::GetFolderPath('LocalApplicationData')
-        Windows        = [Environment]::GetFolderPath('Windows')
+        Windows         = [Environment]::GetFolderPath('Windows')
         ProgramFiles    = [Environment]::GetFolderPath('ProgramFiles')
         Desktop         = [Environment]::GetFolderPath('DesktopDirectory')
         PublicDesktop   = [Environment]::GetFolderPath('CommonDesktopDirectory')

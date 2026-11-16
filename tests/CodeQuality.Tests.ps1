@@ -79,4 +79,23 @@ Describe 'Manifeste du module' {
         $exported = (Import-PowerShellDataFile -Path (Join-Path -Path $moduleRoot -ChildPath 'OSSetup.psd1')).FunctionsToExport
         @($exported | Sort-Object) | Should -Be @($defined | Sort-Object)
     }
+
+    It 'range chaque export dans la section de son fichier, sections et noms triés' {
+        # Ordre attendu : une section « # <fichier> » par fichier de Functions (par nom), puis OSSetup.psm1 ; dans chaque
+        # section, les fonctions définies par ce fichier, triées.
+        $moduleRoot = Join-Path -Path $repoRoot -ChildPath 'src\OSSetup'
+        $files = @(Get-ChildItem -LiteralPath (Join-Path -Path $moduleRoot -ChildPath 'Functions') -Filter '*.ps1' | Sort-Object -Property Name) +
+            @(Get-Item -LiteralPath (Join-Path -Path $moduleRoot -ChildPath 'OSSetup.psm1'))
+        $expected = foreach ($file in $files) {
+            $names = @(Select-String -LiteralPath $file.FullName -Pattern '^function ([\w-]+)' | ForEach-Object { $_.Matches[0].Groups[1].Value } | Sort-Object)
+            if ($names.Count -eq 0) { continue }
+            "# $($file.Name)"
+            $names
+        }
+        # Lignes du bloc FunctionsToExport, commentaires de section compris.
+        $text = Get-Content -LiteralPath (Join-Path -Path $moduleRoot -ChildPath 'OSSetup.psd1') -Raw
+        $block = [regex]::Match($text, '(?s)FunctionsToExport\s*=\s*@\((.*?)\n\s*\)').Groups[1].Value
+        $actual = @($block -split '\r?\n' | ForEach-Object { $_.Trim().Trim("'") } | Where-Object { $_ })
+        $actual | Should -Be @($expected)
+    }
 }
