@@ -579,6 +579,13 @@ Describe 'Format-OSSetupSchemaError' {
             Should -BeExactly 'C:\p.json : non conforme au schéma profile.schema.json.'
     }
 
+    It 'accepte une erreur nulle ou un tableau d''erreurs nulles' {
+        Format-OSSetupSchemaError -Path 'C:\r.json' -SchemaPath 'answers.schema.json' -SchemaError $null |
+            Should -BeExactly 'C:\r.json : non conforme au schéma answers.schema.json.'
+        $lines = (Format-OSSetupSchemaError -Path 'C:\r.json' -SchemaPath 'answers.schema.json' -SchemaError @($null, (& $newError 'un'), $null)) -split "`n"
+        @($lines | ForEach-Object { $_.Trim() }) | Should -Be @('C:\r.json : non conforme au schéma answers.schema.json :', 'un')
+    }
+
     It 'dédoublonne et plafonne les détails' {
         $errors = @('un', 'deux', 'un', 'trois', 'quatre', 'cinq', 'six', 'sept') | ForEach-Object { & $newError $_ }
         $lines = (Format-OSSetupSchemaError -Path 'C:\a.json' -SchemaPath 'item.schema.json' -SchemaError $errors) -split "`n"

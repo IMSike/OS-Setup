@@ -115,7 +115,8 @@ function Format-OSSetupSchemaError {
     )
     $schemaName = Split-Path -Path $SchemaPath -Leaf
     $message = "${Path} : non conforme au schéma ${schemaName}"
-    $details = @($SchemaError | ForEach-Object { $_.Exception.Message } | Where-Object { $_ } | Select-Object -Unique)
+    # $null traverse le pipeline une fois : filtré avant de lire Exception (introuvable sous Set-StrictMode).
+    $details = @($SchemaError | Where-Object { $null -ne $_ } | ForEach-Object { $_.Exception.Message } | Where-Object { $_ } | Select-Object -Unique)
     if ($details.Count -eq 0) {
         if ($schemaName -eq 'item.schema.json') {
             return "$message (vérifier notamment les actions et leur provider)."
