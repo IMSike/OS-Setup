@@ -357,6 +357,24 @@ Describe 'Schéma des éléments' {
         & $registry 'MultiString' @('a', 1) | Should -BeFalse
     }
 
+    It 'registry : QWord borné, bornes intactes au chargement du catalogue' {
+        # Import-OSSetupData relit le schéma par ConvertFrom-Json puis ConvertTo-Json : les grands entiers doivent y survivre.
+        $import = {
+            param([string]$Value)
+            $root = Join-Path -Path $TestDrive -ChildPath "qword$([guid]::NewGuid().ToString('N'))"
+            Copy-Item -LiteralPath (Join-Path -Path $repoRoot -ChildPath 'schemas') -Destination (Join-Path -Path $root -ChildPath 'schemas') -Recurse
+            New-Item -Path (Join-Path -Path $root -ChildPath 'catalog\test'), (Join-Path -Path $root -ChildPath 'profiles') -ItemType Directory -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path -Path $root -ChildPath 'catalog\test\a.json') `
+                -Value "{ ""id"": ""a"", ""name"": ""A"", ""category"": ""test"", ""platforms"": [""windows""], ""actions"": [ { ""provider"": ""registry"", ""path"": ""HKCU:\\Software\\X"", ""name"": ""V"", ""type"": ""QWord"", ""value"": $Value } ] }"
+            Set-Content -LiteralPath (Join-Path -Path $root -ChildPath 'profiles\base.json') -Value '{ "id": "base", "name": "Base", "items": ["a"] }'
+            try { Import-OSSetupData -Root $root | Out-Null; $true } catch { $false }
+        }
+        & $import '18446744073709551615' | Should -BeTrue
+        & $import '18446744073709551616' | Should -BeFalse
+        & $import '-9223372036854775808' | Should -BeTrue
+        & $import '-9223372036854775809' | Should -BeFalse
+    }
+
     It 'appx : nom accepté par Stop-OSSetupStoreUpdate' {
         & $test @{ provider = 'appx'; name = 'Microsoft.Xbox.TCUI' } | Should -BeTrue
         & $test @{ provider = 'appx'; name = 'Microsoft.*' } | Should -BeFalse
