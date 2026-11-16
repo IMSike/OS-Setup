@@ -71,10 +71,14 @@ Describe 'Compatibilité Windows PowerShell 5.1' {
 }
 
 Describe 'Cmdlets qui n''héritent pas de la préférence d''erreur du module' {
-    It 'chaque appel aux cmdlets ScheduledTasks (CDXML) et Appx (relayées par Windows PowerShell) précise -ErrorAction' {
+    It 'chaque appel aux cmdlets ScheduledTasks (CDXML), Appx (relayées par Windows PowerShell) et DISM précise -ErrorAction' {
         # Sans -ErrorAction, leur erreur reste non bloquante malgré $ErrorActionPreference = 'Stop' dans le module.
+        # Cmdlets DISM (capacités et fonctionnalités facultatives) : même règle que dans le code, l'action échoue
+        # explicitement quelle que soit la préférence d'erreur en vigueur.
         $names = @(Get-Command -Module ScheduledTasks -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }) +
-            @('Add-AppxPackage', 'Get-AppxPackage', 'Get-AppxProvisionedPackage', 'Remove-AppxPackage', 'Remove-AppxProvisionedPackage')
+            @('Add-AppxPackage', 'Get-AppxPackage', 'Get-AppxProvisionedPackage', 'Remove-AppxPackage', 'Remove-AppxProvisionedPackage') +
+            @('Add-WindowsCapability', 'Get-WindowsCapability', 'Remove-WindowsCapability') +
+            @('Disable-WindowsOptionalFeature', 'Enable-WindowsOptionalFeature', 'Get-WindowsOptionalFeature')
         $files = @(Get-ChildItem -LiteralPath (Join-Path -Path $repoRoot -ChildPath 'src') -Filter '*.ps1' -Recurse) +
             @(Get-Item -LiteralPath (Join-Path -Path $repoRoot -ChildPath 'setup.ps1'))
         $missing = foreach ($file in $files) {
