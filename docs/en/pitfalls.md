@@ -10,7 +10,7 @@ Behaviors observed during development, and how the engine handles them. Read bef
 | `0x8A150113` on a `--scope machine` installation | **MSIX** package: machine-wide installation is not supported on Windows 10. Force another installer (`installerType`, e.g. `wix` for PowerShell 7) or switch to `scope: user`. |
 | `0x8A15002B` | Already installed, no applicable update: treated as a success. |
 | Package not detected right after a successful installation | Installer that finishes in the background (Squirrel: Discord). The provider waits up to 60 s for `winget list` to find it. |
-| Tool not found right after its installation | The session PATH is frozen: the engine reloads it from the registry after each installation (`Update-SessionPath` in the bootstrap). |
+| Tool not found right after its installation | The session PATH is frozen: the engine reloads it from the registry after each installation (`Update-OSSetupSessionPath`, `Update-SessionPath` in the bootstrap), keeping the entries specific to the session. |
 | Installed program that does not start, code `-1073741515` (`0xC0000135`) with no message | Missing DLL, most often the Visual C++ runtime (absent from a fresh Windows, rarely declared by portable packages, e.g. rtk): `vcredist` dependency. |
 | Package missing from winget (e.g. NVIDIA App) | Would need another provider (direct download), to be validated before adding one. |
 | Corrupted accents in captured output (`Trouv├®`) | winget and the other command-line tools launched by the providers (gh, npm, herdr, code, fnm, rtk, claude, playwright-cli) write UTF-8: set `[Console]::OutputEncoding` to UTF-8 for the duration of the call (`Invoke-OSSetupNativeCommand -Utf8`). |

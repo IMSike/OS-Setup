@@ -10,7 +10,7 @@ Comportements constatés pendant le développement, et leur traitement dans le m
 | `0x8A150113` sur une installation `--scope machine` | Paquet **MSIX** : installation pour toute la machine non prise en charge sous Windows 10. Forcer un autre installeur (`installerType`, ex. `wix` pour PowerShell 7) ou passer en `scope: user`. |
 | `0x8A15002B` | Déjà installé, aucune mise à jour applicable : traité comme un succès. |
 | Paquet non détecté juste après une installation réussie | Installeur qui termine en arrière-plan (Squirrel : Discord). Le provider attend jusqu'à 60 s que `winget list` le trouve. |
-| Outil introuvable juste après son installation | Le PATH de la session est figé : le moteur le recharge depuis le registre après chaque installation (`Update-SessionPath` dans le bootstrap). |
+| Outil introuvable juste après son installation | Le PATH de la session est figé : le moteur le recharge depuis le registre après chaque installation (`Update-OSSetupSessionPath`, `Update-SessionPath` dans le bootstrap), en gardant les entrées propres à la session. |
 | Programme installé qui ne démarre pas, code `-1073741515` (`0xC0000135`) sans message | DLL absente, le plus souvent le runtime Visual C++ (absent d'un Windows neuf, rarement déclaré par les paquets portables, ex. rtk) : dépendance `vcredist`. |
 | Paquet absent de winget (ex. NVIDIA App) | Nécessiterait un autre provider (téléchargement direct), à valider avant d'en ajouter un. |
 | Accents corrompus dans la sortie capturée (`Trouv├®`) | winget et les autres outils en ligne de commande lancés par les providers (gh, npm, herdr, code, fnm, rtk, claude, playwright-cli) écrivent en UTF-8 : régler `[Console]::OutputEncoding` sur UTF-8 le temps de l'appel (`Invoke-OSSetupNativeCommand -Utf8`). |
