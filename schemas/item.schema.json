@@ -157,8 +157,26 @@
         "path": { "description": "Chemin PowerShell (HKCU:\\..., HKLM:\\...).", "type": "string", "pattern": "^(HKCU|HKLM):\\\\" },
         "name": { "type": "string", "minLength": 1 },
         "type": { "enum": ["DWord", "QWord", "String", "ExpandString", "MultiString"] },
-        "value": {}
-      }
+        "value": { "description": "Donnée écrite : nombre (DWord, QWord ; forme signée ou non), texte (String, ExpandString) ou liste de textes (MultiString)." }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["type"], "properties": { "type": { "const": "DWord" } } },
+          "then": { "properties": { "value": { "type": "integer", "minimum": -2147483648, "maximum": 4294967295 } } }
+        },
+        {
+          "if": { "required": ["type"], "properties": { "type": { "const": "QWord" } } },
+          "then": { "properties": { "value": { "type": "integer" } } }
+        },
+        {
+          "if": { "required": ["type"], "properties": { "type": { "enum": ["String", "ExpandString"] } } },
+          "then": { "properties": { "value": { "type": "string" } } }
+        },
+        {
+          "if": { "required": ["type"], "properties": { "type": { "const": "MultiString" } } },
+          "then": { "properties": { "value": { "type": "array", "items": { "type": "string" } } } }
+        }
+      ]
     },
     "directoryAction": {
       "type": "object",

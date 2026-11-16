@@ -338,6 +338,25 @@ Describe 'Schéma des éléments' {
         & $test @{ provider = 'shortcut'; path = 'C:\a.lnk'; target = 'C:\app.exe' } | Should -BeFalse
     }
 
+    It 'registry : donnée de la forme qu''attend le type' {
+        $registry = { param($Type, $Value) & $test @{ provider = 'registry'; path = 'HKCU:\Software\X'; name = 'V'; type = $Type; value = $Value } }
+        & $registry 'DWord' 0 | Should -BeTrue
+        & $registry 'DWord' 4294967295 | Should -BeTrue
+        & $registry 'DWord' (-1) | Should -BeTrue
+        & $registry 'DWord' '1' | Should -BeFalse
+        & $registry 'DWord' 4294967296 | Should -BeFalse
+        & $registry 'DWord' 1.5 | Should -BeFalse
+        & $registry 'QWord' 5000000000 | Should -BeTrue
+        & $registry 'QWord' 'x' | Should -BeFalse
+        & $registry 'String' '1' | Should -BeTrue
+        & $registry 'String' 1 | Should -BeFalse
+        & $registry 'ExpandString' '%LOCALAPPDATA%\x' | Should -BeTrue
+        & $registry 'ExpandString' @('a') | Should -BeFalse
+        & $registry 'MultiString' @('a', 'b') | Should -BeTrue
+        & $registry 'MultiString' 'a' | Should -BeFalse
+        & $registry 'MultiString' @('a', 1) | Should -BeFalse
+    }
+
     It 'appx : nom accepté par Stop-OSSetupStoreUpdate' {
         & $test @{ provider = 'appx'; name = 'Microsoft.Xbox.TCUI' } | Should -BeTrue
         & $test @{ provider = 'appx'; name = 'Microsoft.*' } | Should -BeFalse
