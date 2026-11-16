@@ -455,18 +455,97 @@ Describe 'Read-OSSetupJsonFileSet' {
 }
 
 Describe 'Import-OSSetupData : schéma groupé illisible' {
-    It 'refuse quand même un élément non conforme' {
-        # Un schéma illisible n'arrête pas Test-Json : il écrit une erreur et rend vrai. Le lot doit alors être
-        # revalidé fichier par fichier, contre le fichier de schéma (non simulé : -SchemaFile).
+    It 'lève une erreur qui nomme le schéma, sans revalider chaque fichier' {
+        # Un schéma illisible n'arrête pas Test-Json : il écrit une erreur InvalidJsonSchema et rend vrai. Défaut du
+        # dépôt, pas des données : aucun fichier n'est accusé ni revalidé seul (-SchemaFile).
         Mock -ModuleName OSSetup Test-Json { Write-Error -Message 'Nous ne pouvons pas analyser le schéma JSON.' -ErrorId InvalidJsonSchema -ErrorAction SilentlyContinue; $true } -ParameterFilter { $Schema }
+        Mock -ModuleName OSSetup Test-Json { $true } -ParameterFilter { $SchemaFile }
         $root = Join-Path -Path $TestDrive -ChildPath 'unreadable-schema'
         Copy-Item -LiteralPath (Join-Path -Path $repoRoot -ChildPath 'schemas') -Destination (Join-Path -Path $root -ChildPath 'schemas') -Recurse
         New-Item -Path (Join-Path -Path $root -ChildPath 'catalog\test'), (Join-Path -Path $root -ChildPath 'profiles') -ItemType Directory -Force | Out-Null
         Set-Content -LiteralPath (Join-Path -Path $root -ChildPath 'catalog\test\bad.json') `
             -Value '{ "id": "bad", "name": "Bad", "category": "test", "platforms": ["windows"], "actions": [ { "provider": "unknown" } ] }'
         Set-Content -LiteralPath (Join-Path -Path $root -ChildPath 'profiles\base.json') -Value '{ "id": "base", "name": "Base", "items": ["bad"] }'
-        { Import-OSSetupData -Root $root } | Should -Throw '*bad.json : non conforme au schéma item.schema.json*'
+        $message = try { Import-OSSetupData -Root $root; $null } catch { $_.Exception.Message }
+        $message | Should -BeLike "$(Join-Path -Path $root -ChildPath 'schemas\item.schema.json') : schéma illisible*"
+        $message | Should -Not -BeLike '*bad.json*'
         Should -Invoke -ModuleName OSSetup Test-Json -ParameterFilter { $Schema }
+        Should -Invoke -ModuleName OSSetup Test-Json -Times 0 -Exactly -ParameterFilter { $SchemaFile }
+    }
+}
+
+Describe 'Schéma illisible' {
+    BeforeDiscovery {
+        # Test-Json rend vrai pour ces schémas, en écrivant une erreur InvalidJsonSchema.
+        $unreadableSchemas = @(
+            @{ Case = 'type invalide'; Text = '{ "type": 5 }' }
+            @{ Case = 'pas du JSON'; Text = 'pas du json' }
+        )
+    }
+
+    BeforeAll {
+        # Copie du dépôt réduite aux schémas, au catalogue et aux profils, dont un schéma est remplacé par Text.
+        $newRoot = {
+            param([string]$Name, [string]$Schema, [string]$Text)
+            $root = Join-Path -Path $TestDrive -ChildPath $Name
+            New-Item -Path (Join-Path -Path $root -ChildPath 'catalog\test'), (Join-Path -Path $root -ChildPath 'profiles') -ItemType Directory -Force | Out-Null
+            Copy-Item -LiteralPath (Join-Path -Path $repoRoot -ChildPath 'schemas') -Destination (Join-Path -Path $root -ChildPath 'schemas') -Recurse
+            Set-Content -LiteralPath (Join-Path -Path $root -ChildPath "schemas\$Schema") -Value $Text
+            foreach ($id in 'a', 'b') {
+                Set-Content -LiteralPath (Join-Path -Path $root -ChildPath "catalog\test\$id.json") `
+                    -Value "{ `"id`": `"$id`", `"name`": `"$id`", `"category`": `"test`", `"platforms`": [`"windows`"], `"actions`": [ { `"provider`": `"unknown`" } ] }"
+            }
+            Set-Content -LiteralPath (Join-Path -Path $root -ChildPath 'profiles\base.json') -Value '{ "id": "base", "name": "Base", "items": [] }'
+            $root
+        }
+        $getMessage = { param([scriptblock]$Script) try { & $Script; $null } catch { $_.Exception.Message } }
+    }
+
+    It 'Read-OSSetupJsonFile lève une erreur qui nomme le schéma (<Case>)' -ForEach $unreadableSchemas {
+        $root = & $newRoot -Name "file-$Case" -Schema 'answers.schema.json' -Text $Text
+        $schema = Join-Path -Path $root -ChildPath 'schemas\answers.schema.json'
+        $data = Join-Path -Path $root -ChildPath 'answers.json'
+        Set-Content -LiteralPath $data -Value '{ "profiles": "pas un tableau" }'
+        $errors = [System.Collections.Generic.List[string]]::new()
+        $message = & $getMessage { Read-OSSetupJsonFile -Path $data -SchemaPath $schema -Errors $errors }
+        $message | Should -BeLike "${schema} : schéma illisible*"
+        $message | Should -Not -BeLike '*answers.json*'
+        $errors.Count | Should -Be 0
+    }
+
+    It 'Import-OSSetupData lève une seule erreur qui nomme le schéma (<Case>)' -ForEach $unreadableSchemas {
+        $root = & $newRoot -Name "import-$Case" -Schema 'item.schema.json' -Text $Text
+        $message = & $getMessage { Import-OSSetupData -Root $root }
+        $message | Should -BeLike "$(Join-Path -Path $root -ChildPath 'schemas\item.schema.json') : schéma illisible*"
+        $message | Should -Not -BeLike '*test\a.json*'
+        $message | Should -Not -BeLike '*test\b.json*'
+    }
+
+    It 'Import-OSSetupData lève l''erreur du schéma même hors du lot (fichier vide) (<Case>)' -ForEach $unreadableSchemas {
+        # Un fichier vide écarte la validation groupée : chaque fichier est validé seul.
+        $root = & $newRoot -Name "import-empty-$Case" -Schema 'item.schema.json' -Text $Text
+        Set-Content -LiteralPath (Join-Path -Path $root -ChildPath 'catalog\test\empty.json') -Value ''
+        $message = & $getMessage { Import-OSSetupData -Root $root }
+        $message | Should -BeLike "$(Join-Path -Path $root -ChildPath 'schemas\item.schema.json') : schéma illisible*"
+    }
+
+    It 'Read-OSSetupAnswerFile lève une erreur qui nomme le schéma (<Case>)' -ForEach $unreadableSchemas {
+        $root = & $newRoot -Name "answers-$Case" -Schema 'answers.schema.json' -Text $Text
+        $data = Join-Path -Path $root -ChildPath 'answers.json'
+        Set-Content -LiteralPath $data -Value '{ "profiles": "pas un tableau" }'
+        $message = & $getMessage { Read-OSSetupAnswerFile -Path $data -Root $root }
+        $message | Should -BeLike "$(Join-Path -Path $root -ChildPath 'schemas\answers.schema.json') : schéma illisible*"
+        $message | Should -Not -BeLike '*answers.json*'
+    }
+
+    It 'Get-OSSetupArraySchema lève la même erreur pour un schéma <Case>' -ForEach @(
+        @{ Case = 'qui n''est pas du JSON'; Text = 'pas du json' }
+        @{ Case = 'dont la racine n''est pas un objet'; Text = '[ 1 ]' }
+        @{ Case = 'vide'; Text = '' }
+    ) {
+        $schema = Join-Path -Path $TestDrive -ChildPath 'array-schema.json'
+        Set-Content -LiteralPath $schema -Value $Text
+        & $getMessage { Get-OSSetupArraySchema -SchemaPath $schema } | Should -BeLike "${schema} : schéma illisible*"
     }
 }
 

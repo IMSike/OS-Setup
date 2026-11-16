@@ -24,13 +24,68 @@ function Read-OSSetupJsonFile {
         $Errors.Add("${Path} : fichier vide.")
         return $null
     }
-    $schemaErrors = $null
-    $valid = Test-Json -Json $json -SchemaFile $SchemaPath -ErrorVariable schemaErrors -ErrorAction SilentlyContinue
-    if (-not $valid) {
-        $Errors.Add((Format-OSSetupSchemaError -Path $Path -SchemaPath $SchemaPath -SchemaError $schemaErrors))
+    $result = Invoke-OSSetupJsonValidation -Json $json -SchemaPath $SchemaPath
+    if (-not $result.Valid) {
+        $Errors.Add((Format-OSSetupSchemaError -Path $Path -SchemaPath $SchemaPath -SchemaError $result.Errors))
         return $null
     }
     $json | ConvertFrom-Json -AsHashtable
+}
+
+function Invoke-OSSetupJsonValidation {
+    <#
+    .SYNOPSIS
+        Valide un texte JSON contre un schéma : retourne { Valid; Errors }, ou lève une erreur si le schéma est illisible.
+    .DESCRIPTION
+        Seul endroit qui appelle Test-Json. Un schéma illisible (pas du JSON, ou « { "type": 5 } ») n'arrête pas
+        Test-Json : il écrit une erreur InvalidJsonSchema et rend vrai, ce qui accepterait n'importe quel fichier. C'est
+        un défaut du dépôt, pas des données : une erreur nommant le schéma est levée aussitôt, au lieu d'accuser chaque
+        fichier. Le texte est validé contre le fichier SchemaPath, ou contre Schema (schéma composé à partir de
+        SchemaPath) s'il est donné.
+    #>
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Json,
+
+        [Parameter(Mandatory)]
+        [string]$SchemaPath,
+
+        [string]$Schema
+    )
+    $schemaErrors = $null
+    $schemaSource = if ($Schema) { @{ Schema = $Schema } } else { @{ SchemaFile = $SchemaPath } }
+    $result = Test-Json -Json $Json @schemaSource -ErrorVariable schemaErrors -ErrorAction SilentlyContinue
+    # Reconnu à l'identifiant de l'erreur, pas à son texte (variable selon la version et la langue).
+    $unreadable = @($schemaErrors | Where-Object { $null -ne $_ -and ($_.FullyQualifiedErrorId -split ',')[0] -eq 'InvalidJsonSchema' })
+    if ($unreadable.Count -gt 0) {
+        $exception = $unreadable[0].Exception
+        throw (Format-OSSetupUnreadableSchema -SchemaPath $SchemaPath -Detail ($exception.InnerException ?? $exception).Message)
+    }
+    [pscustomobject]@{
+        # Valide seulement sans aucune erreur, quoi que rende Test-Json.
+        Valid  = ($result -eq $true) -and @($schemaErrors).Count -eq 0
+        Errors = @($schemaErrors)
+    }
+}
+
+function Format-OSSetupUnreadableSchema {
+    <#
+    .SYNOPSIS
+        Message d'un schéma illisible : il nomme le schéma, défaut du dépôt, et aucun fichier de données.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$SchemaPath,
+
+        [string]$Detail
+    )
+    $message = "${SchemaPath} : schéma illisible, à corriger dans le dépôt (aucun fichier n'a pu être validé)"
+    if ([string]::IsNullOrWhiteSpace($Detail)) { return "${message}." }
+    "${message} :`n     $($Detail.Trim())"
 }
 
 function Format-OSSetupSchemaError {
@@ -82,7 +137,8 @@ function Get-OSSetupArraySchema {
     .DESCRIPTION
         Composé avec System.Text.Json, sans passer par les types PowerShell : un nombre garde son texte d'origine.
         ConvertFrom-Json lirait la borne QWord (18446744073709551615) comme un BigInteger, que ConvertTo-Json de
-        PowerShell 7.4 écrit comme un objet, ce qui rendrait le schéma illisible.
+        PowerShell 7.4 écrit comme un objet, ce qui rendrait le schéma illisible. Un fichier de schéma qui n'est pas du
+        JSON, ou dont la racine n'est pas un objet, lève l'erreur d'un schéma illisible.
     #>
     [CmdletBinding()]
     [OutputType([string])]
@@ -90,7 +146,14 @@ function Get-OSSetupArraySchema {
         [Parameter(Mandatory)]
         [string]$SchemaPath
     )
-    $schema = [System.Text.Json.Nodes.JsonNode]::Parse((Get-Content -LiteralPath $SchemaPath -Raw -Encoding utf8)).AsObject()
+    try {
+        $schema = [System.Text.Json.Nodes.JsonNode]::Parse((Get-Content -LiteralPath $SchemaPath -Raw -Encoding utf8)).AsObject()
+    }
+    catch {
+        # Exception de .NET enveloppée par PowerShell (« Exception lors de l'appel de "Parse" ») : le détail est dedans.
+        $exception = $_.Exception
+        throw (Format-OSSetupUnreadableSchema -SchemaPath $SchemaPath -Detail ($exception.InnerException ?? $exception).Message)
+    }
     $definitions = $null
     [void]$schema.TryGetPropertyValue('definitions', [ref]$definitions)
     foreach ($key in '$schema', '$id', 'definitions') { [void]$schema.Remove($key) }
@@ -111,7 +174,8 @@ function Read-OSSetupJsonFileSet {
         Test-Json recompile le schéma à chaque appel : valider le catalogue fichier par fichier prenait plus d'une
         seconde de plus. Les fichiers sont donc validés ensemble, comme les éléments d'un tableau, en un seul appel ;
         en cas d'échec, chacun est revalidé seul pour que le message nomme le fichier fautif. Le schéma de ce tableau
-        est composé par Get-OSSetupArraySchema.
+        est composé par Get-OSSetupArraySchema. Un schéma illisible lève aussitôt une erreur qui le nomme
+        (Invoke-OSSetupJsonValidation), sans revalidation fichier par fichier.
     #>
     [CmdletBinding()]
     param(
@@ -135,11 +199,8 @@ function Read-OSSetupJsonFileSet {
     # Compte, pas valeur de vérité : un seul fichier vide donnerait @('') ou @($null), évalué faux.
     if ($File.Count -gt 0 -and @($texts | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -eq 0) {
         $json = '[' + ($texts -join ",`n") + ']'
-        $schemaErrors = $null
-        $result = Test-Json -Json $json -Schema (Get-OSSetupArraySchema -SchemaPath $SchemaPath) -ErrorVariable schemaErrors -ErrorAction SilentlyContinue
-        # Un schéma illisible n'arrête pas Test-Json : il écrit une erreur et rend vrai. Le lot n'est donc valide que
-        # sans aucune erreur ; sinon chaque fichier est revalidé seul, contre le fichier de schéma lui-même.
-        $valid = ($result -eq $true) -and @($schemaErrors).Count -eq 0
+        # Lot non conforme : chaque fichier est revalidé seul plus bas, contre le fichier de schéma lui-même.
+        $valid = (Invoke-OSSetupJsonValidation -Json $json -SchemaPath $SchemaPath -Schema (Get-OSSetupArraySchema -SchemaPath $SchemaPath)).Valid
     }
     for ($i = 0; $i -lt $File.Count; $i++) {
         $data = $null
