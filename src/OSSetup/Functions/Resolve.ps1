@@ -73,7 +73,7 @@ function Test-OSSetupAnswer {
         Vérifie la cohérence d'un fichier de réponses avec les données. Lève une erreur si incohérent.
         Une option inconnue d'un groupe de choix (ex. élément retiré du catalogue depuis l'enregistrement du fichier)
         est retirée des réponses avec un avertissement : le reste du fichier s'applique. De même pour un groupe de choix
-        qu'aucun profil ne déclare plus (groupe retiré du catalogue), et pour une variable qu'aucun profil choisi ne
+        qu'aucun profil ne déclare plus (groupe retiré des profils), et pour une variable qu'aucun profil choisi ne
         déclare. Une variable qui porte le nom d'une variable intégrée (UserProfile…) est refusée.
         Les identifiants sont comparés en tenant compte de la casse, comme les clés d'un fichier JSON.
     #>
@@ -91,7 +91,7 @@ function Test-OSSetupAnswer {
     $knownChoiceIds = @($choices | ForEach-Object { $_['id'] })
 
     if ($null -ne $Answers['choices']) {
-        # Groupes de tous les profils : un groupe qu'aucun profil ne déclare a été retiré du catalogue.
+        # Groupes de tous les profils : un groupe qu'aucun profil ne déclare a été retiré des profils.
         $catalogChoiceIds = @($Data.Profiles.Values | ForEach-Object { $_['choices'] } | ForEach-Object { $_['id'] })
         foreach ($answeredId in @($Answers['choices'].Keys)) {
             if ($answeredId -cnotin $catalogChoiceIds) {

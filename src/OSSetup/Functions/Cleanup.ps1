@@ -169,8 +169,9 @@ function Invoke-OSSetupCleanup {
         # la reprise pendant une reprise (le dépôt, modifiable par l'utilisateur, n'est pas relu), par défaut Root.
         [string]$CodeRoot = $Root,
 
-        # Dossier où le script et sa configuration attendent la fermeture du setup : réservé aux administrateurs, car
-        # ils sont exécutés avec les droits administrateur (commandes de désinstallation, chemins à supprimer).
+        # Dossier où le script et sa configuration attendent la fermeture du setup : modifiable par les seuls
+        # administrateurs (droits hérités de Program Files), car ils sont exécutés avec les droits administrateur
+        # (commandes de désinstallation, chemins à supprimer).
         [string]$WorkRoot = [IO.Path]::Combine([Environment]::GetFolderPath('ProgramFiles'), 'OS-Setup', 'cleanup'),
 
         # Dossier de l'historique conservé (un sous-dossier par exécution).

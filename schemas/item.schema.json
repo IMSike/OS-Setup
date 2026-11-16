@@ -440,7 +440,7 @@
         "provider": { "const": "win32-uninstall" },
         "description": { "type": "string" },
         "displayName": { "description": "Nom dans « Programmes et fonctionnalités » (caractères génériques * acceptés).", "type": "string", "minLength": 1 },
-        "arguments": { "description": "Arguments ajoutés à la commande de désinstallation déclarée (pour la rendre silencieuse). Inutile pour un MSI.", "type": "string" }
+        "arguments": { "description": "Arguments ajoutés à la commande de désinstallation ordinaire (UninstallString) pour la rendre silencieuse. Ignorés quand l'entrée déclare une commande silencieuse (QuietUninstallString, exécutée telle quelle) et pour un MSI (désinstallé avec /qn).", "type": "string" }
       }
     },
     "serviceAction": {

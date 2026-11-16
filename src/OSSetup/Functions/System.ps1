@@ -11,7 +11,8 @@ $script:PowerSettings = @{
 
 # Listes d'état longues à lire, lues une fois par passe (plan, puis exécution), effacées avant et après chaque action
 # exécutée : tâches planifiées (une lecture de toutes les tâches coûte autant qu'une lecture par nom), applications du
-# Store installées et provisionnées (module Appx, via Windows PowerShell 5.1 sous PowerShell 7), capacités Windows (DISM).
+# Store installées et provisionnées (module Appx, via Windows PowerShell 5.1 sous PowerShell 7), capacités Windows (DISM),
+# extensions installées de chaque éditeur (« code » / « cursor » --list-extensions, Editor.ps1).
 $script:StateCache = @{}
 
 function Import-OSSetupAppxModule {
@@ -396,7 +397,8 @@ function Disable-OSSetupStartupEntry {
 function Clear-OSSetupStateCache {
     <#
     .SYNOPSIS
-        Oublie les listes d'état lues (tâches planifiées, applications du Store, capacités Windows) : appelé au début
+        Oublie les listes d'état lues (tâches planifiées, applications du Store installées et provisionnées, capacités
+        Windows, extensions des éditeurs) : appelé au début
         de chaque passe et autour de chaque action exécutée, pour que les vérifications relisent l'état réel.
     #>
     [CmdletBinding()]

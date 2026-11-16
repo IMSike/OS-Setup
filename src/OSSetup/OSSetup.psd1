@@ -4,7 +4,7 @@
     GUID              = '3f6b2c1e-8d4a-4f7b-9c2e-5a1d7e9b4c30'
     Author            = 'IMSike'
     Copyright         = '(c) 2026 IMSike. Licence MIT.'
-    Description       = "Moteur d'OS_Setup : chargement des données, résolution des profils, plan et exécution."
+    Description       = "Moteur d'OS-Setup : chargement des données, résolution des profils, plan et exécution."
     PowerShellVersion = '7.4'
     FunctionsToExport = @(
         # Claude.ps1

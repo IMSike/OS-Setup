@@ -15,7 +15,7 @@
         [Parameter(Mandatory)]
         [hashtable]$Context
     )
-    # Listes d'état (tâches planifiées) lues une fois pour toute la passe, à partir de l'état du moment.
+    # Listes d'état (voir Clear-OSSetupStateCache) lues une fois pour tout le plan, à partir de l'état du moment.
     Clear-OSSetupStateCache
     # Pendant le plan, les tests de présence peuvent s'appuyer d'abord sur des listes lues une fois (ex. export winget).
     $Context['Planning'] = $true
