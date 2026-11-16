@@ -50,20 +50,23 @@ if (Get-VM -Name $Name -ErrorAction SilentlyContinue) {
     Write-TestVMStep "Suppression de la VM existante '$Name'"
     Stop-VM -Name $Name -TurnOff -Force -ErrorAction SilentlyContinue
     Remove-VM -Name $Name -Force
-    Remove-Item -Path (Split-Path -Path $vhdPath -Parent) -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath (Split-Path -Path $vhdPath -Parent) -Recurse -Force -ErrorAction SilentlyContinue
 }
-elseif (Test-Path -Path (Split-Path -Path $vhdPath -Parent)) {
+elseif (Test-Path -LiteralPath (Split-Path -Path $vhdPath -Parent)) {
     # Dossier sans VM : reste d'une création interrompue (la VM n'est créée qu'en dernier), sans quoi New-VHD échouerait,
     # ou VM simplement retirée de Hyper-V, dont le disque n'est supprimé qu'avec -Force.
-    if (Test-Path -Path $vhdPath) {
+    # Sans disque, seule une création interrompue (avant New-VHD) laisse ce dossier.
+    $step = "Suppression des restes d'une création interrompue ($(Split-Path -Path $vhdPath -Parent))"
+    if (Test-Path -LiteralPath $vhdPath) {
         if (-not $Force) {
             throw "Disque virtuel sans VM '$Name' : $vhdPath (création interrompue ou VM retirée de Hyper-V). Utiliser -Force pour le supprimer et recréer la VM."
         }
         # Disque resté monté (création interrompue pendant l'application de l'image) : verrouillé tant qu'il l'est.
         Dismount-VHD -Path $vhdPath -ErrorAction SilentlyContinue
+        $step = "Suppression du disque sans VM et de son dossier, création interrompue ou VM retirée de Hyper-V ($(Split-Path -Path $vhdPath -Parent))"
     }
-    Write-TestVMStep "Suppression des restes d'une création interrompue ($(Split-Path -Path $vhdPath -Parent))"
-    Remove-Item -Path (Split-Path -Path $vhdPath -Parent) -Recurse -Force
+    Write-TestVMStep $step
+    Remove-Item -LiteralPath (Split-Path -Path $vhdPath -Parent) -Recurse -Force
 }
 
 # --- Image -------------------------------------------------------------------------------------
@@ -72,13 +75,13 @@ $cachedImage = @(Get-ChildItem -Path (Join-Path -Path $imageCache -ChildPath $Na
     Select-Object -First 1 -ExpandProperty FullName
 if (-not $cachedImage) {
     if (-not $ImagePath) { throw "Aucune image en cache pour '$Name' : indiquer -ImagePath (install.esd, install.wim ou ISO)." }
-    if (-not (Test-Path -Path $ImagePath)) { throw "Image introuvable : $ImagePath" }
+    if (-not (Test-Path -LiteralPath $ImagePath)) { throw "Image introuvable : $ImagePath" }
     New-Item -Path (Join-Path -Path $imageCache -ChildPath $Name) -ItemType Directory -Force | Out-Null
     $iso = $null
     $source = $ImagePath
     try {
         if ([IO.Path]::GetExtension($ImagePath) -eq '.iso') {
-            $iso = Mount-DiskImage -ImagePath (Resolve-Path -Path $ImagePath).Path -PassThru
+            $iso = Mount-DiskImage -ImagePath (Resolve-Path -LiteralPath $ImagePath).Path -PassThru
             $letter = ($iso | Get-Volume).DriveLetter
             $source = @(Get-ChildItem -Path "${letter}:\sources\install.wim", "${letter}:\sources\install.esd" -ErrorAction SilentlyContinue) |
                 Select-Object -First 1 -ExpandProperty FullName
@@ -92,12 +95,12 @@ if (-not $cachedImage) {
         $partialImage = "$cachedImage.partial"
         $copied = $false
         try {
-            Copy-Item -Path $source -Destination $partialImage -Force
-            Move-Item -Path $partialImage -Destination $cachedImage -Force
+            Copy-Item -LiteralPath $source -Destination $partialImage -Force
+            Move-Item -LiteralPath $partialImage -Destination $cachedImage -Force
             $copied = $true
         }
         finally {
-            if (-not $copied) { Remove-Item -Path $partialImage -Force -ErrorAction SilentlyContinue }
+            if (-not $copied) { Remove-Item -LiteralPath $partialImage -Force -ErrorAction SilentlyContinue }
         }
     }
     finally {
@@ -179,8 +182,8 @@ try {
 finally {
     if (-not $diskReady) {
         Dismount-VHD -Path $vhdPath -ErrorAction SilentlyContinue
-        Remove-Item -Path (Split-Path -Path $vhdPath -Parent) -Recurse -Force -ErrorAction SilentlyContinue
-        if (Test-Path -Path $vhdPath) { Write-Warning "Disque inachevé non supprimé (encore monté ?) : $vhdPath" }
+        Remove-Item -LiteralPath (Split-Path -Path $vhdPath -Parent) -Recurse -Force -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $vhdPath) { Write-Warning "Disque inachevé non supprimé (encore monté ?) : $vhdPath" }
     }
 }
 
