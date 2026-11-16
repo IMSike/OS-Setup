@@ -11,7 +11,6 @@ An item is a JSON file in `catalog/<category>/`, validated by [`schemas/item.sch
   "name": "Explorateur : extensions de fichiers affichées",
   "category": "system",
   "platforms": ["windows"],
-  "notes": "Takes effect when Explorer restarts or at the next session.",
   "actions": [
     {
       "provider": "registry",

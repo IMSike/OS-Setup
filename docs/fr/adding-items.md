@@ -11,7 +11,6 @@ Un élément est un fichier JSON de `catalog/<catégorie>/`, validé par [`schem
   "name": "Explorateur : extensions de fichiers affichées",
   "category": "system",
   "platforms": ["windows"],
-  "notes": "Pris en compte au redémarrage de l'Explorateur ou à la prochaine session.",
   "actions": [
     {
       "provider": "registry",
