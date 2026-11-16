@@ -58,6 +58,23 @@ Describe 'Invoke-OSSetupNativeCommand' {
         $result.Output | Should -Contain 'dernière ligne'
     }
 
+    It 'avec -PassThru, sépare la sortie standard de la sortie d''erreur' {
+        # Vrai programme externe : la sortie d'erreur n'est mêlée en ErrorRecord (2>&1) que pour une commande native.
+        # Les deux sorties sont lues séparément : leur entrelacement dans Output n'est pas garanti, l'ordre de chacune l'est.
+        $result = Invoke-OSSetupNativeCommand -FilePath 'cmd.exe' -ArgumentList '/d', '/c', 'echo sortie 1& echo avertissement 1>&2& echo sortie 2' -NoLog -PassThru
+        @($result.Output | ForEach-Object { "$_".Trim() } | Sort-Object) | Should -Be @('avertissement', 'sortie 1', 'sortie 2')
+        @($result.StandardOutput | ForEach-Object { "$_".Trim() }) | Should -Be @('sortie 1', 'sortie 2')
+    }
+
+    It 'avec -PassThru, rend une sortie standard vide quand l''outil n''écrit rien sur la sortie standard' {
+        $silent = Invoke-OSSetupNativeCommand -FilePath 'cmd.exe' -ArgumentList '/d', '/c', 'rem' -NoLog -PassThru
+        , $silent.StandardOutput | Should -BeOfType [object[]]
+        $silent.StandardOutput.Count | Should -Be 0
+        $errorOnly = Invoke-OSSetupNativeCommand -FilePath 'cmd.exe' -ArgumentList '/d', '/c', 'echo avertissement 1>&2' -NoLog -PassThru
+        $errorOnly.Output.Count | Should -Be 1
+        $errorOnly.StandardOutput.Count | Should -Be 0
+    }
+
     It 'ne retourne rien sans -PassThru' {
         Invoke-OSSetupNativeCommand -FilePath Invoke-OSSetupTestTool | Should -BeNullOrEmpty
     }
