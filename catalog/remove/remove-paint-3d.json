@@ -5,7 +5,7 @@
   "category": "remove",
   "platforms": ["windows"],
   "requiresAdmin": true,
-  "checkedWarning": "Paint 3D disparaît ; le Paint classique (mspaint.exe) reste.",
+  "notes": "Le Paint classique (mspaint.exe) n'est pas concerné.",
   "actions": [
     {
       "provider": "appx",

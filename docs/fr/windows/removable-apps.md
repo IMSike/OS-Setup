@@ -36,7 +36,7 @@ Avertissements : un élément dont la suppression efface des données locales le
 | `remove-onenote-uwp` | OneNote pour Windows 10 (`Microsoft.Office.OneNote`) | Version abandonnée. **Avertissement** : notes non synchronisées effacées. Le OneNote d'Office n'est pas touché. |
 | `remove-solitaire` | Solitaire (`Microsoft.MicrosoftSolitaireCollection`) | Aucune. |
 | `remove-3d-viewer` | Visionneuse 3D (`Microsoft.Microsoft3DViewer`) | Plus d'ouverture directe des fichiers 3D. |
-| `remove-paint-3d` | Paint 3D (`Microsoft.MSPaint`) | **Avertissement** : le Paint classique (`mspaint.exe`) reste. |
+| `remove-paint-3d` | Paint 3D (`Microsoft.MSPaint`) | Aucune : le Paint classique (`mspaint.exe`) reste. |
 | `remove-mixed-reality` | Portail de réalité mixte (`Microsoft.MixedReality.Portal`) | Inutile sans casque de réalité mixte. |
 | `remove-people` | Contacts (`Microsoft.People`) | Plus de carnet d'adresses Windows (utilisé par Courrier, supprimé aussi). |
 | `remove-skype` | Skype (`Microsoft.SkypeApp`) | Service arrêté par Microsoft. |

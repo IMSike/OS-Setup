@@ -36,7 +36,7 @@ Warnings: an item whose removal erases local data says so when it is selected (`
 | `remove-onenote-uwp` | OneNote for Windows 10 (`Microsoft.Office.OneNote`) | Discontinued version. **Warning**: unsynced notes are erased. Office's OneNote is not touched. |
 | `remove-solitaire` | Solitaire (`Microsoft.MicrosoftSolitaireCollection`) | None. |
 | `remove-3d-viewer` | 3D Viewer (`Microsoft.Microsoft3DViewer`) | 3D files no longer open directly. |
-| `remove-paint-3d` | Paint 3D (`Microsoft.MSPaint`) | **Warning**: classic Paint (`mspaint.exe`) remains. |
+| `remove-paint-3d` | Paint 3D (`Microsoft.MSPaint`) | None: classic Paint (`mspaint.exe`) remains. |
 | `remove-mixed-reality` | Mixed Reality Portal (`Microsoft.MixedReality.Portal`) | Useless without a mixed reality headset. |
 | `remove-people` | People (`Microsoft.People`) | No more Windows address book (used by Mail, also removed). |
 | `remove-skype` | Skype (`Microsoft.SkypeApp`) | Service shut down by Microsoft. |
