@@ -470,7 +470,6 @@ Describe 'Provider winget : installation' {
         Mock -ModuleName OSSetup -CommandName Update-OSSetupSessionPath
         Mock -ModuleName OSSetup -CommandName Start-Sleep
         Mock -ModuleName OSSetup -CommandName Start-Process
-        Mock -ModuleName OSSetup -CommandName Test-OSSetupElevated -MockWith { $false }
         Mock -ModuleName OSSetup -CommandName Test-OSSetupWingetInstalled -MockWith { $true }
     }
 

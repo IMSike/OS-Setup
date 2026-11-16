@@ -80,16 +80,22 @@ Describe 'Test-OSSetupRemovableBootstrapScript' {
     }
 
     It 'ne suit ni la variable TMP ni les dossiers de l''Explorateur, modifiables sans élévation' {
-        # Dossier protégé désigné par une variable TMP et un dossier Téléchargements redirigés.
+        # Dossier protégé désigné par une variable TMP redirigée.
         $previous = $env:TMP
         try {
             $env:TMP = 'C:\Windows\System32'
-            Mock -ModuleName OSSetup Get-ItemPropertyValue { 'C:\Windows\System32' }
             Test-OSSetupRemovableBootstrapScript -Path 'C:\Windows\System32\bootstrap.ps1' -UserProfile 'C:\Users\test' | Should -BeFalse
         }
         finally {
             $env:TMP = $previous
         }
+        # Dossiers de l'Explorateur (registre, API des dossiers connus) et variables d'environnement : jamais lus, seul le
+        # dossier du profil compte (une redirection ne peut pas être simulée sans modifier le registre de l'hôte).
+        $ast = (Get-Command -Name Test-OSSetupRemovableBootstrapScript).ScriptBlock.Ast.Body
+        # Code seulement (paramètres et instructions), sans l'aide qui cite ces dossiers.
+        $body = $ast.ParamBlock.Extent.Text + $ast.EndBlock.Extent.Text
+        $body | Should -Not -Match '\$env:|GetEnvironmentVariable|Get-ItemProperty|Shell Folders|KnownFolder|GetTempPath'
+        @([regex]::Matches($body, "GetFolderPath\('(\w+)'\)") | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique) | Should -Be @('UserProfile')
     }
 }
 
@@ -118,7 +124,6 @@ Describe 'Invoke-OSSetupCleanup' {
     }
 
     It 'prépare le script et sa configuration dans le dossier réservé aux administrateurs, pas dans %TEMP%' {
-        $PSDefaultParameterValues.Remove('Invoke-OSSetupCleanup:WorkRoot')
         $command = Get-Command -Name Invoke-OSSetupCleanup
         $default = $command.ScriptBlock.Ast.Body.ParamBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq 'WorkRoot' }
         $default.DefaultValue.Extent.Text | Should -Match "GetFolderPath\('ProgramFiles'\), 'OS-Setup', 'cleanup'"
