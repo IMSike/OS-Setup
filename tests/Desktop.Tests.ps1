@@ -79,6 +79,7 @@ Describe 'Set-OSSetupDesktopLayout' {
         Mock -ModuleName OSSetup Remove-ItemProperty {}
         Mock -ModuleName OSSetup Remove-Item {}
         Mock -ModuleName OSSetup Restart-OSSetupExplorer {}
+        Mock -ModuleName OSSetup Get-OSSetupTaskbarPinName {}
         $layout = Get-OSSetupDesktopLayout -Context (New-DesktopContext -ItemIds 'pin-a', 'pin-uwa')
     }
 
@@ -99,6 +100,16 @@ Describe 'Set-OSSetupDesktopLayout' {
         Mock -ModuleName OSSetup Wait-OSSetupTaskbarPin {}
         Set-OSSetupDesktopLayout -Layout (Get-OSSetupDesktopLayout -Context (New-DesktopContext -ItemIds 'pin-uwa')) -Confirm:$false
         Should -Invoke -ModuleName OSSetup Wait-OSSetupTaskbarPin -Times 0 -Exactly
+        Should -Invoke -ModuleName OSSetup Set-ItemProperty -Times 1 -Exactly -ParameterFilter { $Name -eq 'DesktopLayout' }
+    }
+
+    It 'n''attend pas les épingles déjà présentes avant la pose de la stratégie' {
+        # Leur raccourci existait déjà : il serait trouvé tout de suite, avant que l'Explorateur relise la disposition.
+        Mock -ModuleName OSSetup Get-OSSetupTaskbarPinName { 'App A' }
+        Mock -ModuleName OSSetup Wait-OSSetupTaskbarPin {}
+        Set-OSSetupDesktopLayout -Layout $layout -Confirm:$false
+        Should -Invoke -ModuleName OSSetup Wait-OSSetupTaskbarPin -Times 0 -Exactly
+        Should -Invoke -ModuleName OSSetup Get-OSSetupTaskbarPinName -Times 1 -Exactly
         Should -Invoke -ModuleName OSSetup Set-ItemProperty -Times 1 -Exactly -ParameterFilter { $Name -eq 'DesktopLayout' }
     }
 
