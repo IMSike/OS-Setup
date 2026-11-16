@@ -42,6 +42,8 @@ When the bootstrap is run from a copy of the repository (a `setup.ps1` next to i
 | **[ Valider ]** line ("Validate") | Go to the next step |
 | `Esc` or **← Retour** line ("Back") | Go back to the previous step |
 
+The answers that belong only to a profile unchecked afterwards (its choice groups, its locations and personal information) are dropped without a message: they are neither applied nor saved.
+
 ## From a copy of the repository (PowerShell 7)
 
 ```powershell

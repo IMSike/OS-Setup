@@ -42,6 +42,8 @@ Quand le bootstrap est lancé depuis une copie du dépôt (un `setup.ps1` à cô
 | Ligne **[ Valider ]** | Passer à l'étape suivante |
 | `Échap` ou ligne **← Retour** | Revenir à l'étape précédente |
 
+Les réponses propres à un profil décoché ensuite (ses groupes de choix, ses emplacements et informations personnelles) sont retirées sans message : elles ne sont ni appliquées, ni enregistrées.
+
 ## Depuis une copie du dépôt (PowerShell 7)
 
 ```powershell

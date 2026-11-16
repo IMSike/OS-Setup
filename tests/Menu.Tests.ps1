@@ -302,4 +302,18 @@ Describe 'Read-OSSetupAnswer' {
         $answers.choices['pick'] | Should -Be @('y')
         $answers.choices['one'] | Should -Be @('x')
     }
+
+    It 'retire en silence les variables du profil décoché après leur saisie' {
+        $global:OSSetupTestMenuQueue = [System.Collections.Generic.Queue[object]]::new()
+        $global:OSSetupTestMenuQueue.Enqueue(@{ Action = 'next'; Values = @('base') })   # Profils : dev décoché
+        $global:OSSetupTestMenuQueue.Enqueue(@{ Action = 'next'; Values = @('x') })      # Choix
+
+        $existing = @{ profiles = @('dev'); choices = @{ pick = @('y'); one = @('y') }; variables = @{ Root = 'D:\dev' } }
+        $data = New-TestData
+        $answers = Read-OSSetupAnswer -Data $data -Facts $windows -Answers $existing -StartStep 'profiles'
+        $answers.variables.Count | Should -Be 0
+        # Plus rien à signaler ensuite : l'avertissement reste réservé aux fichiers de réponses.
+        Test-OSSetupAnswer -Data $data -Answers $answers
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 0 -ParameterFilter { $Level -eq 'Warning' }
+    }
 }

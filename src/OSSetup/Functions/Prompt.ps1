@@ -113,6 +113,18 @@ function Read-OSSetupAnswer {
     foreach ($key in @($collected.choices.Keys)) {
         if ($key -notin $currentChoiceIds) { $collected.choices.Remove($key) }
     }
+    # Variables qu'aucun profil retenu ne déclare plus (profil décoché après leur saisie) : retirées en silence. Le
+    # retrait avec avertissement de Test-OSSetupAnswer reste réservé aux fichiers de réponses. Même comparaison
+    # (sensible à la casse) ; les variables intégrées sont laissées à Test-OSSetupAnswer, qui les refuse.
+    $declaredNames = @()
+    if ($collected.profiles) {
+        $resolvedProfiles = @(Resolve-OSSetupProfileSet -Data $Data -ProfileId $collected.profiles)
+        $declaredNames = @((Get-OSSetupVariableDefinition -Data $Data -ResolvedProfileId $resolvedProfiles).Keys)
+    }
+    $builtinNames = @((Get-OSSetupBuiltinVariable).Keys)
+    foreach ($key in @($collected.variables.Keys)) {
+        if ($key -cnotin $declaredNames -and $key -notin $builtinNames) { $collected.variables.Remove($key) }
+    }
     $collected
 }
 
