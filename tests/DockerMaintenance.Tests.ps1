@@ -44,6 +44,15 @@ Describe 'docker-maintenance.ps1 : journal borné' {
         $kept[-1] | Should -Match '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} nouvelle entrée$'
     }
 
+    It 'crée le journal absent au départ' {
+        $logPath | Should -Not -Exist
+        # Comme dans le script : sans le test d'existence, Get-Item échouerait et l'entrée serait perdue.
+        $ErrorActionPreference = 'Stop'
+        Write-MaintenanceLog 'première entrée'
+        @(Get-Content -LiteralPath $logPath -Encoding UTF8) | Should -Match '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} première entrée$'
+        @(Get-Content -LiteralPath $logPath -Encoding UTF8).Count | Should -Be 1
+    }
+
     It 'ne coupe pas un journal sous la taille maximale' {
         Set-Content -LiteralPath $logPath -Value (1..10 | ForEach-Object { "ligne $_" }) -Encoding UTF8
         Write-MaintenanceLog 'suite'
