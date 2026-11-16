@@ -33,7 +33,7 @@ Everything else is installed by the setup itself: no tool is assumed to be prese
 
 ## Principles
 
-1. **Idempotence**: rerunning the setup breaks nothing and does not reinstall what is in place. Each action checks the state before acting (`Test` → `Set`).
+1. **Idempotence**: rerunning the setup breaks nothing and does not reinstall what is in place. Each action checks the state before acting (`Test` → `Invoke`).
 2. **Data ≠ engine**: the *what* (packages, profiles, choices, settings) is described in JSON; the *how* is in the PowerShell engine. Adding a piece of software does not require changing the engine.
 3. **Simulation**: every action that modifies the system respects `-WhatIf`.
 4. **Traceability**: each run produces a timestamped log (file and console) and a final summary (applied / skipped / failed).
@@ -52,10 +52,11 @@ OS-Setup/
 ├─ src/
 │  ├─ OSSetup/            Engine module: loading, resolution, plan, execution, log, menus
 │  ├─ providers/          One file per action type: { Name; Test; Invoke; Describe; Read }
-│  └─ cleanup.ps1         End-of-setup cleanup, run detached after the setup closes
+│  ├─ cleanup.ps1         End-of-setup cleanup, run detached after the setup closes
+│  └─ resume.ps1          Launcher of the resume after a reboot, run by the resume task
 ├─ catalog/               Installable or configurable items, one JSON file per item
 ├─ profiles/              Profiles: items and choice groups; a profile can extend another
-├─ dotfiles/              Deployed configuration files (Git, terminal, editors, agents…)
+├─ dotfiles/              Deployed configuration files (browser, terminal, editors, agents…)
 ├─ schemas/               JSON schemas of the catalog, profiles and answer files
 ├─ answers/               Example answer files
 ├─ tests/                 Pester tests, and test VM tooling (tests/vm/)
@@ -110,14 +111,16 @@ In addition to installation, an item can deploy configuration files from `dotfil
 
 ## Execution flow
 
-1. `bootstrap.ps1`: checks the OS, sets the execution policy (`Process` scope), installs winget if needed, Git and PowerShell 7, clones the repository, launches `setup.ps1`.
+1. `bootstrap.ps1`: checks the OS, relaunches itself as administrator, installs winget if needed, Git and PowerShell 7, clones the repository, launches `setup.ps1`. It does not change the execution policy: the `-ExecutionPolicy Bypass` of the launch command applies to its own process, and the bootstrap passes it on to the processes it starts (elevated relaunch, `setup.ps1`).
 2. `setup.ps1`: loads and **validates** the catalog and profiles, asks for or reads the choices.
 3. Resolution: profile merge, application of choices, conditions, dependency sorting.
 4. Plan → validation → execution → summary and log.
 
 ### Reboots
 
-The setup is **resumable**. A reboot is signaled by the provider (code 3010, Windows feature, winget code `0x8A150109`) or declared by the item (`requiresReboot`): the item finishes its actions, its dependents are postponed. At the end of a pass, the setup copies itself to `%ProgramFiles%\OS-Setup\resume` (read only for users), saves its state in `state\run.json` of that copy, creates a scheduled task "OS-Setup - reprise" ("OS-Setup - resume") (at logon, highest privileges: no new UAC prompt), then the machine restarts (immediately with `-Yes`, otherwise after a 10 s countdown that a key press postpones). On resume: same answers, same log, at most 5 passes. This task runs Windows PowerShell from the system folder with the copy's launcher `resume.ps1`, which starts the copy's `setup.ps1 -Resume` with the Store `pwsh.exe` found in its package folder, and the resume pass loads modules only from administrators-only folders: nothing that the elevated task runs can be modified without administrator rights ([ADR 0005](adr/0005-resume-from-administrators-only-copy.md)). Logs, backups and answers stay in the repository. The task and the copy are deleted when the setup finishes.
+The setup is **resumable**. A reboot is signaled by the provider (code 3010, Windows feature, winget code `0x8A150109`) or declared by the item (`requiresReboot`): the item finishes its actions, its dependents are postponed. At the end of a pass, the setup copies itself to `%ProgramFiles%\OS-Setup\resume` (read only for users), saves its state in `state\run.json` of that copy, creates a scheduled task "OS-Setup - reprise" ("OS-Setup - resume") (at logon, highest privileges: no new UAC prompt), then the machine restarts (immediately with `-Yes`, otherwise after a 10 s countdown that a key press postpones). On resume: same answers, same log, at most 5 passes. This task runs Windows PowerShell from the system folder with the copy's launcher `resume.ps1`, which starts the copy's `setup.ps1 -Resume` with the `pwsh.exe` of the PowerShell 7 MSI (`%ProgramFiles%\PowerShell\7\pwsh.exe`, never a `pwsh` found through `PATH`), and the resume pass loads modules only from administrators-only folders: nothing that the elevated task runs can be modified without administrator rights ([ADR 0005](adr/0005-resume-from-administrators-only-copy.md)). Logs, backups and answers stay in the repository. The task and the copy are deleted when the setup finishes.
+
+When that `pwsh.exe` is missing (PowerShell 7 installed another way: Microsoft Store, zip archive…), the setup creates neither the copy, nor the state, nor the task: it still restarts the machine (same countdown), and the log asks you to run it again by hand afterwards with the same answers (`./setup.ps1 -AnswerFile` with `state\answers-last.json`). The run is not considered finished, so the end-of-setup cleanup waits for that new run. If the MSI is uninstalled between the reboot request and the resume, the launcher displays the reason and waits for `Enter` before closing its window.
 
 A setting that only takes effect at the next logon declares `requiresLogoff`: the session is closed at the end of the setup (see [Deferred effect](how-it-works.md#deferred-effect)).
 
@@ -132,7 +135,7 @@ The setup leaves only what was chosen. The bootstrap records what it installed i
 - Git and PowerShell 7 installed by the bootstrap are uninstalled if no chosen item installs them;
 - if the repository copy was created by the bootstrap, a menu offers: delete everything, keep the history (log, answers, backups in `%LOCALAPPDATA%\OS-Setup\<date>`), or keep everything. With `-Yes`: the history. A development clone is never deleted. The downloaded bootstrap script is deleted with the copy only if it is a `.ps1` file directly in the user's temporary folder (`%USERPROFILE%\AppData\Local\Temp`) or Downloads folder (`%USERPROFILE%\Downloads`): `state/bootstrap.json` can be modified without elevation and the cleanup runs as administrator, so any other recorded path is kept (warning in the log). Both folders are derived from the profile folder only, never from the `TMP` variable or the Explorer folder settings, which a program running under the account could point to a protected folder: a temporary or Downloads folder moved elsewhere is not recognized, and the script is kept there.
 
-The work is done by `src/cleanup.ps1`, copied with its configuration into `%ProgramFiles%\OS-Setup\cleanup` (administrators only, since it runs elevated) and launched detached under Windows PowerShell 5.1: it waits for the setup to close, uninstalls, deletes, then deletes itself. Deletions never follow junctions or symbolic links: a link placed in the repository copy is removed itself, never the content of the folder it points to (`Remove-Item -Recurse` in Windows PowerShell 5.1 can enter a junction). A path one of whose parent folders is a link is not deleted, and the log is not written through a link: these paths are in the user's repository, where a program running under the account could place one ([ADR 0005](adr/0005-resume-from-administrators-only-copy.md)). It takes a few minutes: do not restart right after the setup ends.
+The work is done by `src/cleanup.ps1`, copied with its configuration into `%ProgramFiles%\OS-Setup\cleanup` (it inherits the Program Files permissions: users can read it, only administrators can modify it, since it runs elevated) and launched detached under Windows PowerShell 5.1: it waits for the setup to close, uninstalls, deletes, then deletes itself. Deletions never follow junctions or symbolic links: a link placed in the repository copy is removed itself, never the content of the folder it points to (`Remove-Item -Recurse` in Windows PowerShell 5.1 can enter a junction). A path one of whose parent folders is a link is not deleted, and the log is not written through a link: these paths are in the user's repository, where a program running under the account could place one ([ADR 0005](adr/0005-resume-from-administrators-only-copy.md)). It takes a few minutes: do not restart right after the setup ends.
 
 ## Windows specifics
 
@@ -142,7 +145,7 @@ The work is done by `src/cleanup.ps1`, copied with its configuration into `%Prog
 
 ## Machine already in use
 
-The engine can **audit** what exists and produce a **plan** (`[ok]` / `[à faire]`, "to do"). An agent will optionally be able to propose resolutions for ambiguous cases, always validated by the user and executed by the engine; the setup remains fully usable without an agent. See [ADR 0002](adr/0002-agent-assistance.md).
+Each provider tests the existing state before acting, so the **plan** shows what is already in place (`[ok]`) and what remains to be done (`[à faire]`, "to do"): the setup works on a machine already in use without any agent. Help from an agent for ambiguous cases is only a proposal ([ADR 0002](adr/0002-agent-assistance.md), status *proposed*).
 
 ## Architecture decisions
 

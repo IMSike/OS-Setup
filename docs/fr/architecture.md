@@ -33,7 +33,7 @@ Tout le reste est installé par le setup lui-même : aucun outil n'est supposé 
 
 ## Principes
 
-1. **Idempotence** : relancer le setup ne casse rien et ne réinstalle pas ce qui est en place. Chaque action vérifie l'état avant d'agir (`Test` → `Set`).
+1. **Idempotence** : relancer le setup ne casse rien et ne réinstalle pas ce qui est en place. Chaque action vérifie l'état avant d'agir (`Test` → `Invoke`).
 2. **Données ≠ moteur** : le *quoi* (paquets, profils, choix, réglages) est décrit en JSON ; le *comment* est dans le moteur PowerShell. Ajouter un logiciel ne demande pas de modifier le moteur.
 3. **Simulation** : toute action qui modifie le système respecte `-WhatIf`.
 4. **Traçabilité** : chaque exécution produit un journal horodaté (fichier et console) et un récapitulatif final (appliqué / ignoré / échoué).
@@ -52,10 +52,11 @@ OS-Setup/
 ├─ src/
 │  ├─ OSSetup/            Module du moteur : chargement, résolution, plan, exécution, journal, menus
 │  ├─ providers/          Un fichier par type d'action : { Name; Test; Invoke; Describe; Read }
-│  └─ cleanup.ps1         Nettoyage de fin, exécuté détaché après la fermeture du setup
+│  ├─ cleanup.ps1         Nettoyage de fin, exécuté détaché après la fermeture du setup
+│  └─ resume.ps1          Lanceur de la reprise après redémarrage, exécuté par la tâche de reprise
 ├─ catalog/               Éléments installables ou configurables, un fichier JSON par élément
 ├─ profiles/              Profils : éléments et groupes de choix ; un profil peut en étendre un autre
-├─ dotfiles/              Fichiers de configuration déployés (Git, terminal, éditeurs, agents…)
+├─ dotfiles/              Fichiers de configuration déployés (navigateur, terminal, éditeurs, agents…)
 ├─ schemas/               Schémas JSON du catalogue, des profils et des fichiers de réponses
 ├─ answers/               Exemples de fichiers de réponses
 ├─ tests/                 Tests Pester, et outillage de VM de test (tests/vm/)
@@ -110,14 +111,16 @@ En plus de l'installation, un élément peut déployer des fichiers de configura
 
 ## Déroulement
 
-1. `bootstrap.ps1` : vérifie l'OS, règle la stratégie d'exécution (portée `Process`), installe winget si besoin, Git et PowerShell 7, clone le dépôt, lance `setup.ps1`.
+1. `bootstrap.ps1` : vérifie l'OS, se relance en administrateur, installe winget si besoin, Git et PowerShell 7, clone le dépôt, lance `setup.ps1`. Il ne modifie pas la stratégie d'exécution : le `-ExecutionPolicy Bypass` de la commande de lancement s'applique à son propre processus, et le bootstrap le repasse aux processus qu'il démarre (relance en administrateur, `setup.ps1`).
 2. `setup.ps1` : charge et **valide** le catalogue et les profils, demande ou lit les choix.
 3. Résolution : fusion des profils, application des choix, conditions, tri par dépendances.
 4. Plan → validation → exécution → récapitulatif et journal.
 
 ### Redémarrages
 
-Le setup est **reprenable**. Un redémarrage est signalé par le provider (code 3010, fonctionnalité Windows, code winget `0x8A150109`) ou déclaré par l'élément (`requiresReboot`) : l'élément termine ses actions, ses dépendants sont reportés. En fin de passe, le setup se copie dans `%ProgramFiles%\OS-Setup\resume` (lecture seule pour les utilisateurs), enregistre son état dans le `state\run.json` de cette copie, crée une tâche planifiée « OS-Setup - reprise » (ouverture de session, droits les plus élevés : pas de nouvelle invite UAC), puis la machine redémarre (immédiatement avec `-Yes`, sinon après un compte à rebours de 10 s qu'une touche reporte). À la reprise : mêmes réponses, même journal, au plus 5 passes. Cette tâche lance le Windows PowerShell du dossier système avec le lanceur `resume.ps1` de la copie, qui démarre le `setup.ps1 -Resume` de la copie avec le `pwsh.exe` du Store retrouvé dans le dossier de son paquet, et la reprise ne charge des modules que depuis des dossiers réservés aux administrateurs : rien de ce qu'exécute la tâche élevée ne peut être modifié sans droits administrateur ([ADR 0005](adr/0005-resume-from-administrators-only-copy.md)). Journaux, sauvegardes et réponses restent dans le dépôt. La tâche et la copie sont supprimées quand le setup se termine.
+Le setup est **reprenable**. Un redémarrage est signalé par le provider (code 3010, fonctionnalité Windows, code winget `0x8A150109`) ou déclaré par l'élément (`requiresReboot`) : l'élément termine ses actions, ses dépendants sont reportés. En fin de passe, le setup se copie dans `%ProgramFiles%\OS-Setup\resume` (lecture seule pour les utilisateurs), enregistre son état dans le `state\run.json` de cette copie, crée une tâche planifiée « OS-Setup - reprise » (ouverture de session, droits les plus élevés : pas de nouvelle invite UAC), puis la machine redémarre (immédiatement avec `-Yes`, sinon après un compte à rebours de 10 s qu'une touche reporte). À la reprise : mêmes réponses, même journal, au plus 5 passes. Cette tâche lance le Windows PowerShell du dossier système avec le lanceur `resume.ps1` de la copie, qui démarre le `setup.ps1 -Resume` de la copie avec le `pwsh.exe` du MSI de PowerShell 7 (`%ProgramFiles%\PowerShell\7\pwsh.exe`, jamais un `pwsh` trouvé par le `PATH`), et la reprise ne charge des modules que depuis des dossiers réservés aux administrateurs : rien de ce qu'exécute la tâche élevée ne peut être modifié sans droits administrateur ([ADR 0005](adr/0005-resume-from-administrators-only-copy.md)). Journaux, sauvegardes et réponses restent dans le dépôt. La tâche et la copie sont supprimées quand le setup se termine.
+
+Quand ce `pwsh.exe` est absent (PowerShell 7 installé autrement : Microsoft Store, archive zip…), le setup ne crée ni la copie, ni l'état, ni la tâche : il redémarre quand même la machine (même compte à rebours), et le journal demande de le relancer ensuite à la main avec les mêmes réponses (`./setup.ps1 -AnswerFile` avec `state\answers-last.json`). L'exécution n'est pas considérée comme terminée : le nettoyage de fin attend cette nouvelle exécution. Si le MSI est désinstallé entre la demande de redémarrage et la reprise, le lanceur affiche la raison et attend `Entrée` avant de fermer sa fenêtre.
 
 Un réglage qui ne prend effet qu'à la prochaine ouverture de session déclare `requiresLogoff` : la session est fermée en fin de setup (voir [Effet différé](how-it-works.md#effet-différé)).
 
@@ -132,7 +135,7 @@ Le setup ne laisse que ce qui a été choisi. Le bootstrap consigne ce qu'il a i
 - Git et PowerShell 7 installés par le bootstrap sont désinstallés si aucun élément choisi ne les installe ;
 - si la copie du dépôt a été créée par le bootstrap, un menu propose : tout supprimer, garder l'historique (journal, réponses, sauvegardes dans `%LOCALAPPDATA%\OS-Setup\<date>`), ou tout garder. Avec `-Yes` : l'historique. Un clone de développement n'est jamais supprimé. Le script du bootstrap téléchargé n'est supprimé avec la copie que s'il s'agit d'un fichier `.ps1` posé directement dans le dossier temporaire (`%USERPROFILE%\AppData\Local\Temp`) ou le dossier Téléchargements (`%USERPROFILE%\Downloads`) de l'utilisateur : `state/bootstrap.json` se modifie sans élévation et le nettoyage s'exécute en administrateur, tout autre chemin noté est donc conservé (avertissement dans le journal). Ces deux dossiers sont déduits du seul dossier du profil, jamais de la variable `TMP` ni des réglages de dossiers de l'Explorateur, qu'un programme lancé sous le compte pourrait faire pointer vers un dossier protégé : un dossier temporaire ou Téléchargements déplacé ailleurs n'est pas reconnu, et le script y est conservé.
 
-Le travail est fait par `src/cleanup.ps1`, copié avec sa configuration dans `%ProgramFiles%\OS-Setup\cleanup` (réservé aux administrateurs, puisqu'il s'exécute élevé) et lancé détaché sous Windows PowerShell 5.1 : il attend la fermeture du setup, désinstalle, supprime, puis s'efface. Les suppressions ne suivent jamais les jonctions ni les liens symboliques : un lien placé dans la copie du dépôt est retiré lui-même, jamais le contenu du dossier qu'il désigne (`Remove-Item -Recurse` de Windows PowerShell 5.1 peut entrer dans une jonction). Un chemin dont un dossier parent est un lien n'est pas supprimé, et le journal n'est pas écrit au travers d'un lien : ces chemins sont dans le dépôt de l'utilisateur, où un programme lancé sous son compte pourrait en placer un ([ADR 0005](adr/0005-resume-from-administrators-only-copy.md)). Il faut quelques minutes : ne pas redémarrer juste après la fin du setup.
+Le travail est fait par `src/cleanup.ps1`, copié avec sa configuration dans `%ProgramFiles%\OS-Setup\cleanup` (il hérite des droits de Program Files : lisible par les utilisateurs, modifiable par les seuls administrateurs, puisqu'il s'exécute élevé) et lancé détaché sous Windows PowerShell 5.1 : il attend la fermeture du setup, désinstalle, supprime, puis s'efface. Les suppressions ne suivent jamais les jonctions ni les liens symboliques : un lien placé dans la copie du dépôt est retiré lui-même, jamais le contenu du dossier qu'il désigne (`Remove-Item -Recurse` de Windows PowerShell 5.1 peut entrer dans une jonction). Un chemin dont un dossier parent est un lien n'est pas supprimé, et le journal n'est pas écrit au travers d'un lien : ces chemins sont dans le dépôt de l'utilisateur, où un programme lancé sous son compte pourrait en placer un ([ADR 0005](adr/0005-resume-from-administrators-only-copy.md)). Il faut quelques minutes : ne pas redémarrer juste après la fin du setup.
 
 ## Particularités de Windows
 
@@ -142,7 +145,7 @@ Le travail est fait par `src/cleanup.ps1`, copié avec sa configuration dans `%P
 
 ## Machine déjà utilisée
 
-Le moteur sait **auditer** l'existant et produire un **plan** (`[ok]` / `[à faire]`). Un agent pourra, en option, proposer des résolutions pour les cas ambigus, toujours validées par l'utilisateur et exécutées par le moteur ; le setup reste entièrement utilisable sans agent. Voir [ADR 0002](adr/0002-agent-assistance.md).
+Chaque provider teste l'existant avant d'agir : le **plan** montre ce qui est déjà en place (`[ok]`) et ce qui reste à faire (`[à faire]`) ; le setup fonctionne sur une machine déjà utilisée sans aucun agent. L'aide d'un agent pour les cas ambigus n'est qu'une proposition ([ADR 0002](adr/0002-agent-assistance.md), statut *proposé*).
 
 ## Décisions d'architecture
 
