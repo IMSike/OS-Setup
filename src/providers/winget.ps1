@@ -29,10 +29,11 @@ param()
         if ($Action['location']) { $arguments += @('--location', $Action['location']) }
         if ($Action['override']) { $arguments += @('--override', $Action['override']) }
 
-        # winget écrit en UTF-8. Les barres de progression n'ont pas d'intérêt dans le journal. Le code de sortie est
-        # interprété ci-dessous (certains codes non nuls sont des succès).
-        $exitCode = (Invoke-OSSetupNativeCommand -FilePath winget -ArgumentList $arguments -Utf8 -NoThrow -PassThru `
-                -LogFilter '^[\s\-\\|/█▒]+$|^\s*\d+(\.\d+)? [KMG]?B / ').ExitCode
+        # winget écrit en UTF-8. Les barres de progression n'ont pas d'intérêt dans le journal : indicateur d'attente
+        # (- \ | /), et barre suivie, sur la même ligne, de la taille téléchargée (« ███▒▒  1024 KB / 6.48 MB ») ou d'un
+        # pourcentage. Le code de sortie est interprété ci-dessous (certains codes non nuls sont des succès).
+        $progress = '^[\s\-\\|/█▒]+$|^[\s█▒]*\d+(\.\d+)?\s*[KMG]?B\s*/\s*\d+(\.\d+)?\s*[KMG]?B\s*$|^[\s█▒]*\d+\s*%\s*$'
+        $exitCode = (Invoke-OSSetupNativeCommand -FilePath winget -ArgumentList $arguments -Utf8 -NoThrow -PassThru -LogFilter $progress).ExitCode
         # 0x8A150109 : installé, redémarrage nécessaire pour terminer ; 3010 : code MSI équivalent.
         $rebootRequired = $exitCode -in -1978334967, 3010
         # 0x8A15002B : déjà installé, aucune mise à jour applicable.

@@ -486,6 +486,11 @@ Describe 'Provider winget : installation' {
             if ([Console]::OutputEncoding.CodePage -eq 65001) { 'Trouvé Some App [Some.App]' } else { 'Trouv├® Some App [Some.App]' }
             '  ██████▒▒▒▒  '
             '  1.50 MB / 3.00 MB'
+            # Formes relevées dans le journal d'une VM : barre et taille sur la même ligne, fin de ligne comprise.
+            "  ███▒▒▒▒▒▒▒  1024 KB / 6.48 MB`r"
+            '  ██████████   112 MB /  112 MB'
+            '  ████▒▒▒▒▒▒  40%'
+            '  \'
             'Installé correctement'
         }
         $before = [Console]::OutputEncoding
