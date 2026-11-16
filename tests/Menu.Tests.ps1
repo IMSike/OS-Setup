@@ -238,10 +238,12 @@ Describe 'Save-OSSetupAnswerFile' {
         $answers['variables']['DevRoot'] | Should -Be 'D:\dev'
     }
 
-    It 'refuse un fichier non conforme au schéma, en citant l''écart' {
+    It 'refuse un fichier non conforme au schéma, en nommant le fichier et le schéma' {
+        # Seule la ligne du moteur est vérifiée : les détails de Test-Json dépendent de la version de PowerShell et de sa langue.
         $path = Join-Path -Path $TestDrive -ChildPath 'invalide.json'
         Set-Content -LiteralPath $path -Value '{ "profiles": ["base"], "variables": { "GitUserName": 42 } }'
-        { Read-OSSetupAnswerFile -Path $path -Root (Join-Path -Path $PSScriptRoot -ChildPath '..') } | Should -Throw '*Fichier de réponses invalide*variables*'
+        { Read-OSSetupAnswerFile -Path $path -Root (Join-Path -Path $PSScriptRoot -ChildPath '..') } |
+            Should -Throw "*Fichier de réponses invalide*$([WildcardPattern]::Escape($path)) : non conforme au schéma answers.schema.json*"
     }
 }
 

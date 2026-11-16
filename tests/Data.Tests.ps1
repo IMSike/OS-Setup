@@ -493,6 +493,13 @@ Describe 'Format-OSSetupSchemaError' {
             Should -BeLike 'C:\a.json : non conforme au schéma item.schema.json (vérifier*'
     }
 
+    It 'ne suggère les actions et leur provider que pour un élément du catalogue' {
+        Format-OSSetupSchemaError -Path 'C:\r.json' -SchemaPath 'C:\s\answers.schema.json' -SchemaError @() |
+            Should -BeExactly 'C:\r.json : non conforme au schéma answers.schema.json.'
+        Format-OSSetupSchemaError -Path 'C:\p.json' -SchemaPath 'C:\s\profile.schema.json' -SchemaError @() |
+            Should -BeExactly 'C:\p.json : non conforme au schéma profile.schema.json.'
+    }
+
     It 'dédoublonne et plafonne les détails' {
         $errors = @('un', 'deux', 'un', 'trois', 'quatre', 'cinq', 'six', 'sept') | ForEach-Object { & $newError $_ }
         $lines = (Format-OSSetupSchemaError -Path 'C:\a.json' -SchemaPath 'item.schema.json' -SchemaError $errors) -split "`n"

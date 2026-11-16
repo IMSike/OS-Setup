@@ -40,7 +40,8 @@ function Format-OSSetupSchemaError {
     .DESCRIPTION
         Les détails de Test-Json varient selon la version de PowerShell et sa langue : aucun pour l'échec d'un
         « oneOf » en 7.4, une ligne par branche essayée en 7.6.10 (plus de 70 pour un provider inconnu). La ligne
-        du moteur est donc toujours présente ; les détails sont dédoublonnés et plafonnés.
+        du moteur est donc toujours présente ; les détails sont dédoublonnés et plafonnés. Sans détail, un élément du
+        catalogue reçoit une piste (ses actions, où sont presque tous les écarts) ; les autres schémas n'en ont pas.
     #>
     [CmdletBinding()]
     [OutputType([string])]
@@ -57,10 +58,14 @@ function Format-OSSetupSchemaError {
 
         [int]$MaxDetail = 5
     )
-    $message = "${Path} : non conforme au schéma $(Split-Path -Path $SchemaPath -Leaf)"
+    $schemaName = Split-Path -Path $SchemaPath -Leaf
+    $message = "${Path} : non conforme au schéma ${schemaName}"
     $details = @($SchemaError | ForEach-Object { $_.Exception.Message } | Where-Object { $_ } | Select-Object -Unique)
     if ($details.Count -eq 0) {
-        return "$message (vérifier notamment les actions et leur provider)."
+        if ($schemaName -eq 'item.schema.json') {
+            return "$message (vérifier notamment les actions et leur provider)."
+        }
+        return "${message}."
     }
     $lines = @($details | Select-Object -First $MaxDetail)
     if ($details.Count -gt $MaxDetail) {
