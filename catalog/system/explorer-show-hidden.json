@@ -4,7 +4,6 @@
   "name": "Explorateur : fichiers cachés affichés",
   "category": "system",
   "platforms": ["windows"],
-  "notes": "Pris en compte au redémarrage de l'Explorateur ou à la prochaine session.",
   "actions": [
     {
       "provider": "registry",
