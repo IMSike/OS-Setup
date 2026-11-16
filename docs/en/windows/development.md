@@ -370,6 +370,7 @@ Optional: only useful for working in a Linux terminal (Linux-specific tools, pro
 
 - **Effect**: installs the distribution in WSL (`wsl --install --distribution <name>`, in a new window); at its first launch, it asks for the name and password of the **Linux account**: the only manual part. The setup then checks that the distribution is registered with a non-root account (registry `HKCU\Software\Microsoft\Windows\CurrentVersion\Lxss`, `DefaultUid`).
 - **Implications**: processed after the WSL restart. The password is used for `sudo`; it is known only to the user. `wsl --unregister` deletes the distribution and its files.
+- **Fedora version**: fixed in the catalog (the item's `value`), it does not follow new Fedora releases by itself. The check looks for that exact name: on a machine where only another version is registered (e.g. `FedoraLinux-44`), the step is offered again and its assist runs `wsl --install --distribution FedoraLinux-45`, a second distribution registered next to the first, which the setup leaves untouched (`wsl --unregister FedoraLinux-44` to remove it).
 
 ### Docker Desktop — `docker-desktop`
 

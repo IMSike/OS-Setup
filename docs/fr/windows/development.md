@@ -370,6 +370,7 @@ Facultatives : utiles seulement pour travailler dans un terminal Linux (outils p
 
 - **Effet** : installe la distribution dans WSL (`wsl --install --distribution <nom>`, dans une nouvelle fenêtre) ; à son premier lancement, elle demande le nom et le mot de passe du **compte Linux** : seule partie manuelle. Le setup vérifie ensuite que la distribution est enregistrée avec un compte autre que root (registre `HKCU\Software\Microsoft\Windows\CurrentVersion\Lxss`, `DefaultUid`).
 - **Implications** : traité après le redémarrage de WSL. Le mot de passe sert à `sudo` ; il n'est connu que de l'utilisateur. `wsl --unregister` supprime la distribution et ses fichiers.
+- **Version de Fedora** : fixée dans le catalogue (`value` de l'élément), elle ne suit pas d'elle-même les nouvelles versions de Fedora. La vérification cherche ce nom exact : sur un poste où seule une autre version est enregistrée (ex. `FedoraLinux-44`), l'étape est proposée de nouveau et son aide lance `wsl --install --distribution FedoraLinux-45`, une seconde distribution enregistrée à côté de la première, que le setup ne touche pas (`wsl --unregister FedoraLinux-44` pour la supprimer).
 
 ### Docker Desktop — `docker-desktop`
 
