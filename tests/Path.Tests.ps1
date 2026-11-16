@@ -39,9 +39,9 @@ Describe 'Add-OSSetupPathEntry' {
         $keys = @{ 'HKCU:\Environment' = $userKey; 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' = $machineKey }
         # Sans filtre : un autre chemin lève une erreur au lieu d'atteindre le vrai registre.
         $redirect = { param($Path) if (-not $keys.ContainsKey("$Path")) { throw "Chemin inattendu : $Path" }; $keys["$Path"] }
-        Mock -ModuleName OSSetup Get-Item { Microsoft.PowerShell.Management\Get-Item -Path (& $redirect $Path) }
+        Mock -ModuleName OSSetup Get-Item { Microsoft.PowerShell.Management\Get-Item -LiteralPath (& $redirect $LiteralPath) }
         Mock -ModuleName OSSetup Set-ItemProperty {
-            Microsoft.PowerShell.Management\Set-ItemProperty -Path (& $redirect $Path) -Name $Name -Value $Value -Type $Type
+            Microsoft.PowerShell.Management\Set-ItemProperty -LiteralPath (& $redirect $LiteralPath) -Name $Name -Value $Value -Type $Type
         }
         Mock -ModuleName OSSetup Send-OSSetupEnvironmentChange
         Mock -ModuleName OSSetup Update-OSSetupSessionPath
