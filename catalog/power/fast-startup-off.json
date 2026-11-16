@@ -1,11 +1,12 @@
 {
   "$schema": "../../schemas/item.schema.json",
   "id": "fast-startup-off",
-  "name": "Démarrage rapide : désactivé (arrêts complets)",
+  "name": "Démarrage rapide : désactivé",
   "category": "power",
   "platforms": ["windows"],
   "requiresAdmin": true,
   "notes": "Le démarrage rapide met le noyau en veille prolongée à l'arrêt ; désactivé, chaque arrêt est complet (mises à jour, double démarrage, pilotes).",
+  "checkedWarning": "Chaque arrêt éteint complètement Windows : l'allumage suivant est plus lent (quelques secondes sur SSD, des dizaines de secondes sur disque dur).",
   "uncheckedWarning": "En double démarrage (Linux, ou disque de données NTFS partagé), le démarrage rapide laisse les partitions Windows en veille prolongée : y écrire depuis l'autre système peut corrompre des fichiers Windows.",
   "actions": [
     {

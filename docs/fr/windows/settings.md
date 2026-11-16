@@ -330,9 +330,9 @@ Menu « Alimentation et verrouillage » du profil `base` (`catalog/power/`). Les
 - **Valeur** : `HKCU\Control Panel\Desktop` : `SCRNSAVE.EXE` = `C:\Windows\System32\scrnsave.scr` (écran vide), `ScreenSaveActive` = `1`, `ScreenSaverIsSecure` = `1`, `ScreenSaveTimeOut` = `300` (secondes).
 - **Revenir en arrière** : `Win+R` > `control desk.cpl,,@screensaver` (accessible même sur Windows non activé).
 
-### Démarrage rapide : désactivé (arrêts complets) — `fast-startup-off`
+### Démarrage rapide : désactivé — `fast-startup-off`
 
-✔ · admin · préférence (HKLM) · avertissement si décoché
+✔ · admin · préférence (HKLM) · avertissement si coché ou décoché
 
 - **Fonctionnement du démarrage rapide** (activé par défaut dans Windows) : « Arrêter » ferme les sessions, puis **met en veille prolongée la partie système** (noyau et pilotes) dans `C:\hiberfil.sys` ; l'allumage suivant recharge cet état au lieu de tout réinitialiser. « Redémarrer », ou « Arrêter » avec `Maj` enfoncé, fait toujours un démarrage complet. À ne pas confondre avec le « Fast Boot » de l'UEFI (réglage du firmware).
 - **Effet du réglage** : chaque « Arrêter » éteint complètement Windows.
@@ -343,7 +343,7 @@ Menu « Alimentation et verrouillage » du profil `base` (`catalog/power/`). Les
   - un « arrêt » ne réinitialise ni pilotes ni noyau : un problème persiste après arrêt et rallumage, et la durée de fonctionnement affichée continue de courir ;
   - un logiciel ou pilote qui attend un vrai redémarrage peut sembler ne pas s'appliquer ; un matériel changé pendant l'arrêt est moins bien détecté ; le réveil réseau (Wake-on-LAN) peut ne pas fonctionner selon la carte.
 - **Ce qui ne change pas** : la veille prolongée reste disponible et `hiberfil.sys` reste présent (ce réglage ne les supprime pas) ; « Redémarrer » est inchangé.
-- **Choix** : coché par défaut, parce que le double démarrage est souvent installé *après* Windows (une détection au moment du setup ne le verrait pas), qu'un outil qui reconstruit des machines doit avoir des arrêts prévisibles, et que le coût est faible sur SSD. Décoché, le setup affiche : « En double démarrage (Linux, ou disque de données NTFS partagé), le démarrage rapide laisse les partitions Windows en veille prolongée : y écrire depuis l'autre système peut corrompre des fichiers Windows. » (champ `uncheckedWarning` du catalogue).
+- **Choix** : coché par défaut, parce que le double démarrage est souvent installé *après* Windows (une détection au moment du setup ne le verrait pas), qu'un outil qui reconstruit des machines doit avoir des arrêts prévisibles, et que le coût est faible sur SSD. Coché, le setup affiche : « Chaque arrêt éteint complètement Windows : l'allumage suivant est plus lent (quelques secondes sur SSD, des dizaines de secondes sur disque dur). » (champ `checkedWarning`). Décoché, il affiche : « En double démarrage (Linux, ou disque de données NTFS partagé), le démarrage rapide laisse les partitions Windows en veille prolongée : y écrire depuis l'autre système peut corrompre des fichiers Windows. » (champ `uncheckedWarning` du catalogue).
 - **Valeur** : `HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Power` `HiberbootEnabled` = 0.
 - **Revenir en arrière** : Panneau de configuration > Options d'alimentation > « Choisir l'action des boutons d'alimentation » > « Activer le démarrage rapide ».
 

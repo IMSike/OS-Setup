@@ -330,9 +330,9 @@ Each item turns off, for the current account, the "Allow apps to access your …
 - **Value**: `HKCU\Control Panel\Desktop`: `SCRNSAVE.EXE` = `C:\Windows\System32\scrnsave.scr` (blank screen), `ScreenSaveActive` = `1`, `ScreenSaverIsSecure` = `1`, `ScreenSaveTimeOut` = `300` (seconds).
 - **Rollback**: `Win+R` > `control desk.cpl,,@screensaver` (reachable even on a Windows that is not activated).
 
-### Fast startup: disabled (full shutdowns) — `fast-startup-off`
+### Fast startup: disabled — `fast-startup-off`
 
-✔ · admin · preference (HKLM) · warning when unchecked
+✔ · admin · preference (HKLM) · warning when checked or unchecked
 
 - **How fast startup works** (enabled by default in Windows): "Shut down" closes the sessions, then **hibernates the system part** (kernel and drivers) into `C:\hiberfil.sys`; the next power-on reloads that state instead of resetting everything. "Restart", or "Shut down" with `Shift` held, always does a full boot. Not to be confused with the UEFI "Fast Boot" (a firmware setting).
 - **Effect of the setting**: every "Shut down" fully powers Windows off.
@@ -343,7 +343,7 @@ Each item turns off, for the current account, the "Allow apps to access your …
   - a "shutdown" resets neither drivers nor kernel: a problem persists after shutting down and powering on again, and the displayed uptime keeps running;
   - software or a driver waiting for a real restart may appear not to apply; hardware changed during shutdown is less well detected; Wake-on-LAN may not work depending on the network card.
 - **What does not change**: hibernation remains available and `hiberfil.sys` remains present (this setting does not remove them); "Restart" is unchanged.
-- **Choice**: checked by default, because dual boot is often installed *after* Windows (a detection at setup time would not see it), because a tool that rebuilds machines should have predictable shutdowns, and because the cost is low on an SSD. When unchecked, the setup displays: "En double démarrage (Linux, ou disque de données NTFS partagé), le démarrage rapide laisse les partitions Windows en veille prolongée : y écrire depuis l'autre système peut corrompre des fichiers Windows." (In dual boot (Linux, or a shared NTFS data disk), fast startup leaves the Windows partitions hibernated: writing to them from the other system can corrupt Windows files.) (`uncheckedWarning` field of the catalog).
+- **Choice**: checked by default, because dual boot is often installed *after* Windows (a detection at setup time would not see it), because a tool that rebuilds machines should have predictable shutdowns, and because the cost is low on an SSD. When checked, the setup displays: "Chaque arrêt éteint complètement Windows : l'allumage suivant est plus lent (quelques secondes sur SSD, des dizaines de secondes sur disque dur)." (Every shutdown fully powers Windows off: the next power-on is slower (a few seconds on an SSD, tens of seconds on a hard disk).) (`checkedWarning` field). When unchecked, it displays: "En double démarrage (Linux, ou disque de données NTFS partagé), le démarrage rapide laisse les partitions Windows en veille prolongée : y écrire depuis l'autre système peut corrompre des fichiers Windows." (In dual boot (Linux, or a shared NTFS data disk), fast startup leaves the Windows partitions hibernated: writing to them from the other system can corrupt Windows files.) (`uncheckedWarning` field of the catalog).
 - **Value**: `HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Power` `HiberbootEnabled` = 0.
 - **Rollback**: Control Panel > Power Options > "Choose what the power buttons do" > "Turn on fast startup".
 
