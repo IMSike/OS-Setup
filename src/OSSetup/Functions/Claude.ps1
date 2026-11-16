@@ -9,7 +9,7 @@
     param()
     if (-not (Get-Command -Name claude -CommandType Application -ErrorAction SilentlyContinue)) { return }
     # Claude Code écrit en UTF-8. La liste (JSON) n'est pas journalisée ; la sortie d'erreur est écartée.
-    $result = Invoke-OSSetupNativeCommand -FilePath claude -ArgumentList 'plugin', 'list', '--json' -Utf8 -NoThrow -PassThru -LogFilter '.*'
+    $result = Invoke-OSSetupNativeCommand -FilePath claude -ArgumentList 'plugin', 'list', '--json' -Utf8 -NoThrow -PassThru -NoLog
     if ($result.ExitCode -ne 0) { return }
     $output = @($result.Output | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] })
     try {

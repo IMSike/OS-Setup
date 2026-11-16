@@ -8,6 +8,9 @@
         la page de code OEM et les accents sont corrompus dans le journal).
     .PARAMETER LogFilter
         Expression régulière : les lignes qui y correspondent ne sont pas journalisées (ex. barres de progression).
+    .PARAMETER NoLog
+        Aucune ligne de la sortie n'est journalisée (lecture répétée d'une valeur, sortie JSON) ; avec -PassThru,
+        l'appelant la reçoit entière.
     .PARAMETER NoInput
         Entrée standard vide : aucune question de l'outil ne peut bloquer le setup.
     .PARAMETER NoThrow
@@ -29,6 +32,8 @@
 
         [string]$LogFilter,
 
+        [switch]$NoLog,
+
         [switch]$NoInput,
 
         [switch]$NoThrow,
@@ -44,7 +49,7 @@
     finally {
         if ($Utf8) { [Console]::OutputEncoding = $previousEncoding }
     }
-    foreach ($line in $output) {
+    foreach ($line in $(if (-not $NoLog) { $output })) {
         if ("$line".Trim() -and -not ($LogFilter -and "$line" -match $LogFilter)) { Write-OSSetupLog -Level Detail -Message "  $line" }
     }
     if ($exitCode -ne 0 -and -not $NoThrow) {

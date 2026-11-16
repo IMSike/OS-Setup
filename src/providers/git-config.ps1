@@ -17,14 +17,14 @@ param()
     Test     = {
         param($Action, $Context)
         if (-not (Get-Command -Name git -CommandType Application -ErrorAction SilentlyContinue)) { return $false }
-        $result = Invoke-OSSetupNativeCommand -FilePath git -ArgumentList 'config', '--global', '--get', $Action['key'] -Utf8 -NoThrow -PassThru -LogFilter '.*'
+        $result = Invoke-OSSetupNativeCommand -FilePath git -ArgumentList 'config', '--global', '--get', $Action['key'] -Utf8 -NoThrow -PassThru -NoLog
         $result.ExitCode -eq 0 -and (@($result.Output) -join "`n") -ceq $Action['value']
     }
 
     Read     = {
         param($Action, $Context)
         if (-not (Get-Command -Name git -CommandType Application -ErrorAction SilentlyContinue)) { return [ordered]@{ exists = $false } }
-        $result = Invoke-OSSetupNativeCommand -FilePath git -ArgumentList 'config', '--global', '--get', $Action['key'] -Utf8 -NoThrow -PassThru -LogFilter '.*'
+        $result = Invoke-OSSetupNativeCommand -FilePath git -ArgumentList 'config', '--global', '--get', $Action['key'] -Utf8 -NoThrow -PassThru -NoLog
         if ($result.ExitCode -eq 0) { [ordered]@{ exists = $true; value = (@($result.Output) -join "`n") } } else { [ordered]@{ exists = $false } }
     }
 

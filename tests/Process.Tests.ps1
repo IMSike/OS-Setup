@@ -36,6 +36,13 @@ Describe 'Invoke-OSSetupNativeCommand' {
         Should -Invoke -ModuleName OSSetup -CommandName Write-OSSetupLog -Times 0 -Exactly -ParameterFilter { $Message -match '\|' }
     }
 
+    It 'avec -NoLog, ne journalise aucune ligne mais retourne toute la sortie' {
+        $result = Invoke-OSSetupNativeCommand -FilePath Invoke-OSSetupTestTool -NoLog -PassThru
+        Should -Invoke -ModuleName OSSetup -CommandName Write-OSSetupLog -Times 0 -Exactly
+        $result.Output | Should -Contain 'première ligne'
+        $result.Output | Should -Contain 'dernière ligne'
+    }
+
     It 'lève une exception avec le code de sortie en cas d''échec' {
         $global:OSSetupTestToolExitCode = 3
         { Invoke-OSSetupNativeCommand -FilePath Invoke-OSSetupTestTool -ArgumentList 'install' } |
