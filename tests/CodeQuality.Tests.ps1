@@ -92,7 +92,8 @@ Describe 'Cmdlets qui n''héritent pas de la préférence d''erreur du module' {
                 if ('ErrorAction' -notin $parameters) { '{0}:{1} {2}' -f $file.Name, $command.Extent.StartLineNumber, $command.GetCommandName() }
             }
         }
-        $names.Count | Should -BeGreaterThan 5
+        # La liste statique suffirait à un compte : sans le module ScheduledTasks, sa famille ne serait plus contrôlée.
+        $names | Should -Contain 'Register-ScheduledTask'
         $missing | Should -BeNullOrEmpty
     }
 }
