@@ -316,4 +316,16 @@ Describe 'Read-OSSetupAnswer' {
         Test-OSSetupAnswer -Data $data -Answers $answers
         Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 0 -ParameterFilter { $Level -eq 'Warning' }
     }
+
+    It 'garde une variable au nom d''une variable intégrée (casse indifférente), que Test-OSSetupAnswer refuse ensuite' {
+        $global:OSSetupTestMenuQueue = [System.Collections.Generic.Queue[object]]::new()
+        $global:OSSetupTestMenuQueue.Enqueue(@{ Action = 'next'; Values = @('base') })   # Profils : dev décoché
+        $global:OSSetupTestMenuQueue.Enqueue(@{ Action = 'next'; Values = @('x') })      # Choix
+
+        $existing = @{ profiles = @('dev'); choices = @{ pick = @('y'); one = @('y') }; variables = @{ Root = 'D:\dev'; userprofile = 'D:\autre' } }
+        $data = New-TestData
+        $answers = Read-OSSetupAnswer -Data $data -Facts $windows -Answers $existing -StartStep 'profiles'
+        @($answers.variables.Keys) | Should -Be @('userprofile')
+        { Test-OSSetupAnswer -Data $data -Answers $answers } | Should -Throw '*userprofile*variable intégrée*'
+    }
 }
