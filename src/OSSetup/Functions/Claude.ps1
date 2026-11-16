@@ -14,8 +14,10 @@
     $output = @($result.Output | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] })
     try {
         foreach ($plugin in @(($output -join "`n") | ConvertFrom-Json)) {
-            $scope = if ($plugin.PSObject.Properties['scope']) { [string]$plugin.scope } else { '' }
-            [pscustomobject]@{ Id = [string]$plugin.id; Scope = $scope; Enabled = [bool]$plugin.enabled }
+            # Champ absent de la sortie : $null (le provider le signale et compare strictement, donc non conforme).
+            $scope = if ($plugin.PSObject.Properties['scope']) { [string]$plugin.scope } else { $null }
+            $enabled = if ($plugin.PSObject.Properties['enabled']) { [bool]$plugin.enabled } else { $null }
+            [pscustomobject]@{ Id = [string]$plugin.id; Scope = $scope; Enabled = $enabled }
         }
     }
     catch {

@@ -12,13 +12,20 @@ param()
         "herdr plugin install $($Action['repo'])"
     }
 
-    # Conforme quand le plugin est enregistré et activé (champ enabled de plugins.json), comme claude-plugin.
+    # Conforme quand le plugin est enregistré et activé (champ enabled de plugins.json), comme claude-plugin. Comparaison
+    # stricte : un champ enabled absent (format changé) rend l'élément non conforme, et le journal en donne la raison.
     Test     = {
         param($Action, $Context)
         $path = Join-Path -Path $env:APPDATA -ChildPath 'herdr\plugins.json'
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $false }
-        $plugins = @(ConvertFrom-OSSetupJsonText -Text (Get-Content -LiteralPath $path -Raw -Encoding utf8) -Name $path)
-        [bool]($plugins | Where-Object { $_ -is [System.Collections.IDictionary] -and $_['plugin_id'] -eq $Action['id'] -and $_['enabled'] -eq $true })
+        $plugins = @(ConvertFrom-OSSetupJsonText -Text (Get-Content -LiteralPath $path -Raw -Encoding utf8) -Name $path |
+                Where-Object { $_ -is [System.Collections.IDictionary] -and $_['plugin_id'] -eq $Action['id'] })
+        if ($plugins | Where-Object { $_['enabled'] -eq $true }) { return $true }
+        if ($plugins | Where-Object { -not $_.Contains('enabled') }) {
+            Write-OSSetupLogOnce -Key "herdr-plugin:$($Action['id']):enabled" -Level Detail `
+                -Message "  plugin $($Action['id']) : champ « enabled » absent de $path : considéré comme non conforme"
+        }
+        $false
     }
 
     Invoke   = {

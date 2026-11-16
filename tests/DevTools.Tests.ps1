@@ -349,6 +349,23 @@ Describe 'Provider claude-plugin' {
             $plugins[1].Scope | Should -BeNullOrEmpty
         }
     }
+
+    It 'n''est pas conforme, en disant pourquoi, quand scope ou enabled manque à la sortie de Claude Code' {
+        InModuleScope OSSetup -Parameters @{ Action = $action } {
+            param($Action)
+            $script:LoggedOnce.Clear()
+            $provider = Get-OSSetupProvider -Name 'claude-plugin'
+            Mock -CommandName Write-OSSetupLog
+            Mock -CommandName Get-Command -MockWith { [pscustomobject]@{ Name = 'claude.exe' } } -ParameterFilter { $Name -eq 'claude' }
+            Mock -CommandName claude -MockWith { $global:LASTEXITCODE = 0; '[{ "id": "dx@cc-plugins", "enabled": true }]' }
+            foreach ($i in 1..2) { & $provider.Test $Action @{} | Should -BeFalse }
+            Should -Invoke -CommandName Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Level -eq 'Detail' -and $Message -like '*dx@cc-plugins*« scope » absent*non conforme*' }
+            Mock -CommandName claude -MockWith { $global:LASTEXITCODE = 0; '[{ "id": "dx@cc-plugins", "scope": "user" }]' }
+            & $provider.Test $Action @{} | Should -BeFalse
+            Should -Invoke -CommandName Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -like '*dx@cc-plugins*« enabled » absent*' }
+            $script:LoggedOnce.Clear()
+        }
+    }
 }
 
 Describe 'Réglages de herdr' {

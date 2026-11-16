@@ -316,6 +316,15 @@ Describe 'Provider herdr-plugin' {
         Should -Invoke -ModuleName OSSetup -CommandName herdr -Times 1 -Exactly -ParameterFilter { ($args -join ' ') -eq 'plugin enable gcaudan.explorer' }
         Should -Invoke -ModuleName OSSetup -CommandName herdr -Times 2 -Exactly
     }
+
+    It 'n''est pas conforme, en disant pourquoi, quand enabled manque à plugins.json' {
+        InModuleScope OSSetup { $script:LoggedOnce.Clear() }
+        $provider = InModuleScope OSSetup { Get-OSSetupProvider -Name 'herdr-plugin' }
+        Set-Content -Path $pluginsPath -Value '[{ "plugin_id": "gcaudan.explorer" }]'
+        foreach ($i in 1..2) { & $provider.Test $action @{} | Should -BeFalse }
+        Should -Invoke -ModuleName OSSetup -CommandName Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Level -eq 'Detail' -and $Message -like '*gcaudan.explorer*« enabled » absent*non conforme*' }
+        InModuleScope OSSetup { $script:LoggedOnce.Clear() }
+    }
 }
 
 Describe 'Provider registry' {
