@@ -83,7 +83,7 @@ if (-not $cachedImage) {
         if ([IO.Path]::GetExtension($ImagePath) -eq '.iso') {
             $iso = Mount-DiskImage -ImagePath (Resolve-Path -LiteralPath $ImagePath).Path -PassThru
             $letter = ($iso | Get-Volume).DriveLetter
-            $source = @(Get-ChildItem -Path "${letter}:\sources\install.wim", "${letter}:\sources\install.esd" -ErrorAction SilentlyContinue) |
+            $source = @(Get-ChildItem -LiteralPath "${letter}:\sources\install.wim", "${letter}:\sources\install.esd" -ErrorAction SilentlyContinue) |
                 Select-Object -First 1 -ExpandProperty FullName
         }
         if (-not $source) { throw "Aucun install.wim ni install.esd dans $ImagePath." }

@@ -67,7 +67,7 @@ param(
 . (Join-Path -Path $PSScriptRoot -ChildPath 'TestVM.Common.ps1')
 Assert-TestVMAdministrator -HyperVOnly
 
-$repoRoot = (Resolve-Path -Path (Join-Path -Path $PSScriptRoot -ChildPath '..\..')).Path
+$repoRoot = (Resolve-Path -LiteralPath (Join-Path -Path $PSScriptRoot -ChildPath '..\..')).Path
 $credential = Get-TestVMCredential
 
 # Tout ce qui suit le maintien en éveil est dans le try : un échec intermédiaire ne doit laisser ni l'hôte
@@ -99,7 +99,7 @@ try {
         $SetupArguments = @('-AnswerFile', 'answers\vm-only.json', '-Yes')
     }
     elseif ($AnswerFile) {
-        $onlyAnswers = Get-Content -Path $AnswerFile -Raw -ErrorAction Stop
+        $onlyAnswers = Get-Content -LiteralPath $AnswerFile -Raw -ErrorAction Stop
         $SetupArguments = @('-AnswerFile', 'answers\vm-only.json', '-Yes')
     }
     if ((Get-VM -Name $Name).State -ne 'Running') {
@@ -119,7 +119,7 @@ try {
     try {
         foreach ($file in $files | Sort-Object -Unique) {
             $source = Join-Path -Path $repoRoot -ChildPath $file
-            if (Test-Path -Path $source -PathType Leaf) {
+            if (Test-Path -LiteralPath $source -PathType Leaf) {
                 [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $source, $file)
             }
         }
@@ -135,21 +135,21 @@ try {
     $session = New-PSSession -VMName $Name -Credential $credential
     $guestArchive = 'C:\Windows\Temp\OSSetup.zip'
     Copy-Item -Path $archive -Destination $guestArchive -ToSession $session -Force
-    $bootstrapHash = (Get-FileHash -Path (Join-Path -Path $repoRoot -ChildPath 'bootstrap.ps1') -Algorithm SHA256).Hash
+    $bootstrapHash = (Get-FileHash -LiteralPath (Join-Path -Path $repoRoot -ChildPath 'bootstrap.ps1') -Algorithm SHA256).Hash
     $staleBootstrap = Invoke-Command -Session $session -ArgumentList $guestArchive, $script:GuestRepoRoot, $script:GuestTestRoot, $bootstrapHash -ScriptBlock {
         param($Archive, $Destination, $TestRoot, $Hash)
-        Remove-Item -Path $Destination -Recurse -Force -ErrorAction SilentlyContinue
-        Expand-Archive -Path $Archive -DestinationPath $Destination -Force
-        Remove-Item -Path $Archive -Force
+        Remove-Item -LiteralPath $Destination -Recurse -Force -ErrorAction SilentlyContinue
+        Expand-Archive -LiteralPath $Archive -DestinationPath $Destination -Force
+        Remove-Item -LiteralPath $Archive -Force
         # Point de contrôle « prerequis » : trace des outils installés par le bootstrap, pour que le nettoyage de
         # fin se comporte comme sur une vraie machine (le bootstrap relancé n'installe plus rien).
         $saved = Join-Path -Path $TestRoot -ChildPath 'bootstrap.json'
-        if (Test-Path -Path $saved) {
+        if (Test-Path -LiteralPath $saved) {
             $state = Join-Path -Path $Destination -ChildPath 'state'
             New-Item -Path $state -ItemType Directory -Force | Out-Null
-            Copy-Item -Path $saved -Destination $state -Force
+            Copy-Item -LiteralPath $saved -Destination $state -Force
             $recorded = Join-Path -Path $TestRoot -ChildPath 'bootstrap.sha256'
-            return (Test-Path -Path $recorded) -and (Get-Content -Path $recorded -Raw).Trim() -ne $Hash
+            return (Test-Path -LiteralPath $recorded) -and (Get-Content -LiteralPath $recorded -Raw).Trim() -ne $Hash
         }
         $false
     }
@@ -239,17 +239,17 @@ try {
                 $pending = @(
                     [IO.Path]::Combine([Environment]::GetFolderPath('ProgramFiles'), 'OS-Setup', 'resume', 'state', 'run.json')
                     Join-Path -Path $Root -ChildPath 'state\run.json'
-                ) | Where-Object { Test-Path -Path $_ } | Select-Object -First 1
+                ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
                 if (-not $pending) { $pending = 'absent' }
                 $guestExit = Join-Path -Path $Root -ChildPath 'logs\guest-exitcode.txt'
-                if (Test-Path -Path $result) {
-                    return @{ Finished = $true; ExitCode = [int](Get-Content -Path $result -Raw | ConvertFrom-Json).exitCode }
+                if (Test-Path -LiteralPath $result) {
+                    return @{ Finished = $true; ExitCode = [int](Get-Content -LiteralPath $result -Raw | ConvertFrom-Json).exitCode }
                 }
-                if ((Test-Path -Path $guestExit) -and -not (Test-Path -Path $pending)) {
-                    return @{ Finished = $true; ExitCode = [int](Get-Content -Path $guestExit -Raw).Trim() }
+                if ((Test-Path -LiteralPath $guestExit) -and -not (Test-Path -LiteralPath $pending)) {
+                    return @{ Finished = $true; ExitCode = [int](Get-Content -LiteralPath $guestExit -Raw).Trim() }
                 }
                 # run.json porte le numéro de la passe en cours, ou de la dernière terminée en attente de redémarrage.
-                $note = if (Test-Path -Path $pending) { "reprise en attente ou en cours (passe enregistrée : $((Get-Content -Path $pending -Raw | ConvertFrom-Json).pass))" } else { '' }
+                $note = if (Test-Path -LiteralPath $pending) { "reprise en attente ou en cours (passe enregistrée : $((Get-Content -LiteralPath $pending -Raw | ConvertFrom-Json).pass))" } else { '' }
                 @{ Finished = $false; Note = $note }
             }
             if (-not (Wait-Job -Job $job -Timeout 60)) {
@@ -291,7 +291,7 @@ try {
 }
 finally {
     if ($session) { Remove-PSSession -Session $session -ErrorAction SilentlyContinue }
-    if ($archive) { Remove-Item -Path $archive -Force -ErrorAction SilentlyContinue }
+    if ($archive) { Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue }
     Set-TestVMHostAwake -Enabled $false
 }
 

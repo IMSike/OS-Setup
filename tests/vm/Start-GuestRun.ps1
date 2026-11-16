@@ -17,10 +17,10 @@ $repoRoot = Split-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -Parent
 $logRoot = Join-Path -Path $repoRoot -ChildPath 'logs'
 New-Item -Path $logRoot -ItemType Directory -Force | Out-Null
 $exitFile = Join-Path -Path $logRoot -ChildPath 'guest-exitcode.txt'
-Remove-Item -Path $exitFile -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath $exitFile -ErrorAction SilentlyContinue
 
-Set-Location -Path $repoRoot
-Start-Transcript -Path (Join-Path -Path $logRoot -ChildPath 'guest-transcript.log') -Force | Out-Null
+Set-Location -LiteralPath $repoRoot
+Start-Transcript -LiteralPath (Join-Path -Path $logRoot -ChildPath 'guest-transcript.log') -Force | Out-Null
 $code = 1
 try {
     & (Join-Path -Path $repoRoot -ChildPath 'bootstrap.ps1') -NoPause @SetupArguments
@@ -31,5 +31,5 @@ catch {
 }
 finally {
     Stop-Transcript | Out-Null
-    Set-Content -Path $exitFile -Value $code
+    Set-Content -LiteralPath $exitFile -Value $code
 }

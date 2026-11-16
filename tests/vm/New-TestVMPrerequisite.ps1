@@ -40,18 +40,18 @@ Write-TestVMStep 'Bootstrap (outils du setup), puis simulation du setup'
 & (Join-Path -Path $PSScriptRoot -ChildPath 'Invoke-TestVM.ps1') -Name $Name -SetupArguments '-Profiles', 'base', '-AcceptDefaults', '-WhatIf'
 if ($LASTEXITCODE -ne 0) { throw "Le bootstrap a échoué dans la VM (code $LASTEXITCODE) : point de contrôle non créé." }
 
-$repoRoot = (Resolve-Path -Path (Join-Path -Path $PSScriptRoot -ChildPath '..\..')).Path
-$hash = (Get-FileHash -Path (Join-Path -Path $repoRoot -ChildPath 'bootstrap.ps1') -Algorithm SHA256).Hash
+$repoRoot = (Resolve-Path -LiteralPath (Join-Path -Path $PSScriptRoot -ChildPath '..\..')).Path
+$hash = (Get-FileHash -LiteralPath (Join-Path -Path $repoRoot -ChildPath 'bootstrap.ps1') -Algorithm SHA256).Hash
 Invoke-Command -VMName $Name -Credential $credential -ArgumentList $script:GuestRepoRoot, $script:GuestTestRoot, $hash -ScriptBlock {
     param($RepoRoot, $TestRoot, $Hash)
     $trace = Join-Path -Path $RepoRoot -ChildPath 'state\bootstrap.json'
-    if (-not (Test-Path -Path $trace)) { throw 'Trace du bootstrap (state\bootstrap.json) introuvable.' }
-    $tools = (Get-Content -Path $trace -Raw | ConvertFrom-Json).installedTools
+    if (-not (Test-Path -LiteralPath $trace)) { throw 'Trace du bootstrap (state\bootstrap.json) introuvable.' }
+    $tools = (Get-Content -LiteralPath $trace -Raw | ConvertFrom-Json).installedTools
     if (@($tools).Count -lt 2) { throw "Le bootstrap n'a pas installé ses outils ($($tools -join ', ')) : la VM n'était pas vierge ?" }
     New-Item -Path $TestRoot -ItemType Directory -Force | Out-Null
-    Copy-Item -Path $trace -Destination $TestRoot -Force
-    Set-Content -Path (Join-Path -Path $TestRoot -ChildPath 'bootstrap.sha256') -Value $Hash
-    Remove-Item -Path $RepoRoot -Recurse -Force
+    Copy-Item -LiteralPath $trace -Destination $TestRoot -Force
+    Set-Content -LiteralPath (Join-Path -Path $TestRoot -ChildPath 'bootstrap.sha256') -Value $Hash
+    Remove-Item -LiteralPath $RepoRoot -Recurse -Force
     "Outils du bootstrap : $($tools -join ', ')"
 }
 
