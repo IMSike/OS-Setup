@@ -270,11 +270,57 @@ Describe 'bootstrap.ps1 -WhatIf : simulation' {
         $global:OSSetupTestHost -join "`n" | Should -BeLike '*serait mis à jour (git pull --ff-only)*'
     }
 
+    Context 'copie existante dans la destination et -Branch donné' {
+        BeforeEach {
+            Mock Get-Command { [pscustomobject]@{ Source = 'C:\OSSetupTest\tool.exe' } } -ParameterFilter { $Name -in 'pwsh', 'git' }
+            Mock Test-Path { $true } -ParameterFilter { $LiteralPath -like 'C:\OSSetupTest\OS-Setup\*' }
+            $global:OSSetupTestGitStatus = @()
+            Mock git {
+                $global:LASTEXITCODE = 0
+                if ($args -contains 'rev-parse') { return 'dev' }
+                if ($args -contains 'status') { return $global:OSSetupTestGitStatus }
+            }
+        }
+
+        AfterEach {
+            Remove-Variable -Name OSSetupTestGitStatus -Scope Global -ErrorAction SilentlyContinue
+        }
+
+        It 'annonce le basculement d''une copie sans modification locale' {
+            Show-BootstrapSimulation @script:simulationParameters -ScriptRoot '' -BranchRequested | Out-Null
+            $global:OSSetupTestHost -join "`n" | Should -BeLike '*serait basculé de la branche dev vers main puis mis à jour*'
+        }
+
+        It 'annonce l''arrêt quand la copie a des modifications locales' {
+            $global:OSSetupTestGitStatus = @(' M setup.ps1')
+            Show-BootstrapSimulation @script:simulationParameters -ScriptRoot '' -BranchRequested | Out-Null
+            $text = $global:OSSetupTestHost -join "`n"
+            $text | Should -BeLike '*branche « dev » avec des modifications locales*s''arrêterait sans le basculer sur « main »*'
+            $text | Should -Not -BeLike '*serait mis à jour*'
+        }
+
+        It 'annonce seulement la mise à jour d''une copie déjà sur la branche demandée' {
+            Show-BootstrapSimulation @script:simulationParameters -Branch 'dev' -ScriptRoot '' -BranchRequested | Out-Null
+            $global:OSSetupTestHost -join "`n" | Should -BeLike '*Dépôt : serait mis à jour (git pull --ff-only)*'
+        }
+
+        It 'sans git, annonce les deux issues possibles' {
+            Mock Get-Command { $null } -ParameterFilter { $Name -eq 'git' }
+            Show-BootstrapSimulation @script:simulationParameters -ScriptRoot '' -BranchRequested | Out-Null
+            $global:OSSetupTestHost -join "`n" | Should -BeLike '*serait basculé sur la branche main*s''il n''a aucune modification locale*'
+            Should -Invoke git -Times 0
+        }
+    }
+
     It 'n''appelle aucune commande qui modifie la machine' {
-        $commands = $script:simulationAst.FindAll({ param($node) $node -is [System.Management.Automation.Language.CommandAst] }, $true) |
-            ForEach-Object { $_.GetCommandName() } | Where-Object { $_ } | Sort-Object -Unique
-        $allowed = 'Get-Command', 'Join-Path', 'Select-Object', 'Test-Elevated', 'Test-Path', 'Write-Host', 'Write-Step'
-        $commands | Where-Object { $_ -notin $allowed } | Should -BeNullOrEmpty
+        $commands = $script:simulationAst.FindAll({ param($node) $node -is [System.Management.Automation.Language.CommandAst] }, $true)
+        $names = $commands | ForEach-Object { $_.GetCommandName() } | Where-Object { $_ } | Sort-Object -Unique
+        $allowed = 'Get-Command', 'git', 'Join-Path', 'Select-Object', 'Test-Elevated', 'Test-Path', 'Write-Host', 'Write-Step'
+        $names | Where-Object { $_ -notin $allowed } | Should -BeNullOrEmpty
+        # git en lecture seule.
+        $gitCalls = @($commands | Where-Object { $_.GetCommandName() -eq 'git' } | ForEach-Object { "$($_.CommandElements[3])" })
+        $gitCalls | Where-Object { $_ -notin 'rev-parse', 'status' } | Should -BeNullOrEmpty
+        $gitCalls.Count | Should -BeGreaterThan 0
     }
 
     It 'simule avant la relance en administrateur et avant toute installation' {

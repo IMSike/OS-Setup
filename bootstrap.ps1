@@ -388,7 +388,9 @@ function Show-BootstrapSimulation {
         [Parameter(Mandatory)][string]$Destination,
         # Dossier du script : une copie du dépôt s'il contient setup.ps1.
         [AllowEmptyString()]
-        [string]$ScriptRoot
+        [string]$ScriptRoot,
+        # -Branch donné explicitement (comme pour Initialize-BootstrapRepository).
+        [switch]$BranchRequested
     )
     Write-Step 'Simulation (-WhatIf) : rien n''est installé, cloné ni écrit.'
     if (-not (Test-Elevated)) { Write-Host -Object '    Relance en administrateur (invite UAC) : non faite en simulation.' }
@@ -406,10 +408,38 @@ function Show-BootstrapSimulation {
     if ($ScriptRoot -and (Test-Path -LiteralPath (Join-Path -Path $ScriptRoot -ChildPath 'setup.ps1'))) {
         $repoRoot = $ScriptRoot
         Write-Host -Object "    Dépôt : copie utilisée telle quelle ($repoRoot)"
+        if ($BranchRequested) { Write-Host -Object "    -Branch serait ignoré : le clone d'où le bootstrap est lancé est utilisé tel quel." }
     }
     elseif (Test-Path -LiteralPath (Join-Path -Path $Destination -ChildPath '.git')) {
         $repoRoot = $Destination
-        Write-Host -Object "    Dépôt : serait mis à jour (git pull --ff-only) dans $repoRoot ; la simulation utilise la copie actuelle"
+        # Comme Initialize-BootstrapRepository, en lecture seule : branche courante et modifications locales.
+        $repositoryState = "serait mis à jour (git pull --ff-only) dans $repoRoot"
+        if ($BranchRequested) {
+            # Inconnus si git est absent ou échoue : la simulation annonce alors les deux issues possibles.
+            $current = $null
+            $changes = $null
+            if (Get-Command -Name git -ErrorAction SilentlyContinue) {
+                # Pas de redirection de stderr : sous Windows PowerShell 5.1, elle ferait lever l'erreur de git.
+                $current = "$(& git -C $Destination rev-parse --abbrev-ref HEAD)".Trim()
+                if ($LASTEXITCODE -ne 0) { $current = $null }
+                elseif ($current -ne $Branch) {
+                    $changes = @(& git -C $Destination status --porcelain)
+                    if ($LASTEXITCODE -ne 0) { $changes = $null }
+                }
+            }
+            if (-not $current -or ($current -ne $Branch -and $null -eq $changes)) {
+                $repositoryState = ("serait basculé sur la branche $Branch puis mis à jour dans $repoRoot, s'il n'a aucune " +
+                    'modification locale (sinon le bootstrap s''arrêterait sans rien changer)')
+            }
+            elseif ($current -ne $Branch -and $changes.Count -gt 0) {
+                $repositoryState = ("est sur la branche « $current » avec des modifications locales dans $repoRoot : le " +
+                    "bootstrap s'arrêterait sans le basculer sur « $Branch »")
+            }
+            elseif ($current -ne $Branch) {
+                $repositoryState = "serait basculé de la branche $current vers $Branch puis mis à jour dans $repoRoot"
+            }
+        }
+        Write-Host -Object "    Dépôt : $repositoryState ; la simulation utilise la copie actuelle"
     }
     else {
         Write-Host -Object "    Dépôt : $RepoUrl (branche $Branch) serait cloné dans $Destination"
@@ -440,7 +470,8 @@ if ([Environment]::OSVersion.Platform -ne 'Win32NT' -or [Environment]::OSVersion
 
 # Simulation : avant l'élévation, et sans aucune des étapes qui modifient la machine.
 if (Test-WhatIfArgument -Argument $SetupArguments) {
-    $simulation = Show-BootstrapSimulation -RepoUrl $RepoUrl -Branch $Branch -Destination $Destination -ScriptRoot $PSScriptRoot
+    $simulation = Show-BootstrapSimulation -RepoUrl $RepoUrl -Branch $Branch -Destination $Destination -ScriptRoot $PSScriptRoot `
+        -BranchRequested:($PSBoundParameters.ContainsKey('Branch'))
     if (-not $simulation) { exit 0 }
     Write-Host -Object ''
     Write-Step 'Simulation de setup.ps1 (PowerShell 7)'
