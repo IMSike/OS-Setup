@@ -87,9 +87,12 @@ function Invoke-OSSetupManualStep {
         throw "étape manuelle, à faire plus tard (exécution sans surveillance) : $($Action['instructions'])"
     }
     # Consigne et résultats des vérifications au journal, comme le reste du déroulement : seule la navigation dans le
-    # menu reste hors journal.
-    Write-OSSetupLog -Message ''
-    Write-OSSetupLog -Message "Étape manuelle : $($Action['instructions'])"
+    # menu reste hors journal. Sans description propre à l'action, la ligne de l'étape (« → élément : étape manuelle :
+    # <consigne> ») porte déjà la consigne au journal : elle n'est alors que réaffichée, au-dessus du menu.
+    Write-Host -Object ''
+    $instructions = "Étape manuelle : $($Action['instructions'])"
+    if ($Action['description']) { Write-OSSetupLog -Message $instructions }
+    else { Write-Host -Object $instructions -ForegroundColor Gray }
     Start-OSSetupManualAssist -Check $Action['check'] -Value $Action['value'] -Confirm:$false
     while ($true) {
         $options = @(

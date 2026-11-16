@@ -172,14 +172,30 @@ Describe 'Étapes manuelles' {
         Should -Invoke -ModuleName OSSetup -CommandName Start-OSSetupManualAssist -Times 1 -Exactly
     }
 
-    It 'écrit la consigne et chaque vérification manquée au journal' {
+    It 'n''écrit pas au journal la consigne déjà portée par la ligne de l''étape, mais l''affiche' {
+        # Sans description, la ligne de l'étape est « étape manuelle : <consigne> » (provider manual).
         Mock -ModuleName OSSetup -CommandName Start-OSSetupManualAssist
         Mock -ModuleName OSSetup -CommandName Write-OSSetupLog
+        Mock -ModuleName OSSetup -CommandName Write-Host
+        Mock -ModuleName OSSetup -CommandName Read-OSSetupMenu -MockWith { @{ Action = 'next'; Values = @('check') } }
+        Mock -ModuleName OSSetup -CommandName Test-OSSetupManualStep -MockWith { $true }
+        $action = [ordered]@{ provider = 'manual'; check = 'gh-auth'; instructions = 'se connecter.' }
+        InModuleScope OSSetup { & (Get-OSSetupProvider -Name 'manual').Describe @{ instructions = 'se connecter.' } @{} } |
+            Should -Be 'étape manuelle : se connecter.'
+        Invoke-OSSetupManualStep -Action $action -Context @{ Interactive = $true }
+        Should -Invoke -ModuleName OSSetup -CommandName Write-OSSetupLog -Times 0 -Exactly
+        Should -Invoke -ModuleName OSSetup -CommandName Write-Host -Times 1 -Exactly -ParameterFilter { $Object -eq 'Étape manuelle : se connecter.' }
+    }
+
+    It 'écrit la consigne et chaque vérification manquée au journal quand l''action a sa propre description' {
+        Mock -ModuleName OSSetup -CommandName Start-OSSetupManualAssist
+        Mock -ModuleName OSSetup -CommandName Write-OSSetupLog
+        Mock -ModuleName OSSetup -CommandName Write-Host
         $global:OSSetupTestMenuQueue = [System.Collections.Generic.Queue[string]]::new([string[]]@('check', 'skip'))
         try {
             Mock -ModuleName OSSetup -CommandName Read-OSSetupMenu -MockWith { @{ Action = 'next'; Values = @($global:OSSetupTestMenuQueue.Dequeue()) } }
             Mock -ModuleName OSSetup -CommandName Test-OSSetupManualStep -MockWith { $false }
-            $action = [ordered]@{ provider = 'manual'; check = 'gh-auth'; instructions = 'se connecter.' }
+            $action = [ordered]@{ provider = 'manual'; description = 'connexion à GitHub'; check = 'gh-auth'; instructions = 'se connecter.' }
             { Invoke-OSSetupManualStep -Action $action -Context @{ Interactive = $true } } | Should -Throw '*passée*'
             Should -Invoke -ModuleName OSSetup -CommandName Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -eq 'Étape manuelle : se connecter.' }
             Should -Invoke -ModuleName OSSetup -CommandName Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Level -eq 'Warning' -and $Message -like 'Pas encore fait*' }
