@@ -542,6 +542,30 @@ Describe 'Fichiers de configuration du profil : .wslconfig et daemon.json de Doc
     }
 }
 
+Describe 'Profil PowerShell 7' {
+    It 'garde intact un dossier des projets contenant apostrophe, $, backtick et guillemets' {
+        # Gabarit développé comme par le provider file (mode template), puis seulement analysé : le profil n'est pas
+        # exécuté.
+        $devRoot = 'C:\Users\O''Brien\dev $env:TEMP $(Get-Date) `n "x" ''@'
+        $bytes = InModuleScope OSSetup -Parameters @{ DevRoot = $devRoot; Dotfiles = (Join-Path -Path $PSScriptRoot -ChildPath '..\dotfiles') } {
+            $action = @{ source = 'powershell\Microsoft.PowerShell_profile.ps1'; target = 'C:\inutilise.ps1'; mode = 'template' }
+            , (Get-OSSetupFileContent -Action $action -Context @{ DotfilesRoot = $Dotfiles; Variables = @{ DevRoot = $DevRoot } })
+        }
+        $profilePath = Join-Path -Path $TestDrive -ChildPath 'Microsoft.PowerShell_profile.ps1'
+        [System.IO.File]::WriteAllBytes($profilePath, $bytes)
+        $errors = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($profilePath, [ref]$null, [ref]$errors)
+        $errors | Should -BeNullOrEmpty
+        $assignment = $ast.Find({
+                param($node)
+                $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and $node.Left.Extent.Text -eq '$env:DEV_ROOT'
+            }, $true)
+        $assignment | Should -Not -BeNullOrEmpty
+        $assignment.Right.Expression | Should -BeOfType ([System.Management.Automation.Language.StringConstantExpressionAst])
+        $assignment.Right.Expression.Value | Should -BeExactly $devRoot
+    }
+}
+
 Describe 'Journal de l''entretien de Docker' {
     BeforeAll {
         # Fonction extraite du script, sans l'exécuter (il agit sur Docker, WSL et le registre).
