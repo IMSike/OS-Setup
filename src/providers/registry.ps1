@@ -16,8 +16,8 @@ param()
     # dans l'une ou l'autre forme.
     Test     = {
         param($Action, $Context)
-        if (-not (Test-Path -Path $Action['path'])) { return $false }
-        $key = Get-Item -Path $Action['path']
+        if (-not (Test-Path -LiteralPath $Action['path'])) { return $false }
+        $key = Get-Item -LiteralPath $Action['path']
         if ($Action['name'] -notin $key.GetValueNames()) { return $false }
         if ("$($key.GetValueKind($Action['name']))" -ne $Action['type']) { return $false }
         $current = $key.GetValue($Action['name'], $null, 'DoNotExpandEnvironmentNames')
@@ -33,8 +33,8 @@ param()
 
     Read     = {
         param($Action, $Context)
-        if (-not (Test-Path -Path $Action['path'])) { return [ordered]@{ exists = $false; keyExists = $false } }
-        $key = Get-Item -Path $Action['path']
+        if (-not (Test-Path -LiteralPath $Action['path'])) { return [ordered]@{ exists = $false; keyExists = $false } }
+        $key = Get-Item -LiteralPath $Action['path']
         if ($Action['name'] -notin $key.GetValueNames()) { return [ordered]@{ exists = $false; keyExists = $true } }
         [ordered]@{
             exists = $true
@@ -45,13 +45,13 @@ param()
 
     Invoke   = {
         param($Action, $Context)
-        if (-not (Test-Path -Path $Action['path'])) {
+        if (-not (Test-Path -LiteralPath $Action['path'])) {
             New-Item -Path $Action['path'] -Force | Out-Null
         }
         # Une valeur existante d'un autre type est remplacée (-Force). DWord et QWord sont écrits sous leur forme signée,
         # la seule qu'accepte le registre de PowerShell (0xFFFFFFFF : -1).
         $value = $Action['value']
         if ($Action['type'] -in 'DWord', 'QWord') { $value = ConvertTo-OSSetupRegistryNumber -Value $value -Type $Action['type'] }
-        New-ItemProperty -Path $Action['path'] -Name $Action['name'] -PropertyType $Action['type'] -Value $value -Force | Out-Null
+        New-ItemProperty -LiteralPath $Action['path'] -Name $Action['name'] -PropertyType $Action['type'] -Value $value -Force | Out-Null
     }
 }

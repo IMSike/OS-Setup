@@ -15,13 +15,13 @@ param()
 
     Test     = {
         param($Action, $Context)
-        if ($Action['present'] -eq $false) { return -not (Test-Path -Path $Action['target'] -PathType Leaf) }
-        if (-not (Test-Path -Path $Action['target'] -PathType Leaf)) { return $false }
+        if ($Action['present'] -eq $false) { return -not (Test-Path -LiteralPath $Action['target'] -PathType Leaf) }
+        if (-not (Test-Path -LiteralPath $Action['target'] -PathType Leaf)) { return $false }
         if ($Action['mode'] -eq 'merge-json') {
             # Conforme si les clés gérées ont déjà leur valeur, même si l'application a reformaté le fichier.
             $sourcePath = Join-Path -Path $Context.DotfilesRoot -ChildPath $Action['source']
-            $managed = ConvertFrom-OSSetupJsonText -Text (Get-Content -Path $sourcePath -Raw -Encoding utf8) -Name $sourcePath
-            $current = ConvertFrom-OSSetupJsonText -Text (Get-Content -Path $Action['target'] -Raw -Encoding utf8) -Name $Action['target']
+            $managed = ConvertFrom-OSSetupJsonText -Text (Get-Content -LiteralPath $sourcePath -Raw -Encoding utf8) -Name $sourcePath
+            $current = ConvertFrom-OSSetupJsonText -Text (Get-Content -LiteralPath $Action['target'] -Raw -Encoding utf8) -Name $Action['target']
             return Test-OSSetupJsonSubset -Json $current -Subset $managed
         }
         $expected = Get-OSSetupFileContent -Action $Action -Context $Context
@@ -39,7 +39,7 @@ param()
             return
         }
         $expected = Get-OSSetupFileContent -Action $Action -Context $Context
-        if (Test-Path -Path $Action['target'] -PathType Leaf) {
+        if (Test-Path -LiteralPath $Action['target'] -PathType Leaf) {
             $backup = Backup-OSSetupFile -Path $Action['target'] -BackupRoot $Context.BackupRoot
             Write-OSSetupLog -Level Detail -Message "  sauvegarde : $backup"
         }

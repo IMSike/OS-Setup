@@ -33,6 +33,18 @@ Describe 'Provider file' {
         & $provider.Test $action $context | Should -BeTrue
     }
 
+    It 'déploie et reconnaît un fichier dont le chemin contient des crochets' {
+        # Dans un sous-dossier : Pester ne vide pas un dossier à crochets à la racine de TestDrive.
+        $work = Join-Path -Path $TestDrive -ChildPath "brackets\$([guid]::NewGuid().ToString('N'))"
+        $action.target = Join-Path -Path $work -ChildPath 'app [1]\config.txt'
+        $context.BackupRoot = Join-Path -Path $work -ChildPath 'backups [1]'
+        & $provider.Test $action $context | Should -BeFalse
+        & $provider.Invoke $action $context
+        & $provider.Test $action $context | Should -BeTrue
+        & $provider.Invoke $action $context
+        Get-Content -LiteralPath $action.target -Raw | Should -Be "root=D:\Dev`n"
+    }
+
     It 'sauvegarde un fichier existant avant de le remplacer' {
         New-Item -Path (Split-Path -Path $target -Parent) -ItemType Directory -Force | Out-Null
         Set-Content -Path $target -Value 'ancien' -NoNewline

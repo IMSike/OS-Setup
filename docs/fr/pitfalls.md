@@ -31,6 +31,7 @@ Sous Windows PowerShell 5.1, ne pas capturer ni rediriger la sortie de winget (`
 ## PowerShell
 
 - Windows PowerShell 5.1 lit un `.ps1` **sans BOM** comme ANSI : les caractères accentués sont corrompus. Les fichiers `.ps1`, `.psm1` et `.psd1` sont en UTF-8 avec BOM (figé dans `.gitattributes` et `.editorconfig`).
+- `-Path` lit `[ ]`, `*` et `?` comme des jokers : un dépôt sous `C:\dev [1]` charge un catalogue vide sans aucune erreur, un fichier qui s'y trouve est vu comme absent. Tout chemin qui n'est pas un motif voulu passe par `-LiteralPath` (`Test-Path`, `Get-Content`, `Set-Content`, `Get-Item`, `Get-ChildItem` avec `-Filter` ou `-Recurse`, cmdlets du registre…). `New-Item` n'a pas de `-LiteralPath` et ne développe pas les jokers.
 - Les noms de variables ne tiennent pas compte de la casse : une variable locale `$answers` écrase le paramètre `$Answers`.
 - Les apostrophes typographiques `‘ ’` valent `'` et les guillemets `“ ”` valent `"` : un texte contenant `’` (ex. sortie de `powercfg` en français) va entre guillemets droits `"…"`.
 - `$x = if (...) { @() }` donne `$null`, et un tableau d'un seul élément devient l'élément : écrire `$x = @(if (...) { ... })`.

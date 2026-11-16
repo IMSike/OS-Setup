@@ -16,15 +16,15 @@ param()
     Test     = {
         param($Action, $Context)
         $path = Join-Path -Path $env:APPDATA -ChildPath 'herdr\plugins.json'
-        if (-not (Test-Path -Path $path -PathType Leaf)) { return $false }
-        $plugins = @(ConvertFrom-OSSetupJsonText -Text (Get-Content -Path $path -Raw -Encoding utf8) -Name $path)
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $false }
+        $plugins = @(ConvertFrom-OSSetupJsonText -Text (Get-Content -LiteralPath $path -Raw -Encoding utf8) -Name $path)
         [bool]($plugins | Where-Object { $_ -is [System.Collections.IDictionary] -and $_['plugin_id'] -eq $Action['id'] -and $_['enabled'] -eq $true })
     }
 
     Invoke   = {
         param($Action, $Context)
         $path = Join-Path -Path $env:APPDATA -ChildPath 'herdr\plugins.json'
-        $plugins = @(if (Test-Path -Path $path -PathType Leaf) { ConvertFrom-OSSetupJsonText -Text (Get-Content -Path $path -Raw -Encoding utf8) -Name $path })
+        $plugins = @(if (Test-Path -LiteralPath $path -PathType Leaf) { ConvertFrom-OSSetupJsonText -Text (Get-Content -LiteralPath $path -Raw -Encoding utf8) -Name $path })
         if ($plugins | Where-Object { $_ -is [System.Collections.IDictionary] -and $_['plugin_id'] -eq $Action['id'] }) {
             # Déjà installé mais désactivé : réactivé, sans réinstallation.
             Invoke-OSSetupNativeCommand -FilePath herdr -ArgumentList 'plugin', 'enable', $Action['id'] -Utf8 -Label 'herdr plugin enable'

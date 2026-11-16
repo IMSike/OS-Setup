@@ -19,7 +19,7 @@
         }
         'default-browser' {
             # Navigateur par défaut : programme associé au protocole https (choix de l'utilisateur, protégé par Windows).
-            $choice = Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice' -ErrorAction SilentlyContinue
+            $choice = Get-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice' -ErrorAction SilentlyContinue
             return [bool]($choice -and $choice.PSObject.Properties['ProgId'] -and $choice.ProgId -like $Value)
         }
         'wsl-user' {

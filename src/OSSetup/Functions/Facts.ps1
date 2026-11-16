@@ -39,7 +39,7 @@ function Get-OSSetupFact {
     $build = [int]$os.BuildNumber
     $facts['OSBuild'] = $build
     $facts['OSName'] = if ($build -ge 22000) { 'windows-11' } else { 'windows-10' }
-    $facts['Edition'] = (Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').EditionID
+    $facts['Edition'] = (Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').EditionID
 
     # Pas de LIKE dans le filtre WMI : le fournisseur des licences (SPP) le traite en plus d'une minute, contre
     # 1,5 s en filtrant ici.

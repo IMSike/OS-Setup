@@ -258,7 +258,7 @@ function Get-OSSetupUninstallEntry {
         'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall'
     )
     foreach ($root in $roots) {
-        Get-ChildItem -Path $root -ErrorAction SilentlyContinue | ForEach-Object {
+        Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue | ForEach-Object {
             # Chemin littéral : un nom de sous-clé peut contenir [ ] (sinon interprétés comme caractères génériques).
             $entry = Get-ItemProperty -LiteralPath $_.PSPath
             if ($entry.PSObject.Properties['DisplayName'] -and $entry.DisplayName -like $DisplayName) { $entry }
@@ -363,9 +363,9 @@ function Get-OSSetupStartupEntry {
         @(@{ Run = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'; Approved = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run' })
     }
     foreach ($source in $sources) {
-        if (-not (Test-Path -Path $source.Run)) { continue }
-        $runKey = Get-Item -Path $source.Run
-        $approvedKey = if (Test-Path -Path $source.Approved) { Get-Item -Path $source.Approved } else { $null }
+        if (-not (Test-Path -LiteralPath $source.Run)) { continue }
+        $runKey = Get-Item -LiteralPath $source.Run
+        $approvedKey = if (Test-Path -LiteralPath $source.Approved) { Get-Item -LiteralPath $source.Approved } else { $null }
         foreach ($valueName in $runKey.GetValueNames() | Where-Object { $_ -like $Name }) {
             # Affectation directe : « $x = if (...) { tableau } » déroulerait les octets en tableau d'objets.
             $state = $null
@@ -389,8 +389,8 @@ function Disable-OSSetupStartupEntry {
     )
     $value = [byte[]](@(3, 0, 0, 0) + [System.BitConverter]::GetBytes((Get-Date).ToFileTime()))
     if ($PSCmdlet.ShouldProcess($Entry.Name, 'Désactiver le lancement à l''ouverture de session')) {
-        if (-not (Test-Path -Path $Entry.ApprovedKey)) { New-Item -Path $Entry.ApprovedKey -Force | Out-Null }
-        New-ItemProperty -Path $Entry.ApprovedKey -Name $Entry.Name -PropertyType Binary -Value $value -Force | Out-Null
+        if (-not (Test-Path -LiteralPath $Entry.ApprovedKey)) { New-Item -Path $Entry.ApprovedKey -Force | Out-Null }
+        New-ItemProperty -LiteralPath $Entry.ApprovedKey -Name $Entry.Name -PropertyType Binary -Value $value -Force | Out-Null
     }
 }
 

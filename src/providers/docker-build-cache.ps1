@@ -16,25 +16,25 @@ param()
     Test     = {
         param($Action, $Context)
         $path = Join-Path -Path $env:USERPROFILE -ChildPath '.docker\daemon.json'
-        if (-not (Test-Path -Path $path -PathType Leaf)) { return $false }
-        $current = ConvertFrom-OSSetupJsonText -Text (Get-Content -Path $path -Raw -Encoding utf8) -Name $path
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $false }
+        $current = ConvertFrom-OSSetupJsonText -Text (Get-Content -LiteralPath $path -Raw -Encoding utf8) -Name $path
         Test-OSSetupJsonSubset -Json $current -Subset (Get-OSSetupDockerBuildCacheSetting -Action $Action)
     }
 
     Read     = {
         param($Action, $Context)
         $path = Join-Path -Path $env:USERPROFILE -ChildPath '.docker\daemon.json'
-        if (Test-Path -Path $path -PathType Leaf) { [ordered]@{ exists = $true; content = Get-Content -Path $path -Raw -Encoding utf8 } } else { [ordered]@{ exists = $false } }
+        if (Test-Path -LiteralPath $path -PathType Leaf) { [ordered]@{ exists = $true; content = Get-Content -LiteralPath $path -Raw -Encoding utf8 } } else { [ordered]@{ exists = $false } }
     }
 
     Invoke   = {
         param($Action, $Context)
         $path = Join-Path -Path $env:USERPROFILE -ChildPath '.docker\daemon.json'
         $current = [ordered]@{}
-        if (Test-Path -Path $path -PathType Leaf) {
+        if (Test-Path -LiteralPath $path -PathType Leaf) {
             $backup = Backup-OSSetupFile -Path $path -BackupRoot $Context.BackupRoot
             Write-OSSetupLog -Level Detail -Message "  sauvegarde : $backup"
-            $current = ConvertFrom-OSSetupJsonText -Text (Get-Content -Path $path -Raw -Encoding utf8) -Name $path
+            $current = ConvertFrom-OSSetupJsonText -Text (Get-Content -LiteralPath $path -Raw -Encoding utf8) -Name $path
         }
         $limit = Get-OSSetupDockerBuildCacheLimit -Action $Action
         if ($limit.Clamped) {

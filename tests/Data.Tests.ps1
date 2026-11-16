@@ -215,7 +215,7 @@ Describe 'Faits' {
                 [pscustomobject]@{ Name = 'Intel(R) UHD Graphics' }
                 [pscustomobject]@{ Name = 'NVIDIA GeForce RTX 3070' }
             }
-            Mock -ModuleName OSSetup Get-ItemProperty -ParameterFilter { $Path -eq 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' } {
+            Mock -ModuleName OSSetup Get-ItemProperty -ParameterFilter { $LiteralPath -eq 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' } {
                 [pscustomobject]@{ EditionID = 'Professional' }
             }
         }
@@ -277,6 +277,43 @@ Describe 'Import-OSSetupData' {
         $message = try { Import-OSSetupData -Root $root; $null } catch { $_.Exception.Message }
         $message | Should -BeLike '*vide.json : fichier vide.*'
         $message | Should -BeLike '*blanc.json : fichier vide.*'
+    }
+
+    It 'charge un dépôt dont le chemin contient des crochets' {
+        # Dans un sous-dossier : Pester ne vide pas un dossier à crochets à la racine de TestDrive.
+        $root = Join-Path -Path $TestDrive -ChildPath 'brackets\dépôt [1]'
+        Copy-Item -LiteralPath (Join-Path -Path $repoRoot -ChildPath 'schemas') -Destination (Join-Path -Path $root -ChildPath 'schemas') -Recurse
+        New-Item -Path (Join-Path -Path $root -ChildPath 'catalog\test') -ItemType Directory -Force | Out-Null
+        New-Item -Path (Join-Path -Path $root -ChildPath 'profiles') -ItemType Directory -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path -Path $root -ChildPath 'catalog\test\a.json') `
+            -Value '{ "id": "a", "name": "A", "category": "test", "platforms": ["windows"], "actions": [ { "provider": "directory", "path": "C:\\x" } ] }'
+        Set-Content -LiteralPath (Join-Path -Path $root -ChildPath 'profiles\base.json') -Value '{ "id": "base", "name": "Base", "items": ["a"] }'
+        $data = Import-OSSetupData -Root $root
+        @($data.Items.Keys) | Should -Be @('a')
+        @($data.Profiles.Keys) | Should -Be @('base')
+    }
+
+    It 'refuse un catalogue vide au lieu de produire un plan vide' {
+        $root = Join-Path -Path $TestDrive -ChildPath 'no-items'
+        Copy-Item -LiteralPath (Join-Path -Path $repoRoot -ChildPath 'schemas') -Destination (Join-Path -Path $root -ChildPath 'schemas') -Recurse
+        New-Item -Path (Join-Path -Path $root -ChildPath 'catalog'), (Join-Path -Path $root -ChildPath 'profiles') -ItemType Directory -Force | Out-Null
+        { Import-OSSetupData -Root $root } | Should -Throw '*catalog : aucun élément dans le catalogue.*'
+    }
+}
+
+Describe 'Save-OSSetupOriginalValue : chemin à crochets' {
+    It 'ajoute les valeurs d''origine dans une sauvegarde dont le chemin contient des crochets' {
+        $backupRoot = Join-Path -Path $TestDrive -ChildPath 'brackets\sauvegardes [1]\run'
+        $provider = @{ Read = { param($Action, $Context) [ordered]@{ value = $Action['v'] } } }
+        foreach ($value in 1, 2) {
+            $step = [pscustomobject]@{ ItemId = 'x'; Description = "pas $value"; Action = @{ v = $value } }
+            InModuleScope OSSetup -Parameters @{ BackupRoot = $backupRoot; Step = $step; Provider = $provider } {
+                param($BackupRoot, $Step, $Provider)
+                Save-OSSetupOriginalValue -BackupRoot $BackupRoot -Step $Step -Provider $Provider -Context @{}
+            }
+        }
+        $entries = @(Get-Content -LiteralPath (Join-Path -Path $backupRoot -ChildPath 'original-values.json') -Raw | ConvertFrom-Json)
+        @($entries | ForEach-Object { $_.before.value }) | Should -Be @(1, 2)
     }
 }
 

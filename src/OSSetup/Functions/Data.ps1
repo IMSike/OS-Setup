@@ -18,7 +18,7 @@ function Read-OSSetupJsonFile {
         [AllowEmptyCollection()]
         [System.Collections.Generic.List[string]]$Errors
     )
-    $json = Get-Content -Path $Path -Raw -Encoding utf8
+    $json = Get-Content -LiteralPath $Path -Raw -Encoding utf8
     # Fichier vide : Test-Json refuserait la chaîne vide par une erreur de liaison, sans nom de fichier.
     if ([string]::IsNullOrWhiteSpace($json)) {
         $Errors.Add("${Path} : fichier vide.")
@@ -140,7 +140,9 @@ function Import-OSSetupData {
     $profiles = [ordered]@{}
 
     $catalogRoot = Join-Path -Path $Root -ChildPath 'catalog'
-    $catalogFiles = @(Get-ChildItem -Path $catalogRoot -Filter '*.json' -Recurse | Sort-Object -Property FullName)
+    $catalogFiles = @(Get-ChildItem -LiteralPath $catalogRoot -Filter '*.json' -Recurse | Sort-Object -Property FullName)
+    # Catalogue vide : jamais normal (dossier mal lu, copie incomplète), au lieu d'un plan vide sans explication.
+    if ($catalogFiles.Count -eq 0) { $errors.Add("${catalogRoot} : aucun élément dans le catalogue.") }
     foreach ($entry in Read-OSSetupJsonFileSet -File $catalogFiles -SchemaPath (Join-Path -Path $schemaRoot -ChildPath 'item.schema.json') -Errors $errors) {
         $file = $entry.File
         $item = $entry.Data
@@ -165,7 +167,7 @@ function Import-OSSetupData {
     }
 
     $profileRoot = Join-Path -Path $Root -ChildPath 'profiles'
-    $profileFiles = @(Get-ChildItem -Path $profileRoot -Filter '*.json' | Sort-Object -Property Name)
+    $profileFiles = @(Get-ChildItem -LiteralPath $profileRoot -Filter '*.json' | Sort-Object -Property Name)
     foreach ($entry in Read-OSSetupJsonFileSet -File $profileFiles -SchemaPath (Join-Path -Path $schemaRoot -ChildPath 'profile.schema.json') -Errors $errors) {
         $file = $entry.File
         $setupProfile = $entry.Data

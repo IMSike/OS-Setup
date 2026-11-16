@@ -13,7 +13,7 @@ param()
 
     Test     = {
         param($Action, $Context)
-        Test-Path -Path $Action['path'] -PathType Container
+        Test-Path -LiteralPath $Action['path'] -PathType Container
     }
 
     Invoke   = {

@@ -259,12 +259,12 @@ function Save-OSSetupOriginalValue {
     if (-not $PSCmdlet.ShouldProcess($path, 'Enregistrer la valeur d''origine')) { return }
     Assert-OSSetupDataPath -Path $path
     $entries = [System.Collections.Generic.List[object]]::new()
-    if (Test-Path -Path $path) {
-        foreach ($existing in @(Get-Content -Path $path -Raw -Encoding utf8 | ConvertFrom-Json)) { $entries.Add($existing) }
+    if (Test-Path -LiteralPath $path) {
+        foreach ($existing in @(Get-Content -LiteralPath $path -Raw -Encoding utf8 | ConvertFrom-Json)) { $entries.Add($existing) }
     }
     $entries.Add($entry)
     New-Item -Path $BackupRoot -ItemType Directory -Force | Out-Null
-    ConvertTo-Json -InputObject $entries.ToArray() -Depth 6 | Set-Content -Path $path -Encoding utf8NoBOM
+    ConvertTo-Json -InputObject $entries.ToArray() -Depth 6 | Set-Content -LiteralPath $path -Encoding utf8NoBOM
 }
 
 function Show-OSSetupSummary {

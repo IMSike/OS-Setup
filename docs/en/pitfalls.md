@@ -31,6 +31,7 @@ Under Windows PowerShell 5.1, do not capture or redirect winget's output (`| Out
 ## PowerShell
 
 - Windows PowerShell 5.1 reads a `.ps1` file **without a BOM** as ANSI: accented characters are corrupted. `.ps1`, `.psm1` and `.psd1` files are UTF-8 with BOM (fixed in `.gitattributes` and `.editorconfig`).
+- `-Path` reads `[ ]`, `*` and `?` as wildcards: a repository under `C:\dev [1]` loads an empty catalog without any error, a file there is reported missing. Any path that is not meant as a pattern goes through `-LiteralPath` (`Test-Path`, `Get-Content`, `Set-Content`, `Get-Item`, `Get-ChildItem` with `-Filter` or `-Recurse`, registry cmdlets…). `New-Item` has no `-LiteralPath` and does not expand wildcards.
 - Variable names are case-insensitive: a local variable `$answers` overwrites the `$Answers` parameter.
 - Typographic apostrophes `‘ ’` are equivalent to `'` and quotes `“ ”` to `"`: a text containing `’` (e.g. French `powercfg` output) goes between straight quotes `"…"`.
 - `$x = if (...) { @() }` gives `$null`, and a one-element array becomes the element: write `$x = @(if (...) { ... })`.

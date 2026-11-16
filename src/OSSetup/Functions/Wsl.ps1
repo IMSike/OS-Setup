@@ -18,8 +18,8 @@ function Get-OSSetupWslDistribution {
     [CmdletBinding()]
     param()
     $root = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss'
-    if (-not (Test-Path -Path $root)) { return }
-    foreach ($key in Get-ChildItem -Path $root) {
+    if (-not (Test-Path -LiteralPath $root)) { return }
+    foreach ($key in Get-ChildItem -LiteralPath $root) {
         $name = $key.GetValue('DistributionName')
         if (-not $name) { continue }
         [pscustomobject]@{ Name = $name; DefaultUid = [int]$key.GetValue('DefaultUid', 0) }

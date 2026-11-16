@@ -17,13 +17,13 @@
         try {
             & winget export --output $file --source winget --accept-source-agreements --disable-interactivity *> $null
             $script:WingetExportId = @(
-                if ($LASTEXITCODE -eq 0 -and (Test-Path -Path $file)) {
-                    (Get-Content -Path $file -Raw | ConvertFrom-Json).Sources | ForEach-Object { $_.Packages.PackageIdentifier }
+                if ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $file)) {
+                    (Get-Content -LiteralPath $file -Raw | ConvertFrom-Json).Sources | ForEach-Object { $_.Packages.PackageIdentifier }
                 }
             )
         }
         finally {
-            Remove-Item -Path $file -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue
         }
     }
     $script:WingetExportId

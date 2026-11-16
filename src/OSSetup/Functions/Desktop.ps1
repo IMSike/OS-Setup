@@ -264,10 +264,10 @@ function Set-OSSetupDesktopLayout {
     New-Item -Path (Split-Path -Path $file -Parent) -ItemType Directory -Force | Out-Null
     Set-Content -LiteralPath $file -Value $xml -Encoding utf8
     # Jamais New-Item -Force sur une clé existante : il la recrée vide (d'autres réglages y sont rangés).
-    if (-not (Test-Path -Path $script:LayoutPolicyKey)) { New-Item -Path $script:LayoutPolicyKey -Force | Out-Null }
+    if (-not (Test-Path -LiteralPath $script:LayoutPolicyKey)) { New-Item -Path $script:LayoutPolicyKey -Force | Out-Null }
     try {
-        Set-ItemProperty -Path $script:LayoutPolicyKey -Name StartLayoutFile -Type ExpandString -Value $file
-        Set-ItemProperty -Path $script:LayoutPolicyKey -Name LockedStartLayout -Type DWord -Value 1
+        Set-ItemProperty -LiteralPath $script:LayoutPolicyKey -Name StartLayoutFile -Type ExpandString -Value $file
+        Set-ItemProperty -LiteralPath $script:LayoutPolicyKey -Name LockedStartLayout -Type DWord -Value 1
         Restart-OSSetupExplorer -Confirm:$false
         # La barre des tâches est relue au démarrage de l'Explorateur : on attend que les épingles soient là. Seules
         # celles des raccourcis .lnk sont visibles dans le dossier lu ; celles des applications du Store n'y figurent pas.
@@ -285,16 +285,16 @@ function Set-OSSetupDesktopLayout {
         try {
             # Déverrouillage, pris en compte au redémarrage de l'Explorateur : la disposition reste, l'utilisateur
             # peut de nouveau la modifier.
-            Set-ItemProperty -Path $script:LayoutPolicyKey -Name LockedStartLayout -Type DWord -Value 0
+            Set-ItemProperty -LiteralPath $script:LayoutPolicyKey -Name LockedStartLayout -Type DWord -Value 0
             Restart-OSSetupExplorer -Confirm:$false
         }
         finally {
-            Remove-ItemProperty -Path $script:LayoutPolicyKey -Name StartLayoutFile, LockedStartLayout -ErrorAction SilentlyContinue
+            Remove-ItemProperty -LiteralPath $script:LayoutPolicyKey -Name StartLayoutFile, LockedStartLayout -ErrorAction SilentlyContinue
             Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue
         }
     }
-    if (-not (Test-Path -Path $script:LayoutMarkerKey)) { New-Item -Path $script:LayoutMarkerKey -Force | Out-Null }
-    Set-ItemProperty -Path $script:LayoutMarkerKey -Name DesktopLayout -Type String -Value (Get-OSSetupLayoutHash -Xml $xml)
+    if (-not (Test-Path -LiteralPath $script:LayoutMarkerKey)) { New-Item -Path $script:LayoutMarkerKey -Force | Out-Null }
+    Set-ItemProperty -LiteralPath $script:LayoutMarkerKey -Name DesktopLayout -Type String -Value (Get-OSSetupLayoutHash -Xml $xml)
 }
 
 function Get-OSSetupDesktopLayoutMarker {
@@ -305,7 +305,7 @@ function Get-OSSetupDesktopLayoutMarker {
     [CmdletBinding()]
     [OutputType([string])]
     param()
-    $values = Get-ItemProperty -Path $script:LayoutMarkerKey -ErrorAction SilentlyContinue
+    $values = Get-ItemProperty -LiteralPath $script:LayoutMarkerKey -ErrorAction SilentlyContinue
     if ($values -and $values.PSObject.Properties['DesktopLayout']) { $values.DesktopLayout } else { $null }
 }
 

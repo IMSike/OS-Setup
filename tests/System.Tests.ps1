@@ -744,8 +744,8 @@ Describe 'Get-OSSetupStartupEntry' {
         $run = New-FakeKey @{ 'BraveSoftware Update' = 'brave.exe'; 'OneDrive' = 'onedrive.exe'; 'Autre' = 'x.exe' }
         $approved = New-FakeKey @{ 'BraveSoftware Update' = [byte[]](3, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8); 'OneDrive' = [byte[]](2, 0, 0, 0) }
         Mock -ModuleName OSSetup Test-Path { $true }
-        Mock -ModuleName OSSetup Get-Item { $run } -ParameterFilter { $Path -like '*\CurrentVersion\Run' }
-        Mock -ModuleName OSSetup Get-Item { $approved } -ParameterFilter { $Path -like '*StartupApproved\Run' }
+        Mock -ModuleName OSSetup Get-Item { $run } -ParameterFilter { $LiteralPath -like '*\CurrentVersion\Run' }
+        Mock -ModuleName OSSetup Get-Item { $approved } -ParameterFilter { $LiteralPath -like '*StartupApproved\Run' }
         $entries = @(InModuleScope OSSetup { Get-OSSetupStartupEntry -Name '*' -Scope user })
         ($entries | Where-Object Name -eq 'BraveSoftware Update').Enabled | Should -BeFalse
         ($entries | Where-Object Name -eq 'OneDrive').Enabled | Should -BeTrue

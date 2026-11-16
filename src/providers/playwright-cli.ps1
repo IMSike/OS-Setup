@@ -18,12 +18,12 @@ param()
         param($Action, $Context)
         if ($Action['skills']) {
             $root = if ($Action['skills'] -eq 'claude') { '.claude' } else { '.agents' }
-            return Test-Path -Path (Join-Path -Path $env:USERPROFILE -ChildPath "$root\skills\playwright-cli\SKILL.md") -PathType Leaf
+            return Test-Path -LiteralPath (Join-Path -Path $env:USERPROFILE -ChildPath "$root\skills\playwright-cli\SKILL.md") -PathType Leaf
         }
         $browsersPath = if ($env:PLAYWRIGHT_BROWSERS_PATH) { $env:PLAYWRIGHT_BROWSERS_PATH } else { Join-Path -Path $env:LOCALAPPDATA -ChildPath 'ms-playwright' }
-        if (-not (Test-Path -Path $browsersPath -PathType Container)) { return $false }
+        if (-not (Test-Path -LiteralPath $browsersPath -PathType Container)) { return $false }
         # Dossier « <navigateur>-<révision> » (ex. chromium-1247), pas « chromium_headless_shell-1247 ».
-        [bool](Get-ChildItem -Path $browsersPath -Directory | Where-Object { $_.Name -match "^$([regex]::Escape($Action['browser']))-\d+$" })
+        [bool](Get-ChildItem -LiteralPath $browsersPath -Directory | Where-Object { $_.Name -match "^$([regex]::Escape($Action['browser']))-\d+$" })
     }
 
     Invoke   = {
@@ -32,7 +32,7 @@ param()
         # Les skills globales ne dépendent pas du dossier courant ; le profil évite de créer .playwright ailleurs.
         # La CLI écrit en UTF-8 : sans ce réglage, PowerShell décode sa sortie avec la page de code OEM.
         # Barre de progression du téléchargement (lignes « | ») : seules les lignes de texte sont journalisées.
-        Push-Location -Path $env:USERPROFILE
+        Push-Location -LiteralPath $env:USERPROFILE
         try {
             Invoke-OSSetupNativeCommand -FilePath playwright-cli -ArgumentList $arguments -Utf8 -LogFilter '^\|' -Label "playwright-cli $($arguments[0])"
         }

@@ -15,15 +15,15 @@
         [hashtable]$Context
     )
     $sourcePath = Join-Path -Path $Context.DotfilesRoot -ChildPath $Action['source']
-    if (-not (Test-Path -Path $sourcePath -PathType Leaf)) {
+    if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
         throw "Source introuvable : $sourcePath"
     }
     $bytes = [System.IO.File]::ReadAllBytes($sourcePath)
     if ($Action['mode'] -eq 'merge-json') {
         # Fusion : le dépôt ne fournit que les clés gérées ; celles déjà présentes dans la cible sont conservées.
         $managed = ConvertFrom-OSSetupJsonText -Text ([System.Text.Encoding]::UTF8.GetString($bytes)) -Name $sourcePath
-        $current = if (Test-Path -Path $Action['target'] -PathType Leaf) {
-            ConvertFrom-OSSetupJsonText -Text (Get-Content -Path $Action['target'] -Raw -Encoding utf8) -Name $Action['target']
+        $current = if (Test-Path -LiteralPath $Action['target'] -PathType Leaf) {
+            ConvertFrom-OSSetupJsonText -Text (Get-Content -LiteralPath $Action['target'] -Raw -Encoding utf8) -Name $Action['target']
         }
         else { [ordered]@{} }
         $merged = Merge-OSSetupJson -Target $current -Source $managed

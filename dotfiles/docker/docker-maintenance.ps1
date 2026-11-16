@@ -149,13 +149,13 @@ function Invoke-VhdCompaction {
 
 $state = Get-MaintenanceState
 $dockerRunning = [bool](Get-Process -Name 'Docker Desktop' -ErrorAction SilentlyContinue)
-$autoStart = $null -ne (Get-ItemProperty -Path $runKey -Name $runName -ErrorAction SilentlyContinue)
+$autoStart = $null -ne (Get-ItemProperty -LiteralPath $runKey -Name $runName -ErrorAction SilentlyContinue)
 
 # Le lancement automatique de Docker Desktop est fait ici, après le compactage : celui de Docker est désactivé comme le
 # fait le Gestionnaire des tâches (l'entrée reste, Docker Desktop la recrée quand on change son réglage).
 if ($autoStart) {
-    if (-not (Test-Path -Path $approvedKey)) { New-Item -Path $approvedKey -Force | Out-Null }
-    Set-ItemProperty -Path $approvedKey -Name $runName -Value ([byte[]](3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)) -Type Binary
+    if (-not (Test-Path -LiteralPath $approvedKey)) { New-Item -Path $approvedKey -Force | Out-Null }
+    Set-ItemProperty -LiteralPath $approvedKey -Name $runName -Value ([byte[]](3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)) -Type Binary
 }
 
 # 1. Compactage

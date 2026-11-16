@@ -43,14 +43,14 @@ function Add-OSSetupPathEntry {
         [string]$Scope
     )
     $keyPath = if ($Scope -eq 'Machine') { 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' } else { 'HKCU:\Environment' }
-    $key = Get-Item -Path $keyPath
+    $key = Get-Item -LiteralPath $keyPath
     $raw = $key.GetValue('Path', '', 'DoNotExpandEnvironmentNames')
     $entries = @(ConvertTo-OSSetupPathList -Value $raw)
     if ($entries | Where-Object { $_.TrimEnd('\') -eq $Path.TrimEnd('\') }) { return }
 
     if ($PSCmdlet.ShouldProcess("PATH ($Scope)", "Ajouter $Path")) {
         $newValue = (@($entries) + $Path) -join [System.IO.Path]::PathSeparator
-        Set-ItemProperty -Path $keyPath -Name 'Path' -Value $newValue -Type ExpandString
+        Set-ItemProperty -LiteralPath $keyPath -Name 'Path' -Value $newValue -Type ExpandString
         Send-OSSetupEnvironmentChange
         Update-OSSetupSessionPath
     }

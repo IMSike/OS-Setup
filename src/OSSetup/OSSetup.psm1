@@ -1,7 +1,7 @@
 ﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-foreach ($file in Get-ChildItem -Path (Join-Path -Path $PSScriptRoot -ChildPath 'Functions') -Filter '*.ps1' | Sort-Object -Property Name) {
+foreach ($file in Get-ChildItem -LiteralPath (Join-Path -Path $PSScriptRoot -ChildPath 'Functions') -Filter '*.ps1' | Sort-Object -Property Name) {
     . $file.FullName
 }
 
@@ -9,7 +9,7 @@ foreach ($file in Get-ChildItem -Path (Join-Path -Path $PSScriptRoot -ChildPath 
 # d'origine enregistré avant modification).
 $script:Providers = @{}
 $providerRoot = Join-Path -Path $PSScriptRoot -ChildPath '..\providers'
-foreach ($file in Get-ChildItem -Path $providerRoot -Filter '*.ps1' | Sort-Object -Property Name) {
+foreach ($file in Get-ChildItem -LiteralPath $providerRoot -Filter '*.ps1' | Sort-Object -Property Name) {
     $provider = & $file.FullName
     $script:Providers[$provider.Name] = $provider
 }
