@@ -261,6 +261,15 @@ Describe 'bootstrap.ps1 -WhatIf : simulation' {
         $result.Pwsh | Should -Be 'C:\OSSetupTest\pwsh.exe'
         $result.SetupScript | Should -Be 'C:\OSSetupTest\clone\setup.ps1'
         $global:OSSetupTestHost -join "`n" | Should -BeLike '*copie utilisée telle quelle (C:\OSSetupTest\clone)*'
+        $global:OSSetupTestHost -join "`n" | Should -Not -BeLike '*-Branch serait ignoré*'
+    }
+
+    It 'annonce que -Branch serait ignoré quand il est lancé depuis un clone' {
+        Mock Get-Command { [pscustomobject]@{ Source = 'C:\OSSetupTest\pwsh.exe' } } -ParameterFilter { $Name -eq 'pwsh' }
+        Mock Test-Path { $true } -ParameterFilter { $LiteralPath -eq 'C:\OSSetupTest\clone\setup.ps1' }
+        (Show-BootstrapSimulation @script:simulationParameters -ScriptRoot 'C:\OSSetupTest\clone' -BranchRequested).SetupScript |
+            Should -Be 'C:\OSSetupTest\clone\setup.ps1'
+        $global:OSSetupTestHost -join "`n" | Should -BeLike '*-Branch serait ignoré : le clone d''où le bootstrap est lancé est utilisé tel quel*'
     }
 
     It 'utilise la copie existante dans la destination sans la mettre à jour' {
@@ -310,6 +319,27 @@ Describe 'bootstrap.ps1 -WhatIf : simulation' {
             $global:OSSetupTestHost -join "`n" | Should -BeLike '*serait basculé sur la branche main*s''il n''a aucune modification locale*'
             Should -Invoke git -Times 0
         }
+
+        It 'annonce les deux issues possibles quand git échoue (<Case>)' -ForEach @(
+            @{ Case = 'branche courante illisible'; Failing = 'rev-parse'; Calls = 1 }
+            @{ Case = 'état de la copie illisible'; Failing = 'status'; Calls = 2 }
+        ) {
+            $global:OSSetupTestGitFailing = $Failing
+            Mock git {
+                $global:LASTEXITCODE = if ($args -contains $global:OSSetupTestGitFailing) { 128 } else { 0 }
+                if ($args -contains 'rev-parse') { return 'dev' }
+            }
+            try {
+                Show-BootstrapSimulation @script:simulationParameters -ScriptRoot '' -BranchRequested | Out-Null
+            }
+            finally {
+                Remove-Variable -Name OSSetupTestGitFailing -Scope Global -ErrorAction SilentlyContinue
+            }
+            $text = $global:OSSetupTestHost -join "`n"
+            $text | Should -BeLike '*serait basculé sur la branche main*s''il n''a aucune modification locale*'
+            $text | Should -Not -BeLike '*branche dev vers main*'
+            Should -Invoke git -Times $Calls -Exactly
+        }
     }
 
     It 'n''appelle aucune commande qui modifie la machine' {
@@ -328,5 +358,45 @@ Describe 'bootstrap.ps1 -WhatIf : simulation' {
         $simulation | Should -BeGreaterThan 0
         $simulation | Should -BeLessThan $script:bootstrapText.IndexOf('Relance en administrateur (validez')
         $simulation | Should -BeLessThan $script:bootstrapText.IndexOf('Initialize-Winget' + [Environment]::NewLine)
+    }
+}
+
+Describe 'bootstrap.ps1 -WhatIf : lancement de la simulation du setup' {
+    BeforeAll {
+        # Copie du bootstrap coupée juste après le bloc de simulation (élévation, installations et clonage retirés,
+        # remplacés par « exit 99 »), lancée depuis un faux clone dont setup.ps1 affiche seulement ses arguments.
+        $whatIfBlock = $ast.EndBlock.Statements | Where-Object {
+            $_ -is [System.Management.Automation.Language.IfStatementAst] -and
+            $_.Clauses[0].Item1.Extent.Text -eq 'Test-WhatIfArgument -Argument $SetupArguments'
+        }
+        $whatIfBlock | Should -HaveCount 1
+        $script:truncatedBootstrap = $ast.Extent.Text.Substring(0, $whatIfBlock.Extent.EndOffset) + "`r`nexit 99`r`n"
+        $script:powershell = Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    }
+
+    BeforeEach {
+        $clone = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid().ToString('N'))
+        New-Item -Path $clone -ItemType Directory | Out-Null
+        Set-Content -LiteralPath "$clone\bootstrap.ps1" -Value $script:truncatedBootstrap -Encoding utf8BOM -NoNewline
+        Set-Content -LiteralPath "$clone\setup.ps1" -Value '"SETUP-ARGS=$($args -join ''|'')"; exit 7'
+        # PowerShell 7 des tests en tête du PATH de l'enfant : le bootstrap le trouve comme sur une machine équipée.
+        $previousPath = $env:Path
+        $env:Path = "$(Split-Path -Path (Get-Process -Id $PID).Path -Parent);$env:Path"
+    }
+
+    AfterEach {
+        $env:Path = $previousPath
+    }
+
+    It 'transmet à setup.ps1 les arguments de simulation et signale -Branch ignoré (<Case>)' -ForEach @(
+        @{ Case = 'avec -Branch'; Branch = @('-Branch', 'dev'); Ignored = $true }
+        @{ Case = 'sans -Branch'; Branch = @(); Ignored = $false }
+    ) {
+        $arguments = @($Branch) + @('-Destination', "$clone\absent", '-Yes', '-WhatIf:$false')
+        $output = $null | & $script:powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$clone\bootstrap.ps1" @arguments 2>&1
+        $LASTEXITCODE | Should -Be 7 -Because "$output"
+        "$output" | Should -Match 'SETUP-ARGS=-Yes\|-WhatIf( |$)'
+        if ($Ignored) { "$output" | Should -BeLike '*-Branch serait ignor*' }
+        else { "$output" | Should -Not -BeLike '*-Branch serait ignor*' }
     }
 }
