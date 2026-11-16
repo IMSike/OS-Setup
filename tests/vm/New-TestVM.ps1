@@ -86,7 +86,19 @@ if (-not $cachedImage) {
         if (-not $source) { throw "Aucun install.wim ni install.esd dans $ImagePath." }
         $cachedImage = Join-Path -Path $imageCache -ChildPath "$Name\$(Split-Path -Path $source -Leaf)"
         Write-TestVMStep "Copie de l'image dans le cache ($cachedImage)"
-        Copy-Item -Path $source -Destination $cachedImage
+        # Copie sous un nom temporaire, renommée une fois complète : une copie interrompue serait sinon prise pour
+        # l'image en cache au lancement suivant (DISM échouerait alors à chaque fois). Le nom temporaire n'est pas
+        # reconnu comme image en cache, même s'il reste après un arrêt brutal.
+        $partialImage = "$cachedImage.partial"
+        $copied = $false
+        try {
+            Copy-Item -Path $source -Destination $partialImage -Force
+            Move-Item -Path $partialImage -Destination $cachedImage -Force
+            $copied = $true
+        }
+        finally {
+            if (-not $copied) { Remove-Item -Path $partialImage -Force -ErrorAction SilentlyContinue }
+        }
     }
     finally {
         if ($iso) { Dismount-DiskImage -ImagePath $iso.ImagePath | Out-Null }
