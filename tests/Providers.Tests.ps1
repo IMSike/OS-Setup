@@ -334,6 +334,19 @@ Describe 'Provider herdr-plugin' {
         Should -Invoke -ModuleName OSSetup -CommandName Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Level -eq 'Detail' -and $Message -like '*gcaudan.explorer*« enabled » absent ou nul*non conforme*' }
         InModuleScope OSSetup { $script:LoggedOnce.Clear() }
     }
+
+    It 'lit plugins.json dans un profil dont le chemin contient des crochets' {
+        $env:APPDATA = Join-Path -Path $TestDrive -ChildPath "$([guid]::NewGuid().ToString('N'))\appdata [1]"
+        $pluginsPath = Join-Path -Path $env:APPDATA -ChildPath 'herdr\plugins.json'
+        New-Item -Path (Split-Path -Path $pluginsPath -Parent) -ItemType Directory -Force | Out-Null
+        $provider = InModuleScope OSSetup { Get-OSSetupProvider -Name 'herdr-plugin' }
+        Set-Content -LiteralPath $pluginsPath -Value '[{ "plugin_id": "gcaudan.explorer", "enabled": true }]'
+        & $provider.Test $action @{} | Should -BeTrue
+        Set-Content -LiteralPath $pluginsPath -Value '[{ "plugin_id": "gcaudan.explorer", "enabled": false }]'
+        & $provider.Invoke $action @{}
+        Should -Invoke -ModuleName OSSetup -CommandName herdr -Times 1 -Exactly
+        Should -Invoke -ModuleName OSSetup -CommandName herdr -Times 1 -Exactly -ParameterFilter { ($args -join ' ') -eq 'plugin enable gcaudan.explorer' }
+    }
 }
 
 Describe 'Provider registry' {
@@ -375,6 +388,31 @@ Describe 'Provider registry' {
         & $provider.Test @{ path = $key; name = 'Text'; type = 'String'; value = 'Abc' } @{} | Should -BeTrue
         & $provider.Test @{ path = $key; name = 'Text'; type = 'String'; value = 'abc' } @{} | Should -BeFalse
         & $provider.Test @{ path = $key; name = 'Text'; type = 'ExpandString'; value = 'Abc' } @{} | Should -BeFalse
+    }
+
+    It 'crée, écrit et relit une clé dont le nom contient des crochets (chemin littéral)' {
+        $action = @{ path = "$key\App [1]"; name = 'V'; type = 'String'; value = 'x' }
+        & $provider.Test $action @{} | Should -BeFalse
+        (& $provider.Read $action @{})['keyExists'] | Should -BeFalse
+        & $provider.Invoke $action @{}
+        & $provider.Test $action @{} | Should -BeTrue
+        (& $provider.Read $action @{})['value'] | Should -Be 'x'
+        @(Get-ChildItem -LiteralPath $key).PSChildName | Should -Be @('App [1]')
+        # Clé existante : complétée, pas recréée vide.
+        & $provider.Invoke @{ path = "$key\App [1]"; name = 'W'; type = 'DWord'; value = 1 } @{}
+        & $provider.Test $action @{} | Should -BeTrue
+    }
+}
+
+Describe 'Provider directory' {
+    It 'crée et reconnaît un dossier dont le chemin contient des crochets' {
+        # Dans un sous-dossier : Pester ne vide pas un dossier à crochets à la racine de TestDrive.
+        $path = Join-Path -Path $TestDrive -ChildPath "$([guid]::NewGuid().ToString('N'))\dev [1]"
+        $provider = InModuleScope OSSetup { Get-OSSetupProvider -Name 'directory' }
+        & $provider.Test @{ path = $path } @{} | Should -BeFalse
+        & $provider.Invoke @{ path = $path } @{}
+        Test-Path -LiteralPath $path -PathType Container | Should -BeTrue
+        & $provider.Test @{ path = $path } @{} | Should -BeTrue
     }
 }
 

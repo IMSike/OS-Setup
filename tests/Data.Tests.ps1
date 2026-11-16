@@ -442,6 +442,19 @@ Describe 'Read-OSSetupJsonFileSet' {
     }
 }
 
+Describe 'Read-OSSetupJsonFile' {
+    It 'lit un fichier dont le chemin contient des crochets (chemin littéral)' {
+        # Dans un sous-dossier : Pester ne vide pas un dossier à crochets à la racine de TestDrive.
+        $path = Join-Path -Path $TestDrive -ChildPath 'brackets\réponses [x]\base.json'
+        New-Item -Path (Split-Path -Path $path -Parent) -ItemType Directory -Force | Out-Null
+        Set-Content -LiteralPath $path -Value '{ "profiles": ["base"] }'
+        $errors = [System.Collections.Generic.List[string]]::new()
+        $data = Read-OSSetupJsonFile -Path $path -SchemaPath (Join-Path -Path $repoRoot -ChildPath 'schemas\answers.schema.json') -Errors $errors
+        $errors.Count | Should -Be 0
+        $data['profiles'] | Should -Be @('base')
+    }
+}
+
 Describe 'Format-OSSetupSchemaError' {
     BeforeAll {
         $newError = { param([string]$Message) [System.Management.Automation.ErrorRecord]::new([Exception]::new($Message), 'x', 'InvalidData', $null) }

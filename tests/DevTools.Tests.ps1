@@ -497,6 +497,27 @@ Describe 'Provider playwright-cli' {
         & $provider.Test @{ skills = 'agents' } @{} | Should -BeTrue
     }
 
+    It 'trouve navigateurs et skills sous des chemins qui contiennent des crochets, et y installe' {
+        $bracketRoot = Join-Path -Path $TestDrive -ChildPath "$([guid]::NewGuid().ToString('N'))\compte [1]"
+        $env:USERPROFILE = Join-Path -Path $bracketRoot -ChildPath 'profil'
+        $env:LOCALAPPDATA = Join-Path -Path $bracketRoot -ChildPath 'local'
+        New-Item -Path (Join-Path -Path $env:LOCALAPPDATA -ChildPath 'ms-playwright\chromium-1247') -ItemType Directory -Force | Out-Null
+        & $provider.Test @{ browser = 'chromium' } @{} | Should -BeTrue
+        $skill = Join-Path -Path $env:USERPROFILE -ChildPath '.claude\skills\playwright-cli\SKILL.md'
+        New-Item -Path (Split-Path -Path $skill -Parent) -ItemType Directory -Force | Out-Null
+        Set-Content -LiteralPath $skill -Value ''
+        & $provider.Test @{ skills = 'claude' } @{} | Should -BeTrue
+
+        Mock -ModuleName OSSetup Invoke-OSSetupNativeCommand { $global:OSSetupTestLocation = (Get-Location).Path }
+        try {
+            & $provider.Invoke @{ skills = 'claude' } @{}
+            $global:OSSetupTestLocation | Should -Be $env:USERPROFILE
+        }
+        finally {
+            Remove-Variable -Name OSSetupTestLocation -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
+
     It 'installe depuis le profil de l''utilisateur, puis revient au dossier courant, même en cas d''échec' {
         $here = (Get-Location).Path
         Mock -ModuleName OSSetup Invoke-OSSetupNativeCommand { $global:OSSetupTestLocation = (Get-Location).Path; throw 'échec simulé' }
@@ -587,6 +608,28 @@ Describe 'Fichiers de configuration du profil : .wslconfig et daemon.json de Doc
         & $provider.Invoke @{ maxGB = 30; diskPercent = 10 } $context
         $json = Get-Content -LiteralPath (Join-Path -Path $env:USERPROFILE -ChildPath '.docker\daemon.json') -Raw | ConvertFrom-Json -AsHashtable
         $json['builder']['gc']['defaultKeepStorage'] | Should -Be '30GB'
+    }
+
+    It 'wsl-config et docker-build-cache lisent et modifient leur fichier dans un profil dont le chemin contient des crochets' {
+        Mock -ModuleName OSSetup Get-OSSetupSystemDisk { [pscustomobject]@{ Drive = 'C:'; SizeGB = 476; FreeGB = 200 } }
+        $env:USERPROFILE = Join-Path -Path $TestDrive -ChildPath "$([guid]::NewGuid().ToString('N'))\profil [1]"
+        New-Item -Path $env:USERPROFILE -ItemType Directory -Force | Out-Null
+        $cases = @(
+            @{ Provider = 'wsl-config'; File = '.wslconfig'; Original = "[wsl2]`r`nswap=0`r`n"; Action = @{ section = 'wsl2'; key = 'memory'; value = '8GB' } }
+            @{ Provider = 'docker-build-cache'; File = '.docker\daemon.json'; Original = '{ "experimental": true }'; Action = @{ maxGB = 30; diskPercent = 10 } }
+        )
+        foreach ($case in $cases) {
+            $path = Join-Path -Path $env:USERPROFILE -ChildPath $case.File
+            New-Item -Path (Split-Path -Path $path -Parent) -ItemType Directory -Force | Out-Null
+            [IO.File]::WriteAllText($path, $case.Original)
+            $provider = InModuleScope OSSetup -Parameters @{ Name = $case.Provider } { param($Name) Get-OSSetupProvider -Name $Name }
+            & $provider.Test $case.Action $context | Should -BeFalse -Because $case.Provider
+            & $provider.Invoke $case.Action $context
+            & $provider.Test $case.Action $context | Should -BeTrue -Because $case.Provider
+        }
+        [IO.File]::ReadAllText((Join-Path -Path $env:USERPROFILE -ChildPath '.wslconfig')) | Should -BeLike '*swap=0*memory=8GB*'
+        (& (InModuleScope OSSetup { Get-OSSetupProvider -Name 'wsl-config' }).Read @{ section = 'wsl2'; key = 'memory' } $context)['value'] | Should -Be '8GB'
+        (& (InModuleScope OSSetup { Get-OSSetupProvider -Name 'docker-build-cache' }).Read @{} $context)['content'] | Should -BeLike '*"experimental": true*'
     }
 }
 
