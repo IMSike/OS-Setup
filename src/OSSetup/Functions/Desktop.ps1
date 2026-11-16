@@ -267,17 +267,13 @@ function Set-OSSetupDesktopLayout {
     Set-Content -LiteralPath $file -Value $xml -Encoding utf8
     # Jamais New-Item -Force sur une clé existante : il la recrée vide (d'autres réglages y sont rangés).
     if (-not (Test-Path -LiteralPath $script:LayoutPolicyKey)) { New-Item -Path $script:LayoutPolicyKey -Force | Out-Null }
-    # Épingles présentes avant la pose de la stratégie : leur raccourci .lnk existe déjà, il ne prouve pas que
-    # l'Explorateur a relu la disposition. Seules les épingles nouvelles sont attendues après le redémarrage.
-    $pinnedBefore = @(Get-OSSetupTaskbarPinName)
     try {
         Set-ItemProperty -LiteralPath $script:LayoutPolicyKey -Name StartLayoutFile -Type ExpandString -Value $file
         Set-ItemProperty -LiteralPath $script:LayoutPolicyKey -Name LockedStartLayout -Type DWord -Value 1
         Restart-OSSetupExplorer -Confirm:$false
         # La barre des tâches est relue au démarrage de l'Explorateur : on attend que les épingles soient là. Seules
         # celles des raccourcis .lnk sont visibles dans le dossier lu ; celles des applications du Store n'y figurent pas.
-        # Aucune épingle nouvelle attendue : pas d'attente.
-        $expected = @($Layout.Pins | Where-Object { $_.Link -and $_.Name -notin $pinnedBefore } | ForEach-Object { $_.Name })
+        $expected = @($Layout.Pins | Where-Object { $_.Link } | ForEach-Object { $_.Name })
         if ($expected.Count -gt 0) {
             $missing = @(Wait-OSSetupTaskbarPin -Name $expected -TimeoutSeconds 30)
             if ($missing.Count -gt 0) {
