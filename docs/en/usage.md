@@ -19,7 +19,7 @@ The account used must be an administrator: from a standard account, the setup st
 
 ### Simulation
 
-`powershell -NoProfile -ExecutionPolicy Bypass -File .\bootstrap.ps1 -WhatIf` changes nothing: no elevation, no install of winget, Git or PowerShell 7, no clone or update of the repository, no `state\bootstrap.json`. The bootstrap only shows what it would do (each tool present or to install, repository to clone, update or use as is; with `-Branch`, whether the existing copy would be switched to that branch or the bootstrap would stop on local changes, read with `git rev-parse` and `git status` only), then runs `setup.ps1 -WhatIf` if PowerShell 7 and a copy of the repository are already there (the copy is used as it is, without `git pull`). Otherwise it stops and explains why: on a blank machine, the setup simulation can only run once the tools and the repository are in place. Run the bootstrap without `-WhatIf` (the plan is shown and must be confirmed before any change), or `./setup.ps1 -WhatIf` from a copy of the repository.
+`powershell -NoProfile -ExecutionPolicy Bypass -File .\bootstrap.ps1 -WhatIf` changes nothing on the system: no elevation, no install of winget, Git or PowerShell 7, no clone or update of the repository, no `state\bootstrap.json`. The bootstrap only shows what it would do (each tool present or to install, repository to clone, update or use as is; with `-Branch`, whether the existing copy would be switched to that branch or the bootstrap would stop on local changes, read with `git rev-parse` and `git status` only), then runs `setup.ps1 -WhatIf` if PowerShell 7 and a copy of the repository are already there (the copy is used as it is, without `git pull`; like any simulation, it still writes its log, `state/answers-last.json` and `state/last-result.json` in that copy). Otherwise it stops and explains why: on a blank machine, the setup simulation can only run once the tools and the repository are in place. Run the bootstrap without `-WhatIf` (the plan is shown and must be confirmed before any change), or `./setup.ps1 -WhatIf` from a copy of the repository.
 
 ### Bootstrap parameters
 
@@ -61,7 +61,7 @@ The answers that belong only to a profile unchecked afterwards (its choice group
 | `-SaveAnswers <file>` | Saves the session's answers to this file. |
 | `-Yes` | Unattended: applies the plan without confirmation, reboots or logs off without a countdown, closes the window at the end. |
 | `-NoPause` | Do not wait for `Enter` before closing the window. |
-| `-WhatIf` | Simulation: nothing is changed on the system, no elevation. The log (`logs/`) and `state/answers-last.json` are still written in the repository copy, as is the `-SaveAnswers` file. |
+| `-WhatIf` | Simulation: nothing is changed on the system, no elevation. The log (`logs/`), `state/answers-last.json` and `state/last-result.json` are still written in the repository copy, as is the `-SaveAnswers` file. |
 
 ## Answer files
 
@@ -95,7 +95,7 @@ The answers of each session are saved in `state/answers-last.json`: to replay th
 | `state/answers-last.json` | Answers of the last session |
 | `state/backups/<date>/` | Backups of replaced files and `original-values.json` (original values of each modified setting, to roll back by hand) |
 | `%ProgramFiles%\OS-Setup\resume\` | Copy of the setup run by the resume task, with `state\run.json` (state of a run waiting for a reboot); deleted at the end of the setup |
-| `state/last-result.json` | Result of the last finished run: identifier, exit code, end time |
+| `state/last-result.json` | Result of the last finished run, simulation included: identifier, exit code, end time |
 | `state/bootstrap.json` | Written by the bootstrap: tools it installed, whether it cloned the copy, path of its script (read by the end-of-setup cleanup) |
 
 Apart from the resume copy, these folders are inside the repository copy and ignored by Git. At the end of the setup, if the copy was created by the bootstrap, a menu offers to delete it while keeping the history (log, answers, backups) in `%LOCALAPPDATA%\OS-Setup\<date>`: see [End-of-setup cleanup](architecture.md#end-of-setup-cleanup).

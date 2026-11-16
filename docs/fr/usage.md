@@ -19,7 +19,7 @@ Le compte utilisé doit être administrateur : depuis un compte standard, le set
 
 ### Simulation
 
-`powershell -NoProfile -ExecutionPolicy Bypass -File .\bootstrap.ps1 -WhatIf` ne modifie rien : ni élévation, ni installation de winget, Git ou PowerShell 7, ni clonage ou mise à jour du dépôt, ni `state\bootstrap.json`. Le bootstrap affiche seulement ce qu'il ferait (chaque outil présent ou à installer, dépôt à cloner, à mettre à jour ou utilisé tel quel ; avec `-Branch`, si la copie existante serait basculée sur cette branche ou si le bootstrap s'arrêterait sur des modifications locales, lu par `git rev-parse` et `git status` seulement), puis lance `setup.ps1 -WhatIf` si PowerShell 7 et une copie du dépôt sont déjà là (la copie est utilisée telle quelle, sans `git pull`). Sinon, il s'arrête en expliquant pourquoi : sur une machine vierge, la simulation du setup ne peut tourner qu'une fois les outils et le dépôt en place. Lancer le bootstrap sans `-WhatIf` (le plan est montré et doit être validé avant toute modification), ou `./setup.ps1 -WhatIf` depuis une copie du dépôt.
+`powershell -NoProfile -ExecutionPolicy Bypass -File .\bootstrap.ps1 -WhatIf` ne modifie rien sur le système : ni élévation, ni installation de winget, Git ou PowerShell 7, ni clonage ou mise à jour du dépôt, ni `state\bootstrap.json`. Le bootstrap affiche seulement ce qu'il ferait (chaque outil présent ou à installer, dépôt à cloner, à mettre à jour ou utilisé tel quel ; avec `-Branch`, si la copie existante serait basculée sur cette branche ou si le bootstrap s'arrêterait sur des modifications locales, lu par `git rev-parse` et `git status` seulement), puis lance `setup.ps1 -WhatIf` si PowerShell 7 et une copie du dépôt sont déjà là (la copie est utilisée telle quelle, sans `git pull` ; comme toute simulation, celle-ci écrit quand même son journal, `state/answers-last.json` et `state/last-result.json` dans cette copie). Sinon, il s'arrête en expliquant pourquoi : sur une machine vierge, la simulation du setup ne peut tourner qu'une fois les outils et le dépôt en place. Lancer le bootstrap sans `-WhatIf` (le plan est montré et doit être validé avant toute modification), ou `./setup.ps1 -WhatIf` depuis une copie du dépôt.
 
 ### Paramètres du bootstrap
 
@@ -61,7 +61,7 @@ Les réponses propres à un profil décoché ensuite (ses groupes de choix, ses 
 | `-SaveAnswers <fichier>` | Enregistre les réponses de la session dans ce fichier. |
 | `-Yes` | Sans surveillance : applique le plan sans confirmation, redémarre ou ferme la session sans compte à rebours, ferme la fenêtre à la fin. |
 | `-NoPause` | Ne pas attendre `Entrée` avant de fermer la fenêtre. |
-| `-WhatIf` | Simulation : rien n'est modifié sur le système, pas d'élévation. Le journal (`logs/`) et `state/answers-last.json` sont quand même écrits dans la copie du dépôt, tout comme le fichier de `-SaveAnswers`. |
+| `-WhatIf` | Simulation : rien n'est modifié sur le système, pas d'élévation. Le journal (`logs/`), `state/answers-last.json` et `state/last-result.json` sont quand même écrits dans la copie du dépôt, tout comme le fichier de `-SaveAnswers`. |
 
 ## Fichiers de réponses
 
@@ -95,7 +95,7 @@ Les réponses de chaque session sont enregistrées dans `state/answers-last.json
 | `state/answers-last.json` | Réponses de la dernière session |
 | `state/backups/<date>/` | Sauvegardes des fichiers remplacés et `original-values.json` (valeurs d'origine de chaque réglage modifié, pour revenir en arrière à la main) |
 | `%ProgramFiles%\OS-Setup\resume\` | Copie du setup exécutée par la tâche de reprise, avec `state\run.json` (état d'une exécution en attente de redémarrage) ; supprimée à la fin du setup |
-| `state/last-result.json` | Résultat de la dernière exécution terminée : identifiant, code de sortie, heure de fin |
+| `state/last-result.json` | Résultat de la dernière exécution terminée, simulation comprise : identifiant, code de sortie, heure de fin |
 | `state/bootstrap.json` | Écrit par le bootstrap : outils qu'il a installés, s'il a cloné la copie, chemin de son script (lu par le nettoyage de fin) |
 
 Hormis la copie de la reprise, ces dossiers sont dans la copie du dépôt et ignorés par Git. En fin de setup, si la copie a été créée par le bootstrap, un menu propose de la supprimer en gardant l'historique (journal, réponses, sauvegardes) dans `%LOCALAPPDATA%\OS-Setup\<date>` : voir [Nettoyage de fin](architecture.md#nettoyage-de-fin).
