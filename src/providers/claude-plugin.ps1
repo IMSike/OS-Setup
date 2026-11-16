@@ -14,8 +14,8 @@ param()
     }
 
     # Seule l'installation pour le compte (portée user) compte : une installation propre à un projet ne sert pas ailleurs.
-    # Comparaison stricte : un champ scope ou enabled absent de la sortie de Claude Code (format changé) rend l'élément
-    # non conforme, et le journal en donne la raison.
+    # Comparaison stricte : un champ scope ou enabled absent ou nul dans la sortie de Claude Code (format changé) rend
+    # l'élément non conforme, et le journal en donne la raison.
     Test     = {
         param($Action, $Context)
         $id = "$($Action['plugin'])@$($Action['marketplace'])"
@@ -24,7 +24,7 @@ param()
         foreach ($field in 'scope', 'enabled') {
             if ($plugins | Where-Object { $null -eq $_.$field }) {
                 Write-OSSetupLogOnce -Key "claude-plugin:${id}:$field" -Level Detail `
-                    -Message "  plugin $id : champ « $field » absent de « claude plugin list --json » : considéré comme non conforme"
+                    -Message "  plugin $id : champ « $field » absent ou nul dans « claude plugin list --json » : considéré comme non conforme"
             }
         }
         $false
