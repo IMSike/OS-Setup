@@ -18,6 +18,7 @@
         'Test-OSSetupRemovableBootstrapScript'
         # Data.ps1
         'Format-OSSetupSchemaError'
+        'Get-OSSetupArraySchema'
         'Get-OSSetupPlatform'
         'Import-OSSetupData'
         'Read-OSSetupJsonFile'

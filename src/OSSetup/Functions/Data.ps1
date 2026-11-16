@@ -69,6 +69,34 @@ function Format-OSSetupSchemaError {
     "${message} :" + (@($lines | ForEach-Object { "`n     $_" }) -join '')
 }
 
+function Get-OSSetupArraySchema {
+    <#
+    .SYNOPSIS
+        Texte d'un schéma « tableau » dont chaque élément suit le schéma d'un fichier ; les définitions de celui-ci
+        restent à la racine, où les références « #/definitions/… » les cherchent.
+    .DESCRIPTION
+        Composé avec System.Text.Json, sans passer par les types PowerShell : un nombre garde son texte d'origine.
+        ConvertFrom-Json lirait la borne QWord (18446744073709551615) comme un BigInteger, que ConvertTo-Json de
+        PowerShell 7.4 écrit comme un objet, ce qui rendrait le schéma illisible.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$SchemaPath
+    )
+    $schema = [System.Text.Json.Nodes.JsonNode]::Parse((Get-Content -LiteralPath $SchemaPath -Raw -Encoding utf8)).AsObject()
+    $definitions = $null
+    [void]$schema.TryGetPropertyValue('definitions', [ref]$definitions)
+    foreach ($key in '$schema', '$id', 'definitions') { [void]$schema.Remove($key) }
+    $arraySchema = [System.Text.Json.Nodes.JsonObject]::new()
+    $arraySchema.Add('$schema', [System.Text.Json.Nodes.JsonValue]::Create('http://json-schema.org/draft-07/schema#'))
+    $arraySchema.Add('type', [System.Text.Json.Nodes.JsonValue]::Create('array'))
+    $arraySchema.Add('items', $schema)
+    if ($null -ne $definitions) { $arraySchema.Add('definitions', $definitions) }
+    $arraySchema.ToJsonString()
+}
+
 function Read-OSSetupJsonFileSet {
     <#
     .SYNOPSIS
@@ -77,7 +105,8 @@ function Read-OSSetupJsonFileSet {
     .DESCRIPTION
         Test-Json recompile le schéma à chaque appel : valider le catalogue fichier par fichier prenait plus d'une
         seconde de plus. Les fichiers sont donc validés ensemble, comme les éléments d'un tableau, en un seul appel ;
-        en cas d'échec, chacun est revalidé seul pour que le message nomme le fichier fautif.
+        en cas d'échec, chacun est revalidé seul pour que le message nomme le fichier fautif. Le schéma de ce tableau
+        est composé par Get-OSSetupArraySchema.
     #>
     [CmdletBinding()]
     param(
@@ -100,15 +129,12 @@ function Read-OSSetupJsonFileSet {
     $valid = $false
     # Compte, pas valeur de vérité : un seul fichier vide donnerait @('') ou @($null), évalué faux.
     if ($File.Count -gt 0 -and @($texts | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -eq 0) {
-        # Schéma d'un fichier appliqué à chaque élément du tableau ; ses définitions restent à la racine, où les
-        # références « #/definitions/… » les cherchent.
-        $schema = Get-Content -LiteralPath $SchemaPath -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable
-        $definitions = $schema['definitions']
-        foreach ($key in '$schema', '$id', 'definitions') { $schema.Remove($key) }
-        $arraySchema = [ordered]@{ '$schema' = 'http://json-schema.org/draft-07/schema#'; type = 'array'; items = $schema }
-        if ($null -ne $definitions) { $arraySchema['definitions'] = $definitions }
         $json = '[' + ($texts -join ",`n") + ']'
-        $valid = Test-Json -Json $json -Schema (ConvertTo-Json -InputObject $arraySchema -Depth 64) -ErrorAction SilentlyContinue
+        $schemaErrors = $null
+        $result = Test-Json -Json $json -Schema (Get-OSSetupArraySchema -SchemaPath $SchemaPath) -ErrorVariable schemaErrors -ErrorAction SilentlyContinue
+        # Un schéma illisible n'arrête pas Test-Json : il écrit une erreur et rend vrai. Le lot n'est donc valide que
+        # sans aucune erreur ; sinon chaque fichier est revalidé seul, contre le fichier de schéma lui-même.
+        $valid = ($result -eq $true) -and @($schemaErrors).Count -eq 0
     }
     for ($i = 0; $i -lt $File.Count; $i++) {
         $data = $null

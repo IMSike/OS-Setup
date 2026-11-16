@@ -358,7 +358,8 @@ Describe 'Schéma des éléments' {
     }
 
     It 'registry : QWord borné, bornes intactes au chargement du catalogue' {
-        # Import-OSSetupData relit le schéma par ConvertFrom-Json puis ConvertTo-Json : les grands entiers doivent y survivre.
+        # Import-OSSetupData valide le catalogue par un schéma « tableau » composé à partir de item.schema.json : les
+        # grands entiers doivent y garder leur valeur exacte.
         $import = {
             param([string]$Value)
             $root = Join-Path -Path $TestDrive -ChildPath "qword$([guid]::NewGuid().ToString('N'))"
@@ -439,6 +440,33 @@ Describe 'Read-OSSetupJsonFileSet' {
         @($result | ForEach-Object { $_.Data['id'] }) | Should -Be @('seul')
         $errors.Count | Should -Be 1
         $errors[0] | Should -BeLike '*deux.json : *'
+    }
+
+    It 'transmet les bornes QWord du schéma en nombres exacts' {
+        # Un aller-retour par ConvertFrom-Json et ConvertTo-Json les écrirait en objet sous PowerShell 7.4.
+        Mock -ModuleName OSSetup Test-Json { $true } -ParameterFilter { $Schema }
+        $errors = [System.Collections.Generic.List[string]]::new()
+        $result = @(Read-OSSetupJsonFileSet -File @(& $newFile 'q.json' (& $itemText 'q')) -SchemaPath $schema -Errors $errors)
+        @($result | ForEach-Object { $_.Data['id'] }) | Should -Be @('q')
+        Should -Invoke -ModuleName OSSetup Test-Json -Times 1 -Exactly -ParameterFilter {
+            $Schema -match '"minimum":\s*-9223372036854775808\s*,\s*"maximum":\s*18446744073709551615\s*}'
+        }
+    }
+}
+
+Describe 'Import-OSSetupData : schéma groupé illisible' {
+    It 'refuse quand même un élément non conforme' {
+        # Un schéma illisible n'arrête pas Test-Json : il écrit une erreur et rend vrai. Le lot doit alors être
+        # revalidé fichier par fichier, contre le fichier de schéma (non simulé : -SchemaFile).
+        Mock -ModuleName OSSetup Test-Json { Write-Error -Message 'Nous ne pouvons pas analyser le schéma JSON.' -ErrorId InvalidJsonSchema -ErrorAction SilentlyContinue; $true } -ParameterFilter { $Schema }
+        $root = Join-Path -Path $TestDrive -ChildPath 'unreadable-schema'
+        Copy-Item -LiteralPath (Join-Path -Path $repoRoot -ChildPath 'schemas') -Destination (Join-Path -Path $root -ChildPath 'schemas') -Recurse
+        New-Item -Path (Join-Path -Path $root -ChildPath 'catalog\test'), (Join-Path -Path $root -ChildPath 'profiles') -ItemType Directory -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path -Path $root -ChildPath 'catalog\test\bad.json') `
+            -Value '{ "id": "bad", "name": "Bad", "category": "test", "platforms": ["windows"], "actions": [ { "provider": "unknown" } ] }'
+        Set-Content -LiteralPath (Join-Path -Path $root -ChildPath 'profiles\base.json') -Value '{ "id": "base", "name": "Base", "items": ["bad"] }'
+        { Import-OSSetupData -Root $root } | Should -Throw '*bad.json : non conforme au schéma item.schema.json*'
+        Should -Invoke -ModuleName OSSetup Test-Json -ParameterFilter { $Schema }
     }
 }
 
