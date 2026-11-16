@@ -71,7 +71,7 @@ elseif (Test-Path -LiteralPath (Split-Path -Path $vhdPath -Parent)) {
 
 # --- Image -------------------------------------------------------------------------------------
 # Un cache par VM : les images Windows 10 et 11 portent le même nom de fichier.
-$cachedImage = @(Get-ChildItem -Path (Join-Path -Path $imageCache -ChildPath $Name) -Include 'install.esd', 'install.wim' -Recurse -ErrorAction SilentlyContinue) |
+$cachedImage = @(Get-ChildItem -LiteralPath (Join-Path -Path $imageCache -ChildPath $Name) -Include 'install.esd', 'install.wim' -Recurse -ErrorAction SilentlyContinue) |
     Select-Object -First 1 -ExpandProperty FullName
 if (-not $cachedImage) {
     if (-not $ImagePath) { throw "Aucune image en cache pour '$Name' : indiquer -ImagePath (install.esd, install.wim ou ISO)." }
@@ -171,11 +171,11 @@ try {
         UserName     = $script:TestUserName
         Password     = $script:TestPassword
     }
-    $unattend = Get-Content -Path (Join-Path -Path $PSScriptRoot -ChildPath 'unattend.xml') -Raw -Encoding utf8
+    $unattend = Get-Content -LiteralPath (Join-Path -Path $PSScriptRoot -ChildPath 'unattend.xml') -Raw -Encoding utf8
     foreach ($key in $values.Keys) { $unattend = $unattend.Replace("{{$key}}", $values[$key]) }
     $panther = "${windowsLetter}:\Windows\Panther"
     New-Item -Path $panther -ItemType Directory -Force | Out-Null
-    Set-Content -Path (Join-Path -Path $panther -ChildPath 'unattend.xml') -Value $unattend -Encoding utf8
+    Set-Content -LiteralPath (Join-Path -Path $panther -ChildPath 'unattend.xml') -Value $unattend -Encoding utf8
     Dismount-VHD -Path $vhdPath
     $diskReady = $true
 }
