@@ -35,6 +35,8 @@ param()
         $presence = Get-OSSetupAppxPresence -Name $Action['name']
         # Ordre imposé : tant qu'une application est provisionnée, sa suppression pour tous les comptes échoue
         # (0x80073CFA, « Échec de la suppression »). Déprovisionner d'abord.
+        # Remove-AppxProvisionedPackage : même module Dism que la lecture des paquets provisionnés.
+        if ($presence.Provisioned.Count -gt 0) { Import-OSSetupDismModule }
         foreach ($package in $presence.Provisioned) {
             Remove-AppxProvisionedPackage -Online -PackageName $package -ErrorAction Stop | Out-Null
         }

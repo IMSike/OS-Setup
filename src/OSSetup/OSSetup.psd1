@@ -166,10 +166,13 @@
         'Get-OSSetupWindowsCapabilityMatch'
         'Get-OSSetupWindowsPowerShellPath'
         'Import-OSSetupAppxModule'
+        'Import-OSSetupCompatibilityModule'
+        'Import-OSSetupDismModule'
         'Invoke-OSSetupWindowsPowerShell'
         'Set-OSSetupPowerValue'
         'Split-OSSetupTaskPath'
         'Stop-OSSetupStoreUpdate'
+        'Test-OSSetupPackagedPowerShell'
         'Wait-OSSetupUninstallEntryRemoval'
         # Variables.ps1
         'Expand-OSSetupAction'

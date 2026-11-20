@@ -217,6 +217,67 @@ Describe 'Wait-OSSetupUninstallEntryRemoval' {
     }
 }
 
+Describe 'Import-OSSetupCompatibilityModule' {
+    AfterEach {
+        Remove-Variable -Name OSSetupTestWhatIfDuringImport -Scope Global -ErrorAction SilentlyContinue
+    }
+
+    It 'charge le module par Windows PowerShell 5.1 hors simulation, puis rétablit -WhatIf même en cas d''échec' {
+        Mock -ModuleName OSSetup Import-Module {
+            $global:OSSetupTestWhatIfDuringImport = $global:WhatIfPreference
+            throw 'échec simulé'
+        }
+        $savedWhatIf = $global:WhatIfPreference
+        try {
+            $global:WhatIfPreference = $true
+            { Import-OSSetupCompatibilityModule -Name Dism } | Should -Throw '*échec simulé*'
+            $restored = $global:WhatIfPreference
+        }
+        finally {
+            $global:WhatIfPreference = $savedWhatIf
+        }
+        $restored | Should -BeTrue
+        $global:OSSetupTestWhatIfDuringImport | Should -BeFalse
+        Should -Invoke -ModuleName OSSetup Import-Module -ParameterFilter { $Name -eq 'Dism' -and $UseWindowsPowerShell } -Times 1 -Exactly
+    }
+}
+
+Describe 'Import-OSSetupDismModule' {
+    BeforeEach {
+        Mock -ModuleName OSSetup Get-Module {} -ParameterFilter { $Name -eq 'Dism' }
+        Mock -ModuleName OSSetup Import-Module {}
+        Mock -ModuleName OSSetup Import-OSSetupCompatibilityModule {}
+    }
+
+    It 'reconnaît le PowerShell 7 du Store à son dossier sous WindowsApps' {
+        InModuleScope OSSetup {
+            Test-OSSetupPackagedPowerShell -PowerShellHome 'C:\Program Files\WindowsApps\Microsoft.PowerShell_7.6.10.0_x64__8wekyb3d8bbwe' | Should -BeTrue
+            Test-OSSetupPackagedPowerShell -PowerShellHome 'C:\Program Files\PowerShell\7' | Should -BeFalse
+        }
+    }
+
+    It 'passe par Windows PowerShell 5.1 dans le PowerShell 7 du Store' {
+        Mock -ModuleName OSSetup Test-OSSetupPackagedPowerShell { $true }
+        Import-OSSetupDismModule
+        Should -Invoke -ModuleName OSSetup Import-OSSetupCompatibilityModule -Times 1 -Exactly -ParameterFilter { $Name -eq 'Dism' }
+        Should -Invoke -ModuleName OSSetup Import-Module -Times 0 -Exactly
+    }
+
+    It 'charge le module nativement dans un autre PowerShell 7' {
+        Mock -ModuleName OSSetup Test-OSSetupPackagedPowerShell { $false }
+        Import-OSSetupDismModule
+        Should -Invoke -ModuleName OSSetup Import-Module -Times 1 -Exactly -ParameterFilter { $Name -eq 'Dism' -and -not $UseWindowsPowerShell }
+        Should -Invoke -ModuleName OSSetup Import-OSSetupCompatibilityModule -Times 0 -Exactly
+    }
+
+    It 'ne recharge pas un module déjà chargé' {
+        Mock -ModuleName OSSetup Get-Module { [pscustomobject]@{ Name = 'Dism' } } -ParameterFilter { $Name -eq 'Dism' }
+        Mock -ModuleName OSSetup Test-OSSetupPackagedPowerShell { $true }
+        Import-OSSetupDismModule
+        Should -Invoke -ModuleName OSSetup Import-OSSetupCompatibilityModule -Times 0 -Exactly
+    }
+}
+
 Describe 'Stop-OSSetupStoreUpdate' {
     BeforeEach {
         Mock -ModuleName OSSetup Write-OSSetupLog {}
@@ -356,6 +417,20 @@ Describe 'Provider windows-feature' {
 Describe 'Provider windows-capability' {
     BeforeEach {
         InModuleScope OSSetup { Clear-OSSetupStateCache; $script:LoggedOnce.Clear() }
+        # Le vrai chargement du module Dism (session Windows PowerShell 5.1 sous le PowerShell 7 du Store) sortirait
+        # du cadre d'un test unitaire.
+        Mock -ModuleName OSSetup Import-OSSetupDismModule {}
+    }
+
+    It 'charge le module Dism avant de lire les capacités, puis avant de les retirer' {
+        Mock -ModuleName OSSetup Test-OSSetupElevated { $true }
+        Mock -ModuleName OSSetup Get-WindowsCapability { [pscustomobject]@{ Name = 'App.StepsRecorder~~~~0.0.1.0'; State = 'Installed' } }
+        Mock -ModuleName OSSetup Remove-WindowsCapability { [pscustomobject]@{ RestartNeeded = $false } }
+        Invoke-TestProviderTest -Name windows-capability -Action @{ name = 'App.StepsRecorder' } | Should -BeFalse
+        Should -Invoke -ModuleName OSSetup Import-OSSetupDismModule -Times 1 -Exactly
+        InModuleScope OSSetup { & (Get-OSSetupProvider -Name windows-capability).Invoke @{ name = 'App.StepsRecorder' } @{} } | Should -BeNullOrEmpty
+        # Liste déjà lue : seul l'appel du retrait s'ajoute.
+        Should -Invoke -ModuleName OSSetup Import-OSSetupDismModule -Times 2 -Exactly
     }
 
     It 'compare l''état des capacités dont le nom commence par le nom donné' {
@@ -393,6 +468,7 @@ Describe 'Provider windows-capability' {
     It 'reste à faire sans droits administrateur (lecture impossible)' {
         Mock -ModuleName OSSetup Test-OSSetupElevated { $false }
         Invoke-TestProviderTest -Name windows-capability -Action @{ name = 'Browser.InternetExplorer' } | Should -BeFalse
+        Should -Invoke -ModuleName OSSetup Import-OSSetupDismModule -Times 0 -Exactly
     }
 }
 
@@ -416,6 +492,7 @@ Describe 'Listes des applications du Store et des capacités Windows, lues une f
     BeforeEach {
         InModuleScope OSSetup { Clear-OSSetupStateCache }
         Mock -ModuleName OSSetup Import-OSSetupAppxModule {}
+        Mock -ModuleName OSSetup Import-OSSetupDismModule {}
         Mock -ModuleName OSSetup Write-OSSetupLog {}
         Mock -ModuleName OSSetup Test-OSSetupElevated { $true }
     }
@@ -443,6 +520,8 @@ Describe 'Listes des applications du Store et des capacités Windows, lues une f
         @((Get-OSSetupAppxPresence -Name 'microsoft.windowscommunicationsapps').Installed).Count | Should -Be 0
         Should -Invoke -ModuleName OSSetup Get-AppxPackage -Times 1 -Exactly -ParameterFilter { $AllUsers }
         Should -Invoke -ModuleName OSSetup Get-AppxProvisionedPackage -Times 1 -Exactly
+        # Paquets provisionnés : module Dism, chargé une fois avec la liste.
+        Should -Invoke -ModuleName OSSetup Import-OSSetupDismModule -Times 1 -Exactly
     }
 
     It 'sans droits administrateur, lit les applications du compte courant et pas les paquets provisionnés' {

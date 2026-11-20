@@ -11,9 +11,33 @@ $script:PowerSettings = @{
 
 # Listes d'état longues à lire, lues une fois par passe (plan, puis exécution), effacées avant et après chaque action
 # exécutée : tâches planifiées (une lecture de toutes les tâches coûte autant qu'une lecture par nom), applications du
-# Store installées et provisionnées (module Appx, via Windows PowerShell 5.1 sous PowerShell 7), capacités Windows (DISM),
-# extensions installées de chaque éditeur (« code » / « cursor » --list-extensions, Editor.ps1).
+# Store installées (module Appx, via Windows PowerShell 5.1 sous PowerShell 7 et Windows 10) et provisionnées, capacités
+# Windows (module Dism, via Windows PowerShell 5.1 sous le PowerShell 7 du Store), extensions installées de chaque
+# éditeur (« code » / « cursor » --list-extensions, Editor.ps1).
 $script:StateCache = @{}
+
+function Import-OSSetupCompatibilityModule {
+    <#
+    .SYNOPSIS
+        Charge un module par Windows PowerShell 5.1 (-UseWindowsPowerShell, objets désérialisés), même sous -WhatIf.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Name
+    )
+    # Sous -WhatIf, la création du module de compatibilité (copie de fichiers temporaires) serait elle aussi
+    # simulée et le module ne se chargerait pas. Elle s'exécute hors de cette fonction, d'où la préférence
+    # globale, rétablie ensuite. Charger un module ne modifie pas le système.
+    $savedWhatIf = $global:WhatIfPreference
+    $global:WhatIfPreference = $false
+    try {
+        Import-Module -Name $Name -UseWindowsPowerShell -Global -WarningAction SilentlyContinue -ErrorAction Stop
+    }
+    finally {
+        $global:WhatIfPreference = $savedWhatIf
+    }
+}
 
 function Import-OSSetupAppxModule {
     <#
@@ -28,18 +52,40 @@ function Import-OSSetupAppxModule {
         Import-Module -Name Appx -Global -ErrorAction Stop
     }
     catch {
-        # Sous -WhatIf, la création du module de compatibilité (copie de fichiers temporaires) serait elle aussi
-        # simulée et le module ne se chargerait pas. Elle s'exécute hors de cette fonction, d'où la préférence
-        # globale, rétablie ensuite. Charger un module ne modifie pas le système.
-        $savedWhatIf = $global:WhatIfPreference
-        $global:WhatIfPreference = $false
-        try {
-            Import-Module -Name Appx -UseWindowsPowerShell -Global -WarningAction SilentlyContinue -ErrorAction Stop
-        }
-        finally {
-            $global:WhatIfPreference = $savedWhatIf
-        }
+        Import-OSSetupCompatibilityModule -Name Appx
     }
+}
+
+function Test-OSSetupPackagedPowerShell {
+    <#
+    .SYNOPSIS
+        Vrai si le setup s'exécute sous le PowerShell 7 du Microsoft Store (processus empaqueté, installé sous
+        %ProgramFiles%\WindowsApps).
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        # Dossier du PowerShell qui exécute le setup.
+        [string]$PowerShellHome = $PSHOME
+    )
+    $PowerShellHome -like '*\WindowsApps\*'
+}
+
+function Import-OSSetupDismModule {
+    <#
+    .SYNOPSIS
+        Charge le module Dism (paquets provisionnés, capacités Windows). Dans le PowerShell 7 du Store (processus
+        empaqueté), l'API DISM ne peut pas créer sa session (« Classe non enregistrée », après deux minutes d'attente) :
+        il passe alors par Windows PowerShell 5.1 (-UseWindowsPowerShell).
+    #>
+    [CmdletBinding()]
+    param()
+    if (Get-Module -Name Dism) { return }
+    if (-not (Test-OSSetupPackagedPowerShell)) {
+        Import-Module -Name Dism -Global -ErrorAction Stop
+        return
+    }
+    Import-OSSetupCompatibilityModule -Name Dism
 }
 
 function Get-OSSetupAppxPresence {
@@ -91,7 +137,7 @@ function Get-OSSetupProvisionedPackage {
     [CmdletBinding()]
     param()
     if (-not $script:StateCache.ContainsKey('ProvisionedPackages')) {
-        Import-OSSetupAppxModule
+        Import-OSSetupDismModule
         $script:StateCache['ProvisionedPackages'] = @(Get-AppxProvisionedPackage -Online -ErrorAction Stop |
                 ForEach-Object { [pscustomobject]@{ DisplayName = [string]$_.DisplayName; PackageName = [string]$_.PackageName } })
     }
@@ -107,6 +153,7 @@ function Get-OSSetupWindowsCapabilityList {
     [CmdletBinding()]
     param()
     if (-not $script:StateCache.ContainsKey('WindowsCapabilities')) {
+        Import-OSSetupDismModule
         $script:StateCache['WindowsCapabilities'] = @(Get-WindowsCapability -Online -ErrorAction Stop |
                 ForEach-Object { [pscustomobject]@{ Name = [string]$_.Name; State = [string]$_.State } })
     }

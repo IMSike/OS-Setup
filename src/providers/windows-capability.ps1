@@ -40,6 +40,8 @@ param()
 
     Invoke   = {
         param($Action, $Context)
+        # Remove-WindowsCapability : même module Dism que la lecture, chargé de la même façon.
+        Import-OSSetupDismModule
         $restart = $false
         foreach ($capability in @(Get-OSSetupWindowsCapabilityMatch -Name $Action['name'] | Where-Object { $_.State -eq 'Installed' })) {
             $result = Remove-WindowsCapability -Online -Name $capability.Name -ErrorAction Stop
