@@ -37,11 +37,19 @@ function Invoke-OSSetupJsonValidation {
     .SYNOPSIS
         Valide un texte JSON contre un schéma : retourne { Valid; Errors }, ou lève une erreur si le schéma est illisible.
     .DESCRIPTION
-        Seul endroit qui appelle Test-Json. Un schéma illisible (pas du JSON, ou « { "type": 5 } ») n'arrête pas
-        Test-Json : il écrit une erreur InvalidJsonSchema et rend vrai, ce qui accepterait n'importe quel fichier. C'est
-        un défaut du dépôt, pas des données : une erreur nommant le schéma est levée aussitôt, au lieu d'accuser chaque
-        fichier. Le texte est validé contre le fichier SchemaPath, ou contre Schema (schéma composé à partir de
-        SchemaPath) s'il est donné.
+        Seul endroit qui appelle Test-Json. Un schéma illisible est un défaut du dépôt, pas des données : une erreur
+        nommant le schéma est levée aussitôt, au lieu d'accuser chaque fichier. Test-Json le signale de plusieurs façons
+        (TestJsonCommand.cs, PowerShell 7.4 et 7.6), toutes reconnues ici à leur identifiant, jamais à leur texte :
+        - InvalidJsonSchema, non terminante : schéma qui n'est pas du JSON ou mal formé (« { "type": 5 } ») ; Test-Json
+          rend alors vrai, ce qui accepterait n'importe quel fichier ;
+        - InvalidJsonSchema, terminante : schéma que la bibliothèque ne peut compiler (motif « ( » invalide…) ;
+        - JsonSchemaFileOpenFailure, terminante : fichier de schéma absent ou impossible à ouvrir (SchemaFile) ;
+        - UnresolvedJsonSchemaRef, non terminante (7.6.10) : référence « $ref » introuvable ; Test-Json rend faux.
+          En 7.4 et 7.6.0, la même erreur sort en InvalidJson, l'identifiant d'un JSON de données invalide : elle n'en
+          est distinguée que par sa cause, une exception de JsonSchema.Net (espace de noms Json.Schema).
+        Toute autre erreur terminante est relancée telle quelle ; les autres erreurs non terminantes (InvalidJson,
+        InvalidJsonAgainstSchemaDetailed) sont celles du fichier validé. Le texte est validé contre le fichier
+        SchemaPath, ou contre Schema (schéma composé à partir de SchemaPath) s'il est donné.
     #>
     [CmdletBinding()]
     [OutputType([pscustomobject])]
@@ -54,11 +62,26 @@ function Invoke-OSSetupJsonValidation {
 
         [string]$Schema
     )
+    # Erreur due au schéma et non au fichier validé (voir la description).
+    $isSchemaError = {
+        param([System.Management.Automation.ErrorRecord]$Record)
+        $id = ($Record.FullyQualifiedErrorId -split ',')[0]
+        $cause = $Record.Exception.InnerException ?? $Record.Exception
+        $id -in 'InvalidJsonSchema', 'JsonSchemaFileOpenFailure', 'UnresolvedJsonSchemaRef' -or
+            ($id -eq 'InvalidJson' -and $cause.GetType().Namespace -eq 'Json.Schema')
+    }
+    $result = $false
     $schemaErrors = $null
     $schemaSource = if ($Schema) { @{ Schema = $Schema } } else { @{ SchemaFile = $SchemaPath } }
-    $result = Test-Json -Json $Json @schemaSource -ErrorVariable schemaErrors -ErrorAction SilentlyContinue
-    # Reconnu à l'identifiant de l'erreur, pas à son texte (variable selon la version et la langue).
-    $unreadable = @($schemaErrors | Where-Object { $null -ne $_ -and ($_.FullyQualifiedErrorId -split ',')[0] -eq 'InvalidJsonSchema' })
+    try {
+        $result = Test-Json -Json $Json @schemaSource -ErrorVariable schemaErrors -ErrorAction SilentlyContinue
+    }
+    catch {
+        # Une erreur terminante échappe à -ErrorAction et à -ErrorVariable.
+        if (-not (& $isSchemaError $_)) { throw }
+        $schemaErrors = @($_)
+    }
+    $unreadable = @($schemaErrors | Where-Object { $null -ne $_ -and (& $isSchemaError $_) })
     if ($unreadable.Count -gt 0) {
         $exception = $unreadable[0].Exception
         throw (Format-OSSetupUnreadableSchema -SchemaPath $SchemaPath -Detail ($exception.InnerException ?? $exception).Message)
@@ -74,6 +97,9 @@ function Format-OSSetupUnreadableSchema {
     <#
     .SYNOPSIS
         Message d'un schéma illisible : il nomme le schéma, défaut du dépôt, et aucun fichier de données.
+    .DESCRIPTION
+        Un schéma absent est dit introuvable, sans détail : Test-Json (fichier seul) et la lecture du schéma composé
+        (chemin groupé) l'expriment chacun à sa façon, le message reste le même.
     #>
     [CmdletBinding()]
     [OutputType([string])]
@@ -83,6 +109,9 @@ function Format-OSSetupUnreadableSchema {
 
         [string]$Detail
     )
+    if (-not (Test-Path -LiteralPath $SchemaPath)) {
+        return "${SchemaPath} : schéma introuvable, à corriger dans le dépôt (aucun fichier n'a pu être validé)."
+    }
     $message = "${SchemaPath} : schéma illisible, à corriger dans le dépôt (aucun fichier n'a pu être validé)"
     if ([string]::IsNullOrWhiteSpace($Detail)) { return "${message}." }
     "${message} :`n     $($Detail.Trim())"
@@ -138,8 +167,8 @@ function Get-OSSetupArraySchema {
     .DESCRIPTION
         Composé avec System.Text.Json, sans passer par les types PowerShell : un nombre garde son texte d'origine.
         ConvertFrom-Json lirait la borne QWord (18446744073709551615) comme un BigInteger, que ConvertTo-Json de
-        PowerShell 7.4 écrit comme un objet, ce qui rendrait le schéma illisible. Un fichier de schéma qui n'est pas du
-        JSON, ou dont la racine n'est pas un objet, lève l'erreur d'un schéma illisible.
+        PowerShell 7.4 écrit comme un objet, ce qui rendrait le schéma illisible. Un fichier de schéma absent, qui n'est
+        pas du JSON, ou dont la racine n'est pas un objet, lève l'erreur d'un schéma introuvable ou illisible.
     #>
     [CmdletBinding()]
     [OutputType([string])]
