@@ -256,35 +256,101 @@ Describe 'Wait-OSSetupCountdown' {
 }
 
 Describe 'Lanceur de la reprise (src/resume.ps1)' {
-    It 'cherche le PowerShell 7 du MSI sous Program Files, comme le lanceur' {
-        Get-OSSetupResumePwshPath | Should -Be ([IO.Path]::Combine([Environment]::GetFolderPath('ProgramFiles'), 'PowerShell\7\pwsh.exe'))
-        Get-Content -LiteralPath (Join-Path -Path $PSScriptRoot -ChildPath '..\src\resume.ps1') -Raw |
-            Should -BeLike "*GetFolderPath('ProgramFiles'), 'PowerShell', '7', 'pwsh.exe')*"
+    BeforeAll {
+        $script:launcherPath = Join-Path -Path $PSScriptRoot -ChildPath '..\src\resume.ps1'
+        $script:windowsPowerShell = Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    }
+
+    It 'cherche le paquet du Store par l''API des paquets, puis le MSI, jamais l''alias d''exécution' {
+        $launcher = Get-Content -LiteralPath $script:launcherPath -Raw -Encoding utf8
+        $launcher | Should -BeLike "*FindPackagesForUser('', 'Microsoft.PowerShell_8wekyb3d8bbwe')*"
+        $launcher | Should -BeLike "*IsDevelopmentMode*"
+        $launcher | Should -BeLike "*GetFolderPath('ProgramFiles'), 'PowerShell', '7', 'pwsh.exe')*"
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($script:launcherPath, [ref]$null, [ref]$null)
+        $code = ($ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.StringConstantExpressionAst] }, $true)).Value -join "`n"
+        $code | Should -Not -Match 'LOCALAPPDATA|LocalApplicationData|Microsoft\\WindowsApps'
+        # Aucun module chargé : rien que du .NET et l'API WinRT.
+        $ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.CommandAst] }, $true) |
+            ForEach-Object { $_.GetCommandName() } | Where-Object { $_ -notin 'Set-StrictMode', 'Get-ResumePwshPath' } | Should -BeNullOrEmpty
+    }
+
+    It 'Get-ResumePwshPath, sous Windows PowerShell 5.1, rend un pwsh.exe existant hors du profil, ou rien' {
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($script:launcherPath, [ref]$null, [ref]$null)
+        $function = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-ResumePwshPath' }, $true)
+        $script = Join-Path -Path $TestDrive -ChildPath 'get-resume-pwsh.ps1'
+        Set-Content -LiteralPath $script -Value ($function.Extent.Text + "`r`nGet-ResumePwshPath") -Encoding utf8BOM
+        $found = & $script:windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $script
+        $LASTEXITCODE | Should -Be 0
+        if ($found) {
+            "$found" | Should -BeLike '*\pwsh.exe'
+            [IO.File]::Exists("$found") | Should -BeTrue
+            "$found" | Should -Not -BeLike "$([Environment]::GetFolderPath('UserProfile'))\*"
+        }
     }
 
     It 'transmet le code de sortie du setup quand PowerShell 7 est là, sinon s''arrête sur un message lisible' {
-        $powershell = Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe'
-        $launcher = Get-Content -LiteralPath (Join-Path -Path $PSScriptRoot -ChildPath '..\src\resume.ps1') -Raw -Encoding utf8
-        $pwshLine = "`$pwsh = [IO.Path]::Combine([Environment]::GetFolderPath('ProgramFiles'), 'PowerShell', '7', 'pwsh.exe')"
+        $launcher = Get-Content -LiteralPath $script:launcherPath -Raw -Encoding utf8
+        $pwshLine = '$pwsh = Get-ResumePwshPath'
         $launcher.Contains($pwshLine) | Should -BeTrue
-        # Les deux cas, quelle que soit la machine : le chemin du MSI est remplacé par un pwsh existant (celui des
-        # tests), puis par un chemin absent.
+        # Les deux cas, quelle que soit la machine : la recherche est remplacée par un pwsh existant (celui des
+        # tests), puis par aucun.
         $cases = @(
-            @{ Pwsh = (Get-Process -Id $PID).Path; ExitCode = 3 }
-            @{ Pwsh = (Join-Path -Path $TestDrive -ChildPath 'absent\pwsh.exe'); ExitCode = 1 }
+            @{ Pwsh = "'$((Get-Process -Id $PID).Path -replace "'", "''")'"; ExitCode = 3 }
+            @{ Pwsh = '$null'; ExitCode = 1 }
         )
         foreach ($case in $cases) {
             # Copie factice : son setup.ps1 sort seulement avec le code 3 (reprise demandée par -Resume).
             $copy = Join-Path -Path $TestDrive -ChildPath ([guid]::NewGuid().ToString('N'))
             New-Item -Path $copy -ItemType Directory | Out-Null
-            $text = $launcher.Replace($pwshLine, "`$pwsh = '$($case.Pwsh -replace "'", "''")'")
+            $text = $launcher.Replace($pwshLine, "`$pwsh = $($case.Pwsh)")
             Set-Content -LiteralPath "$copy\resume.ps1" -Value $text -Encoding utf8BOM -NoNewline
             Set-Content -LiteralPath "$copy\setup.ps1" -Value 'param([switch]$Resume) if ($Resume) { exit 3 } exit 9'
             # Entrée standard vide : la pause sur erreur se termine aussitôt.
-            $output = $null | & $powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$copy\resume.ps1" 2>&1
+            $output = $null | & $script:windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$copy\resume.ps1" 2>&1
             $LASTEXITCODE | Should -Be $case.ExitCode -Because $case.Pwsh
-            if ($case.ExitCode -eq 1) { "$output" | Should -BeLike '*PowerShell 7 (MSI) introuvable*Appuyez sur Entrée*' }
+            if ($case.ExitCode -eq 1) { "$output" | Should -BeLike '*PowerShell 7 introuvable*Appuyez sur Entrée*' }
         }
+    }
+}
+
+Describe 'Get-OSSetupPwshPath' {
+    BeforeAll {
+        $script:storeAlias = [IO.Path]::Combine([Environment]::GetFolderPath('LocalApplicationData'), 'Microsoft', 'WindowsApps', 'pwsh.exe')
+    }
+
+    It 'remplace le dossier versionné du PowerShell du Store par l''alias d''exécution' {
+        Mock -ModuleName OSSetup Test-Path { $false } -ParameterFilter { $LiteralPath -like '*\WindowsApps\pwsh.exe' }
+        Mock -ModuleName OSSetup Get-Process {
+            [pscustomobject]@{ Path = 'C:\Program Files\WindowsApps\Microsoft.PowerShell_7.6.1.0_x64__8wekyb3d8bbwe\pwsh.exe' }
+        }
+        Get-OSSetupPwshPath | Should -Be $script:storeAlias
+    }
+
+    It 'choisit l''alias du Store dès qu''il existe, même sous le MSI de PowerShell 7' {
+        Mock -ModuleName OSSetup Test-Path { $true } -ParameterFilter { $LiteralPath -like '*\WindowsApps\pwsh.exe' }
+        Mock -ModuleName OSSetup Get-Process { [pscustomobject]@{ Path = 'C:\Program Files\PowerShell\7\pwsh.exe' } }
+        Get-OSSetupPwshPath | Should -Be $script:storeAlias
+    }
+
+    It 'garde le chemin d''un PowerShell hors Store quand celui du Store est absent' {
+        Mock -ModuleName OSSetup Test-Path { $false } -ParameterFilter { $LiteralPath -like '*\WindowsApps\pwsh.exe' }
+        Mock -ModuleName OSSetup Get-Process { [pscustomobject]@{ Path = 'C:\Program Files\PowerShell\7\pwsh.exe' } }
+        Get-OSSetupPwshPath | Should -Be 'C:\Program Files\PowerShell\7\pwsh.exe'
+    }
+}
+
+Describe 'setup.ps1 : relance élevée' {
+    It 'relance par Get-OSSetupPwshPath (alias du Store dès qu''il existe)' {
+        $setup = Join-Path -Path $PSScriptRoot -ChildPath '..\setup.ps1'
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($setup, [ref]$null, [ref]$null)
+        $elevation = $ast.FindAll({
+                param($node)
+                $node -is [System.Management.Automation.Language.CommandAst] -and $node.GetCommandName() -eq 'Start-Process' -and
+                $node.Extent.Text -match '-Verb RunAs'
+            }, $true)
+        @($elevation).Count | Should -Be 1
+        $elevation[0].Extent.Text | Should -Match '-FilePath \$pwsh\b'
+        $ast.Extent.Text | Should -Match '\$pwsh = Get-OSSetupPwshPath'
     }
 }
 
@@ -354,14 +420,56 @@ Describe 'Unregister-OSSetupResumeTask' {
     }
 }
 
-Describe 'Test-OSSetupResumePwsh' {
-    It 'n''autorise la reprise automatique que si le pwsh.exe du MSI existe' {
-        $pwsh = Join-Path -Path $TestDrive -ChildPath 'PowerShell\7\pwsh.exe'
-        Mock -ModuleName OSSetup Get-OSSetupResumePwshPath { $pwsh }
-        Test-OSSetupResumePwsh | Should -BeFalse
-        New-Item -Path (Split-Path -Path $pwsh -Parent) -ItemType Directory -Force | Out-Null
-        Set-Content -LiteralPath $pwsh -Value ''
+Describe 'Get-OSSetupResumePwshPath' {
+    BeforeAll {
+        # Pester ne simule qu'une commande existante : le module Appx n'est pas chargé dans une session de test.
+        $script:resumeAppxStub = -not (Get-Command -Name Get-AppxPackage -ErrorAction SilentlyContinue)
+        if ($script:resumeAppxStub) {
+            function global:Get-AppxPackage { [CmdletBinding()] param([string]$Name, [switch]$AllUsers) }
+        }
+        $script:msiPwsh = [IO.Path]::Combine([Environment]::GetFolderPath('ProgramFiles'), 'PowerShell', '7', 'pwsh.exe')
+        function New-TestStorePackage {
+            param([string]$Version, [bool]$DevelopmentMode = $false)
+            $location = Join-Path -Path $TestDrive -ChildPath "Microsoft.PowerShell_$($Version)_x64__8wekyb3d8bbwe"
+            New-Item -Path $location -ItemType Directory -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path -Path $location -ChildPath 'pwsh.exe') -Value ''
+            [pscustomobject]@{ Name = 'Microsoft.PowerShell'; Version = $Version; InstallLocation = $location; IsDevelopmentMode = $DevelopmentMode }
+        }
+    }
+
+    AfterAll {
+        if ($script:resumeAppxStub) { Remove-Item -Path Function:\Get-AppxPackage -ErrorAction SilentlyContinue }
+    }
+
+    BeforeEach {
+        Mock -ModuleName OSSetup Import-OSSetupAppxModule { }
+        Mock -ModuleName OSSetup Write-OSSetupLog { }
+    }
+
+    It 'rend le pwsh.exe du paquet du Store le plus récent du compte, pas un paquet en mode développeur' {
+        $packages = @(
+            (New-TestStorePackage -Version '7.6.1.0')
+            (New-TestStorePackage -Version '7.6.10.0')
+            (New-TestStorePackage -Version '7.9.0.0' -DevelopmentMode $true)
+        )
+        Mock -ModuleName OSSetup Get-AppxPackage { $packages }
+        Get-OSSetupResumePwshPath | Should -Be (Join-Path -Path $packages[1].InstallLocation -ChildPath 'pwsh.exe')
+        Should -Invoke -ModuleName OSSetup Get-AppxPackage -Times 1 -Exactly -ParameterFilter { $Name -eq 'Microsoft.PowerShell' -and -not $AllUsers }
         Test-OSSetupResumePwsh | Should -BeTrue
+    }
+
+    It 'sans paquet du Store, se replie sur le MSI s''il existe, sinon ne rend rien' {
+        Mock -ModuleName OSSetup Get-AppxPackage { }
+        $expected = if ([IO.File]::Exists($script:msiPwsh)) { $script:msiPwsh } else { $null }
+        Get-OSSetupResumePwshPath | Should -Be $expected
+        Test-OSSetupResumePwsh | Should -Be ([bool]$expected)
+    }
+
+    It 'se replie de la même façon quand les paquets sont illisibles' {
+        Mock -ModuleName OSSetup Get-AppxPackage { throw 'service indisponible' }
+        $expected = if ([IO.File]::Exists($script:msiPwsh)) { $script:msiPwsh } else { $null }
+        Get-OSSetupResumePwshPath | Should -Be $expected
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -like '*illisibles*' }
     }
 }
 

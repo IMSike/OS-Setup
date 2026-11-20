@@ -104,7 +104,7 @@ Hormis la copie de la reprise, ces dossiers sont dans la copie du dépôt et ign
 
 Si un élément demande un redémarrage, le setup enregistre son état, crée une tâche planifiée de reprise et redémarre la machine (compte à rebours de 10 s qu'une touche reporte). Il reprend seul à l'ouverture de session suivante, sans nouvelle invite UAC, avec le setup tel qu'il était au moment de la demande de redémarrage (une modification faite entre-temps dans le dépôt est ignorée).
 
-La reprise automatique n'exécute que le PowerShell 7 installé par son MSI (`%ProgramFiles%\PowerShell\7\pwsh.exe`, voir l'[ADR 0005](adr/0005-resume-from-administrators-only-copy.md)). Le bootstrap l'installe, sauf si un autre PowerShell 7 était déjà là (Microsoft Store, archive zip…). Sans lui, le setup ne crée pas de tâche de reprise : il redémarre quand même la machine, et demande dans le journal de le relancer ensuite à la main avec les mêmes choix (`./setup.ps1 -AnswerFile state\answers-last.json`).
+La reprise automatique n'exécute que le PowerShell 7 du Microsoft Store installé pour le compte, à défaut celui installé par son MSI (`%ProgramFiles%\PowerShell\7\pwsh.exe`) : voir l'[ADR 0005](adr/0005-resume-from-administrators-only-copy.md). Avec un PowerShell 7 venu d'ailleurs seulement (archive zip, outil .NET…), le setup ne crée pas de tâche de reprise : il redémarre quand même la machine, et demande dans le journal de le relancer ensuite à la main avec les mêmes choix (`./setup.ps1 -AnswerFile state\answers-last.json`).
 
 Certains réglages ne prennent effet qu'à la prochaine ouverture de session : la session est alors fermée en fin de setup, de la même façon.
 

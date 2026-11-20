@@ -161,7 +161,7 @@ Describe 'setup.ps1 : redémarrage nécessaire' {
         $result.Names | Should -Not -Contain 'Invoke-OSSetupCleanup'
     }
 
-    It 'sans le PowerShell 7 du MSI, ne crée pas de tâche vouée à l''échec et demande de relancer à la main' {
+    It 'sans PowerShell 7 du Store ni du MSI, ne crée pas de tâche vouée à l''échec et demande de relancer à la main' {
         $result = Invoke-TestSetup -Argument '-Profiles', 'base', '-AcceptDefaults', '-Yes', '-NoPause' -Returns @{
             'Invoke-OSSetupPlan'     = @(@{ Status = 'reboot'; RebootRequired = $true })
             'Test-OSSetupResumePwsh' = $false

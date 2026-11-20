@@ -212,6 +212,29 @@ function Assert-OSSetupDataPath {
     }
 }
 
+function Get-OSSetupPwshPath {
+    <#
+    .SYNOPSIS
+        Exécutable PowerShell de la relance élevée : l'alias d'exécution du PowerShell du Store
+        (%LOCALAPPDATA%\Microsoft\WindowsApps\pwsh.exe) dès qu'il existe, quel que soit le PowerShell courant ;
+        sinon celui du processus courant.
+    .DESCRIPTION
+        Le chemin du paquet du Store contient sa version et change à chaque mise à jour ; l'alias d'exécution reste.
+        Sur un ancien poste lancé depuis un MSI de PowerShell 7, que l'élément pwsh désinstalle, la relance ne doit
+        pas dépendre de ce MSI. La tâche de reprise, elle, n'utilise pas l'alias, modifiable par l'utilisateur : voir
+        src\resume.ps1 (ADR 0005).
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param()
+    $alias = [IO.Path]::Combine([Environment]::GetFolderPath('LocalApplicationData'), 'Microsoft', 'WindowsApps', 'pwsh.exe')
+    if (Test-Path -LiteralPath $alias) { return $alias }
+    $pwsh = (Get-Process -Id $PID).Path
+    # Alias absent mais PowerShell du Store en cours (cas improbable) : le chemin versionné ne survivrait pas à une mise à jour.
+    if ($pwsh -like '*\WindowsApps\Microsoft.PowerShell_*') { return $alias }
+    $pwsh
+}
+
 function Register-OSSetupResumeTask {
     <#
     .SYNOPSIS
@@ -219,8 +242,9 @@ function Register-OSSetupResumeTask {
         avec les droits les plus élevés : aucune nouvelle invite UAC.
     .DESCRIPTION
         Elle exécute Windows PowerShell 5.1 (System32) sur le lanceur resume.ps1 de la copie figée (ResumeRoot) :
-        exécutable, script et état modifiables par les seuls administrateurs (ADR 0005). Le lanceur lance le pwsh.exe
-        du MSI de PowerShell 7 sous Program Files.
+        exécutable, script et état modifiables par les seuls administrateurs (ADR 0005). Le lanceur retrouve à chaque
+        reprise le pwsh.exe du paquet du Store, dont le chemin change à chaque mise à jour, à défaut celui du MSI de
+        PowerShell 7 sous Program Files.
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -246,26 +270,50 @@ function Register-OSSetupResumeTask {
 function Get-OSSetupResumePwshPath {
     <#
     .SYNOPSIS
-        pwsh.exe du MSI de PowerShell 7 (%ProgramFiles%\PowerShell\7), le seul que le lanceur de la reprise exécute :
-        chemin fixe, modifiable par les seuls administrateurs (ADR 0005). Même chemin que src\resume.ps1, qui ne charge
-        pas le module : garder les deux alignés.
+        pwsh.exe que le lanceur de la reprise exécutera : celui du paquet du PowerShell 7 du Store installé pour le
+        compte (version la plus récente), sinon celui du MSI de PowerShell 7 (%ProgramFiles%\PowerShell\7), sinon $null.
+    .DESCRIPTION
+        Les deux sont modifiables par les seuls administrateurs (ADR 0005) ; un paquet inscrit en mode développeur,
+        depuis un dossier quelconque, est écarté. Même règle que Get-ResumePwshPath (src\resume.ps1), qui ne charge pas
+        le module et relit les paquets à chaque reprise (le dossier du paquet change à chaque mise à jour) : garder les
+        deux alignés.
     #>
     [CmdletBinding()]
     [OutputType([string])]
     param()
-    [IO.Path]::Combine([Environment]::GetFolderPath('ProgramFiles'), 'PowerShell', '7', 'pwsh.exe')
+    $found = $null
+    $foundVersion = $null
+    try {
+        Import-OSSetupAppxModule
+        foreach ($package in @(Get-AppxPackage -Name 'Microsoft.PowerShell' -ErrorAction Stop)) {
+            if ($package.IsDevelopmentMode -or -not $package.InstallLocation) { continue }
+            $exe = Join-Path -Path $package.InstallLocation -ChildPath 'pwsh.exe'
+            $version = [version]$package.Version
+            if ([IO.File]::Exists($exe) -and ($null -eq $foundVersion -or $version -gt $foundVersion)) {
+                $found = $exe
+                $foundVersion = $version
+            }
+        }
+    }
+    catch {
+        Write-OSSetupLog -Level Detail -Message "Paquets du Store illisibles : $($_.Exception.Message)"
+    }
+    if ($found) { return $found }
+    $msi = [IO.Path]::Combine([Environment]::GetFolderPath('ProgramFiles'), 'PowerShell', '7', 'pwsh.exe')
+    if ([IO.File]::Exists($msi)) { return $msi }
+    $null
 }
 
 function Test-OSSetupResumePwsh {
     <#
     .SYNOPSIS
-        Vrai si la reprise automatique est possible : le pwsh.exe du MSI de PowerShell 7 est installé. Le bootstrap ne
-        l'installe pas quand un autre PowerShell 7 est déjà présent (Microsoft Store, archive…).
+        Vrai si la reprise automatique est possible : le lanceur trouvera un pwsh.exe modifiable par les seuls
+        administrateurs (paquet du Store ou MSI). Faux pour un PowerShell 7 installé autrement (archive, dotnet tool…).
     #>
     [CmdletBinding()]
     [OutputType([bool])]
     param()
-    [IO.File]::Exists((Get-OSSetupResumePwshPath))
+    [bool](Get-OSSetupResumePwshPath)
 }
 
 function Unregister-OSSetupResumeTask {

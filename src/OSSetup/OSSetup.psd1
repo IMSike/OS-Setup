@@ -131,6 +131,7 @@
         'Copy-OSSetupResumeCode'
         'Enable-OSSetupDataGuard'
         'Get-OSSetupMaxPass'
+        'Get-OSSetupPwshPath'
         'Get-OSSetupResumePwshPath'
         'Get-OSSetupResumeRoot'
         'Read-OSSetupRunState'

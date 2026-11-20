@@ -80,8 +80,11 @@ if ($IsWindows -and -not $WhatIfPreference -and -not (Test-OSSetupElevated)) {
     $command = "Set-Location -LiteralPath '$((Get-Location).Path -replace "'", "''")'; " +
         "& '$($PSCommandPath -replace "'", "''")' $(ConvertTo-OSSetupCommandArgument -Parameter $parameters); exit `$LASTEXITCODE"
     $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
+    # PowerShell du Store par son alias d'exécution dès qu'il existe, même lancé depuis un MSI de PowerShell 7 :
+    # l'élément pwsh désinstalle ce MSI, la fenêtre élevée ne doit pas en dépendre.
+    $pwsh = Get-OSSetupPwshPath
     try {
-        $process = Start-Process -FilePath (Get-Process -Id $PID).Path -Verb RunAs -Wait -PassThru `
+        $process = Start-Process -FilePath $pwsh -Verb RunAs -Wait -PassThru `
             -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $encoded
     }
     catch {
@@ -306,13 +309,13 @@ try {
                 [void](Request-OSSetupRestart -Immediate:$Yes)
             }
             else {
-                # Le lanceur de la reprise n'exécute que le pwsh.exe du MSI de PowerShell 7 (ADR 0005) : une tâche
+                # Le lanceur de la reprise n'exécute que le pwsh.exe du paquet du Store ou du MSI (ADR 0005) : une tâche
                 # échouerait à chaque ouverture de session. Ni copie, ni état, ni tâche ; l'exécution n'est pas
                 # terminée pour autant (pas de nettoyage de fin) : elle se termine en relançant le setup à la main.
                 $waitingForRestart = $true
                 Write-OSSetupLog -Message ''
                 Write-OSSetupLog -Level Warning -Message ("Un redémarrage est nécessaire pour terminer, mais la reprise automatique est impossible : " +
-                    "PowerShell 7 n'est pas installé par son MSI ($(Get-OSSetupResumePwshPath)), le seul que la reprise exécute. " +
+                    "PowerShell 7 n'est installé ni depuis le Microsoft Store pour ce compte, ni par son MSI, les seuls que la reprise exécute. " +
                     "Après le redémarrage, relancez le setup à la main avec les mêmes choix : " +
                     "./setup.ps1 -AnswerFile '$(Join-Path -Path $stateRoot -ChildPath 'answers-last.json')'")
                 [void](Request-OSSetupRestart -Immediate:$Yes -Manual)
