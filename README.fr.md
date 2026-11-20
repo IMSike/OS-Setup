@@ -26,7 +26,7 @@ irm https://raw.githubusercontent.com/IMSike/OS-Setup/main/bootstrap.ps1 -OutFil
 powershell -NoProfile -ExecutionPolicy Bypass -File .\bootstrap.ps1
 ```
 
-Le bootstrap installe winget, Git et PowerShell 7, clone ce dépôt dans `%USERPROFILE%\OS-Setup` et lance l'assistant. Rien d'autre n'est modifié avant la validation du plan.
+Le bootstrap installe winget, Git et PowerShell 7 (depuis le Microsoft Store, à défaut par son MSI), clone ce dépôt dans `%USERPROFILE%\OS-Setup` et lance l'assistant. Rien d'autre n'est modifié avant la validation du plan.
 
 Depuis une copie du dépôt, avec PowerShell 7 :
 

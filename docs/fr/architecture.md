@@ -26,6 +26,7 @@ Un Windows fraîchement installé n'a que :
 
 - Windows PowerShell **5.1** (pas de PowerShell 7) ;
 - **pas de `winget` utilisable** : une image Windows 10 fraîche embarque un App Installer de 2019 sans winget. Le bootstrap l'installe depuis la publication officielle `microsoft/winget-cli` sur GitHub ;
+- le **Microsoft Store**, sur les éditions qui l'embarquent (pas LTSC ni IoT) : le bootstrap y prend PowerShell 7 ; sans Store utilisable, il se replie sur le MSI de PowerShell 7 ([ADR 0004](adr/0004-powershell-from-the-store.md)) ;
 - pas de Git, de Python, de Chocolatey ni de Scoop ;
 - la stratégie d'exécution PowerShell par défaut (`Restricted`).
 
@@ -111,7 +112,7 @@ En plus de l'installation, un élément peut déployer des fichiers de configura
 
 ## Déroulement
 
-1. `bootstrap.ps1` : vérifie l'OS, se relance en administrateur, installe winget si besoin, Git et PowerShell 7, clone le dépôt, lance `setup.ps1`. Il ne modifie pas la stratégie d'exécution : le `-ExecutionPolicy Bypass` de la commande de lancement s'applique à son propre processus, et le bootstrap le repasse aux processus qu'il démarre (relance en administrateur, `setup.ps1`).
+1. `bootstrap.ps1` : vérifie l'OS, se relance en administrateur, installe winget si besoin, Git et PowerShell 7 (paquet du Microsoft Store, pour le compte courant ; si le Store est indisponible, il prévient en donnant les causes probables puis se replie sur le MSI de PowerShell 7, et ne s'arrête que si les deux échouent), clone le dépôt, lance `setup.ps1` par l'alias d'exécution du PowerShell du Store, même si un MSI de PowerShell 7 passe avant dans le `PATH` (par le MSI après un repli). Il ne modifie pas la stratégie d'exécution : le `-ExecutionPolicy Bypass` de la commande de lancement s'applique à son propre processus, et le bootstrap le repasse aux processus qu'il démarre (relance en administrateur, `setup.ps1`).
 2. `setup.ps1` : charge et **valide** le catalogue et les profils, demande ou lit les choix.
 3. Résolution : fusion des profils, application des choix, conditions, tri par dépendances.
 4. Plan → validation → exécution → récapitulatif et journal.
@@ -133,7 +134,7 @@ Certaines étapes ne sont pas automatisables : choix du navigateur par défaut, 
 Le setup ne laisse que ce qui a été choisi. Le bootstrap consigne ce qu'il a installé dans `state/bootstrap.json`. En fin d'exécution (jamais en simulation ni en attente de redémarrage) :
 
 - les désinstallations reportées à la fermeture du setup sont lancées : celle du PowerShell qui exécute le setup (MSI de PowerShell 7 remplacé par celui du Microsoft Store sur un poste déjà installé), impossible tant qu'il tourne. Une entrée déjà absente de « Programmes et fonctionnalités » n'est pas désinstallée une seconde fois ; si un redémarrage intervient avant, la reprise, qui tourne sous le PowerShell du Store, fait la désinstallation elle-même ;
-- Git et PowerShell 7 installés par le bootstrap sont désinstallés si aucun élément choisi ne les installe (`Microsoft.PowerShell`, noté par un ancien bootstrap, et `9MZ1SNWT0N5D`, le produit du Store, désignent le même outil : winget désinstallerait le PowerShell du Store sous l'un ou l'autre identifiant) ;
+- Git et PowerShell 7 installés par le bootstrap sont désinstallés si aucun élément choisi ne les installe (`Microsoft.PowerShell`, le MSI noté par le repli du bootstrap ou par un ancien bootstrap, et `9MZ1SNWT0N5D`, le produit du Store, désignent le même outil : winget désinstallerait le PowerShell du Store sous l'un ou l'autre identifiant) ;
 - si la copie du dépôt a été créée par le bootstrap, un menu propose : tout supprimer, garder l'historique (journal, réponses, sauvegardes dans `%LOCALAPPDATA%\OS-Setup\<date>`), ou tout garder. Avec `-Yes` : l'historique. Un clone de développement n'est jamais supprimé. Le script du bootstrap téléchargé n'est supprimé avec la copie que s'il s'agit d'un fichier `.ps1` posé directement dans le dossier temporaire (`%USERPROFILE%\AppData\Local\Temp`) ou le dossier Téléchargements (`%USERPROFILE%\Downloads`) de l'utilisateur : `state/bootstrap.json` se modifie sans élévation et le nettoyage s'exécute en administrateur, tout autre chemin noté est donc conservé (avertissement dans le journal). Ces deux dossiers sont déduits du seul dossier du profil, jamais de la variable `TMP` ni des réglages de dossiers de l'Explorateur, qu'un programme lancé sous le compte pourrait faire pointer vers un dossier protégé : un dossier temporaire ou Téléchargements déplacé ailleurs n'est pas reconnu, et le script y est conservé.
 
 Le travail est fait par `src/cleanup.ps1`, copié avec sa configuration dans `%ProgramFiles%\OS-Setup\cleanup` (il hérite des droits de Program Files : lisible par les utilisateurs, modifiable par les seuls administrateurs, puisqu'il s'exécute élevé) et lancé détaché sous Windows PowerShell 5.1 : il attend la fermeture du setup, désinstalle, supprime, puis s'efface. Les suppressions ne suivent jamais les jonctions ni les liens symboliques : un lien placé dans la copie du dépôt est retiré lui-même, jamais le contenu du dossier qu'il désigne (`Remove-Item -Recurse` de Windows PowerShell 5.1 peut entrer dans une jonction). Un chemin dont un dossier parent est un lien n'est pas supprimé, et le journal n'est pas écrit au travers d'un lien : ces chemins sont dans le dépôt de l'utilisateur, où un programme lancé sous son compte pourrait en placer un ([ADR 0005](adr/0005-resume-from-administrators-only-copy.md)). Il faut quelques minutes : ne pas redémarrer juste après la fin du setup.
@@ -155,4 +156,5 @@ Chaque provider teste l'existant avant d'agir : le **plan** montre ce qui est d�
 | [0001](adr/0001-engine-language.md) | Langage du moteur : PowerShell 7 |
 | [0002](adr/0002-agent-assistance.md) | Assistance d'un agent sur une machine déjà utilisée |
 | [0003](adr/0003-in-house-dotfiles.md) | Déploiement des fichiers de configuration par le moteur |
+| [0004](adr/0004-powershell-from-the-store.md) | PowerShell 7 installé depuis le Microsoft Store, repli sur le MSI |
 | [0005](adr/0005-resume-from-administrators-only-copy.md) | Reprise après redémarrage depuis une copie réservée aux administrateurs |

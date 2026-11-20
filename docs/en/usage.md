@@ -12,14 +12,29 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\bootstrap.ps1
 
 The setup runs in two stages:
 
-1. **Preparation**: the bootstrap relaunches itself as administrator, installs winget if needed, Git and PowerShell 7, then clones the repository into `%USERPROFILE%\OS-Setup`. Nothing else is installed at this point.
+1. **Preparation**: the bootstrap relaunches itself as administrator, installs winget if needed, Git and PowerShell 7 (the Microsoft Store one, for the current account; failing that, its MSI), then clones the repository into `%USERPROFILE%\OS-Setup`. Nothing else is installed at this point.
 2. **Your choices**: a step-by-step wizard (profiles, software, locations, personal information), then the plan, which you can apply, modify or cancel before anything is changed.
 
 The account used must be an administrator: from a standard account, the setup stops (the settings would go into another account's profile).
 
+### Microsoft Store unavailable: fallback to the MSI
+
+PowerShell 7 is installed from the Microsoft Store ([ADR 0004](adr/0004-powershell-from-the-store.md)). If that installation fails, the bootstrap does not stop: it displays a warning with the winget error code and the likely causes, then installs PowerShell 7 from its MSI (or keeps the one already there) and continues with it. It only stops if both installations fail.
+
+| Likely cause | To get back to the Store PowerShell |
+| --- | --- |
+| Windows edition without the Store (LTSC, IoT…) | Nothing to do: the machine stays on the MSI. |
+| Store removed, or blocked by a group policy or a "debloat" tool | Restore the Store, check that the Microsoft Store app opens and can install an app. |
+| `msstore` source disabled in winget | Check it with `winget source list`, restore it with `winget source reset --force` (as administrator). |
+| Network or firewall filtering the Store | Allow the Store, or change network. |
+
+A machine left on the MSI works, but is not in the intended variant: with the dev profile, the `pwsh` item tries the Store again on every setup run, and both the plan and the summary say so as long as the Store stays unavailable (see [Development](windows/development.md)). Once the Store is back, running the setup again installs the Store PowerShell and removes the MSI.
+
+Limit of the fallback: the MSI stops at PowerShell 7.6, the last version published in that form. When the setup requires a newer version, a machine without the Store will no longer be able to run it.
+
 ### Simulation
 
-`powershell -NoProfile -ExecutionPolicy Bypass -File .\bootstrap.ps1 -WhatIf` changes nothing on the system: no elevation, no install of winget, Git or PowerShell 7, no clone or update of the repository, no `state\bootstrap.json`. The bootstrap only shows what it would do (each tool present or to install, repository to clone, update or use as is; with `-Branch`, whether the existing copy would be switched to that branch or the bootstrap would stop on local changes, read with `git rev-parse` and `git status` only), then runs `setup.ps1 -WhatIf` if PowerShell 7 and a copy of the repository are already there (the copy is used as it is, without `git pull`; like any simulation, it still writes its log, `state/answers-last.json` and `state/last-result.json` in that copy). Otherwise it stops and explains why: on a blank machine, the setup simulation can only run once the tools and the repository are in place. Run the bootstrap without `-WhatIf` (the plan is shown and must be confirmed before any change), or `./setup.ps1 -WhatIf` from a copy of the repository.
+`powershell -NoProfile -ExecutionPolicy Bypass -File .\bootstrap.ps1 -WhatIf` changes nothing on the system: no elevation, no install of winget, Git or PowerShell 7, no clone or update of the repository, no `state\bootstrap.json`. The bootstrap only shows what it would do (each tool present or to install, repository to clone, update or use as is; with `-Branch`, whether the existing copy would be switched to that branch or the bootstrap would stop on local changes, read with `git rev-parse` and `git status` only), then runs `setup.ps1 -WhatIf` if PowerShell 7 and a copy of the repository are already there (the Store PowerShell 7 if it is installed; otherwise it is announced as to be installed, with the planned fallback if the Store is unavailable, and the setup simulation runs under another PowerShell 7 found in `PATH`;the copy is used as it is, without `git pull`; like any simulation, it still writes its log, `state/answers-last.json` and `state/last-result.json` in that copy). Otherwise it stops and explains why: on a blank machine, the setup simulation can only run once the tools and the repository are in place. Run the bootstrap without `-WhatIf` (the plan is shown and must be confirmed before any change), or `./setup.ps1 -WhatIf` from a copy of the repository.
 
 ### Bootstrap parameters
 

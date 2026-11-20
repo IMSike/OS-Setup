@@ -6,10 +6,12 @@
     2. Se relance en administrateur (une seule invite UAC pour tout le setup) et vérifie que le compte
        administrateur est bien celui de la session ouverte.
     3. Installe winget depuis sa publication officielle (github.com/microsoft/winget-cli) s'il est absent.
-    4. Installe Git et PowerShell 7 (MSI) via winget s'ils sont absents.
+    4. Installe via winget, s'ils sont absents, Git et PowerShell 7 : celui du Microsoft Store, pour le compte
+       courant ; si le Store est absent, bloqué ou injoignable, repli sur le MSI de PowerShell 7 après un avertissement.
     5. Clone (ou met à jour) le dépôt, sauf si le script est lancé depuis un clone existant, et note dans
        state\bootstrap.json ce que le nettoyage de fin pourra retirer.
-    6. Lance setup.ps1 sous PowerShell 7 en lui transmettant les arguments restants.
+    6. Lance setup.ps1 sous ce PowerShell 7 (celui du Store, sinon le MSI de repli) en lui transmettant les arguments
+       restants.
     Avec -WhatIf (simulation) : aucune de ces étapes n'est faite, ni élévation, ni installation, ni clonage, ni
     écriture de state\bootstrap.json ; le script affiche ce qu'il ferait, puis lance « setup.ps1 -WhatIf » si
     PowerShell 7 et une copie du dépôt sont déjà présents, sinon explique pourquoi la simulation s'arrête là.
@@ -195,6 +197,8 @@ function Initialize-Winget {
 }
 
 $script:InstalledTools = @()
+# pwsh.exe qui lance le setup, noté par Install-PowerShell.
+$script:SetupPwsh = $null
 
 function Install-WingetPackage {
     # Un paquet installé ici est noté dans $script:InstalledTools : il sera désinstallé en fin de setup si aucun
@@ -203,15 +207,21 @@ function Install-WingetPackage {
     param(
         [Parameter(Mandatory)][string]$Id,
         [Parameter(Mandatory)][string]$Command,
-        [string]$InstallerType
+        [string]$InstallerType,
+        [string]$Source = 'winget',
+        # Vide : pas de --scope (une application du Store s'installe pour le compte courant).
+        [string]$Scope = 'machine',
+        # Présence du paquet ; par défaut, celle de sa commande dans le PATH.
+        [scriptblock]$Present = { Get-Command -Name $Command -ErrorAction SilentlyContinue }
     )
-    if (Get-Command -Name $Command -ErrorAction SilentlyContinue) {
+    if (& $Present) {
         Write-Host -Object "    $Id déjà présent."
         return
     }
     Write-Step "Installation de $Id"
-    $arguments = @('install', '--id', $Id, '--exact', '--source', 'winget', '--silent', '--scope', 'machine',
+    $arguments = @('install', '--id', $Id, '--exact', '--source', $Source, '--silent',
         '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity')
+    if ($Scope) { $arguments += @('--scope', $Scope) }
     if ($InstallerType) { $arguments += @('--installer-type', $InstallerType) }
     # Sortie non capturée : winget écrit directement dans la console (la capturer sous PowerShell 5.1 la
     # décoderait avec la page de code OEM et corromprait les accents).
@@ -224,6 +234,53 @@ function Install-WingetPackage {
         throw "$Id est installé mais '$Command' est introuvable dans le PATH."
     }
     $script:InstalledTools += $Id
+}
+
+function Install-PowerShell {
+    <#
+    Installe PowerShell 7 et note dans $script:SetupPwsh le pwsh.exe qui lancera le setup (pas de valeur retournée :
+    la sortie de winget doit aller directement à la console, sans être capturée).
+    Variante cible : le paquet du Microsoft Store (ADR 0004), pour le compte courant. Source msstore : le MSIX de la
+    source winget n'a pas de licence et ne démarre pas. Présence jugée sur le paquet, pas sur la commande (un MSI de
+    PowerShell fournit aussi pwsh). Le setup est alors lancé par l'alias d'exécution du Store, même si un MSI de
+    PowerShell 7 (que le setup désinstalle) passe avant dans le PATH.
+    Repli : si le Store est absent, bloqué ou injoignable, le bootstrap prévient (causes probables) puis installe le MSI
+    de PowerShell 7 (dernière version qui en publie un : 7.6), ou garde celui qui est déjà là. Il ne s'arrête que si
+    les deux échouent.
+    #>
+    [CmdletBinding()]
+    param()
+    $alias = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Microsoft\WindowsApps\pwsh.exe'
+    try {
+        Install-WingetPackage -Id '9MZ1SNWT0N5D' -Command 'pwsh' -Source 'msstore' -Scope '' -Present { Get-AppxPackage -Name Microsoft.PowerShell }
+        if (-not (Test-Path -LiteralPath $alias)) { throw "Alias d'exécution du PowerShell du Store introuvable ($alias)." }
+        $script:SetupPwsh = $alias
+        return
+    }
+    catch {
+        $storeFailure = $_.Exception.Message
+        $warning = @(
+            "ATTENTION : PowerShell 7 n'a pas pu être installé depuis le Microsoft Store. $storeFailure"
+            'Causes probables :'
+            '  - édition de Windows sans Store (LTSC, IoT…) ;'
+            '  - Store retiré, ou bloqué par une stratégie de groupe ou un outil de « debloat » ;'
+            '  - source msstore désactivée dans winget (vérifier avec « winget source list », rétablir avec'
+            '    « winget source reset --force » en administrateur) ;'
+            '  - réseau ou pare-feu qui filtre le Store.'
+            'Repli : le setup continue avec le MSI de PowerShell 7 (7.6, dernière version publiée en MSI). Une fois le Store'
+            'rétabli, relancer le setup installera le PowerShell du Store et retirera ce MSI.'
+        )
+        foreach ($line in $warning) { Write-Host -Object $line -ForegroundColor Yellow }
+    }
+    try {
+        # Le paquet par défaut de la source winget est un MSIX, non installable pour toute la machine sous Windows 10 :
+        # on force le MSI.
+        Install-WingetPackage -Id 'Microsoft.PowerShell' -Command 'pwsh' -InstallerType 'wix'
+    }
+    catch {
+        throw ("PowerShell 7 n'a pu être installé ni depuis le Microsoft Store ({0}) ni par son MSI ({1})" -f $storeFailure, $_.Exception.Message)
+    }
+    $script:SetupPwsh = (Get-Command -Name pwsh -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
 }
 
 function Initialize-BootstrapRepository {
@@ -400,9 +457,16 @@ function Show-BootstrapSimulation {
     Write-Host -Object "    winget : $wingetState"
     $gitState = if (Get-Command -Name git -ErrorAction SilentlyContinue) { 'présent' } else { 'serait installé (winget)' }
     Write-Host -Object "    Git.Git : $gitState"
+    # Comme hors simulation : présence jugée sur le paquet du Store, pas sur la commande (un MSI fournit aussi pwsh).
+    $storePwsh = Get-AppxPackage -Name Microsoft.PowerShell -ErrorAction SilentlyContinue
     $pwshCommand = Get-Command -Name pwsh -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-    $pwshState = if ($pwshCommand) { 'présent' } else { 'serait installé (winget)' }
-    Write-Host -Object "    Microsoft.PowerShell : $pwshState"
+    $pwshState = if ($storePwsh) { 'présent' }
+    else {
+        # Comme Install-PowerShell : le Store d'abord, le MSI en repli s'il est indisponible.
+        $fallback = if ($pwshCommand) { "un PowerShell 7 est déjà présent ($($pwshCommand.Source))" } else { 'le MSI de PowerShell 7 serait installé (winget)' }
+        "serait installé (Microsoft Store) ; si le Store est indisponible, repli : $fallback"
+    }
+    Write-Host -Object "    PowerShell 7 (Store) : $pwshState"
 
     $repoRoot = $null
     if ($ScriptRoot -and (Test-Path -LiteralPath (Join-Path -Path $ScriptRoot -ChildPath 'setup.ps1'))) {
@@ -448,8 +512,12 @@ function Show-BootstrapSimulation {
     }
     Write-Host -Object '    state\bootstrap.json : non écrit en simulation.'
 
-    # Le pwsh du PATH, comme hors simulation.
-    $pwsh = if ($pwshCommand) { $pwshCommand.Source } else { $null }
+    # Le pwsh du Store, comme hors simulation ; à défaut, pour la simulation seulement, un PowerShell 7 déjà dans le
+    # PATH (ex. MSI d'un poste déjà installé).
+    $pwsh = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Microsoft\WindowsApps\pwsh.exe'
+    if (-not ($storePwsh -and (Test-Path -LiteralPath $pwsh))) {
+        $pwsh = if ($pwshCommand) { $pwshCommand.Source } else { $null }
+    }
     $setupScript = if ($repoRoot) { Join-Path -Path $repoRoot -ChildPath 'setup.ps1' } else { $null }
     if (-not $pwsh -or -not $setupScript -or -not (Test-Path -LiteralPath $setupScript)) {
         $missing = @()
@@ -520,8 +588,8 @@ try {
     Initialize-Winget
 
     Install-WingetPackage -Id 'Git.Git' -Command 'git'
-    # Le paquet par défaut est un MSIX, non installable pour toute la machine sous Windows 10 : on force le MSI.
-    Install-WingetPackage -Id 'Microsoft.PowerShell' -Command 'pwsh' -InstallerType 'wix'
+    # PowerShell 7 du Microsoft Store ; à défaut, repli sur son MSI (ADR 0004).
+    Install-PowerShell
 
     # Lancé depuis un clone : on l'utilise tel quel. Sinon : clone ou mise à jour dans $Destination.
     $repository = Initialize-BootstrapRepository -RepoUrl $RepoUrl -Branch $Branch -Destination $Destination -ScriptRoot $PSScriptRoot `
@@ -535,7 +603,8 @@ try {
     Write-Host -Object 'Étape 2/2 — Vos choix, puis le plan à valider avant toute modification.' -ForegroundColor Cyan
     Write-Step 'Lancement de setup.ps1 (PowerShell 7)'
     $setupScript = Join-Path -Path $repoRoot -ChildPath 'setup.ps1'
-    & pwsh -NoProfile -ExecutionPolicy Bypass -File $setupScript @SetupArguments
+    # Le pwsh retenu par Install-PowerShell : celui du Store, sinon celui du MSI de repli.
+    & $script:SetupPwsh -NoProfile -ExecutionPolicy Bypass -File $setupScript @SetupArguments
     $exitCode = $LASTEXITCODE
 }
 catch {

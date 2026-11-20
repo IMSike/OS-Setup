@@ -26,6 +26,7 @@ A freshly installed Windows only has:
 
 - Windows PowerShell **5.1** (no PowerShell 7);
 - **no usable `winget`**: a fresh Windows 10 image ships a 2019 App Installer without winget. The bootstrap installs it from the official `microsoft/winget-cli` release on GitHub;
+- the **Microsoft Store**, on the editions that ship it (not LTSC or IoT): the bootstrap gets PowerShell 7 from it; without a usable Store, it falls back to the PowerShell 7 MSI ([ADR 0004](adr/0004-powershell-from-the-store.md));
 - no Git, Python, Chocolatey or Scoop;
 - the default PowerShell execution policy (`Restricted`).
 
@@ -111,7 +112,7 @@ In addition to installation, an item can deploy configuration files from `dotfil
 
 ## Execution flow
 
-1. `bootstrap.ps1`: checks the OS, relaunches itself as administrator, installs winget if needed, Git and PowerShell 7, clones the repository, launches `setup.ps1`. It does not change the execution policy: the `-ExecutionPolicy Bypass` of the launch command applies to its own process, and the bootstrap passes it on to the processes it starts (elevated relaunch, `setup.ps1`).
+1. `bootstrap.ps1`: checks the OS, relaunches itself as administrator, installs winget if needed, Git and PowerShell 7 (Microsoft Store package, for the current account; if the Store is unavailable, it warns with the likely causes then falls back to the PowerShell 7 MSI, and only stops if both fail), clones the repository, launches `setup.ps1` through the execution alias of the Store PowerShell, even if a PowerShell 7 MSI comes first in `PATH` (through the MSI after a fallback). It does not change the execution policy: the `-ExecutionPolicy Bypass` of the launch command applies to its own process, and the bootstrap passes it on to the processes it starts (elevated relaunch, `setup.ps1`).
 2. `setup.ps1`: loads and **validates** the catalog and profiles, asks for or reads the choices.
 3. Resolution: profile merge, application of choices, conditions, dependency sorting.
 4. Plan → validation → execution → summary and log.
@@ -133,7 +134,7 @@ Some steps cannot be automated: choosing the default browser, signing in to GitH
 The setup leaves only what was chosen. The bootstrap records what it installed in `state/bootstrap.json`. At the end of the run (never in simulation or while waiting for a reboot):
 
 - the uninstallations postponed until the setup closes are run: that of the PowerShell running the setup (PowerShell 7 MSI replaced by the Microsoft Store one on an already installed machine), impossible while it runs. An entry already gone from "Programs and Features" is not uninstalled a second time; if a reboot happens first, the resume pass, which runs under the Store PowerShell, does the uninstallation itself;
-- Git and PowerShell 7 installed by the bootstrap are uninstalled if no chosen item installs them (`Microsoft.PowerShell`, recorded by an older bootstrap, and `9MZ1SNWT0N5D`, the Store product, name the same tool: winget would uninstall the Store PowerShell under either identifier);
+- Git and PowerShell 7 installed by the bootstrap are uninstalled if no chosen item installs them (`Microsoft.PowerShell`, the MSI recorded by the bootstrap fallback or by an older bootstrap, and `9MZ1SNWT0N5D`, the Store product, name the same tool: winget would uninstall the Store PowerShell under either identifier);
 - if the repository copy was created by the bootstrap, a menu offers: delete everything, keep the history (log, answers, backups in `%LOCALAPPDATA%\OS-Setup\<date>`), or keep everything. With `-Yes`: the history. A development clone is never deleted. The downloaded bootstrap script is deleted with the copy only if it is a `.ps1` file directly in the user's temporary folder (`%USERPROFILE%\AppData\Local\Temp`) or Downloads folder (`%USERPROFILE%\Downloads`): `state/bootstrap.json` can be modified without elevation and the cleanup runs as administrator, so any other recorded path is kept (warning in the log). Both folders are derived from the profile folder only, never from the `TMP` variable or the Explorer folder settings, which a program running under the account could point to a protected folder: a temporary or Downloads folder moved elsewhere is not recognized, and the script is kept there.
 
 The work is done by `src/cleanup.ps1`, copied with its configuration into `%ProgramFiles%\OS-Setup\cleanup` (it inherits the Program Files permissions: users can read it, only administrators can modify it, since it runs elevated) and launched detached under Windows PowerShell 5.1: it waits for the setup to close, uninstalls, deletes, then deletes itself. Deletions never follow junctions or symbolic links: a link placed in the repository copy is removed itself, never the content of the folder it points to (`Remove-Item -Recurse` in Windows PowerShell 5.1 can enter a junction). A path one of whose parent folders is a link is not deleted, and the log is not written through a link: these paths are in the user's repository, where a program running under the account could place one ([ADR 0005](adr/0005-resume-from-administrators-only-copy.md)). It takes a few minutes: do not restart right after the setup ends.
@@ -155,4 +156,5 @@ Each provider tests the existing state before acting, so the **plan** shows what
 | [0001](adr/0001-engine-language.md) | Engine language: PowerShell 7 |
 | [0002](adr/0002-agent-assistance.md) | Agent assistance on a machine already in use |
 | [0003](adr/0003-in-house-dotfiles.md) | Deployment of configuration files by the engine |
+| [0004](adr/0004-powershell-from-the-store.md) | PowerShell 7 installed from the Microsoft Store, fallback to the MSI |
 | [0005](adr/0005-resume-from-administrators-only-copy.md) | Resume after reboot from an administrators-only copy |

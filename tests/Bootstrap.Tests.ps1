@@ -7,6 +7,114 @@
     $script:bootstrapText = $ast.Extent.Text
 }
 
+Describe 'bootstrap.ps1 : installation de PowerShell 7 (Microsoft Store, repli sur le MSI)' {
+    BeforeAll {
+        foreach ($name in 'Install-WingetPackage', 'Install-PowerShell', 'Update-SessionPath') {
+            $definition = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }, $true)
+            . ([scriptblock]::Create($definition.Extent.Text))
+        }
+        $script:WingetAlreadyInstalled = -1978335189
+        # Module Appx non chargé sous PowerShell 7 : fonction de remplacement, toujours simulée.
+        function Get-AppxPackage { [CmdletBinding()] param([string]$Name) $null = $Name }
+        $script:storeAlias = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Microsoft\WindowsApps\pwsh.exe'
+    }
+
+    BeforeEach {
+        # winget remplacé : aucune installation réelle. Code de sortie par source (msstore, winget).
+        $global:OSSetupTestWinget = [System.Collections.Generic.List[string]]::new()
+        $global:OSSetupTestWingetCode = @{ msstore = 0; winget = 0 }
+        function winget {
+            $line = $args -join ' '
+            $global:OSSetupTestWinget.Add($line)
+            $global:LASTEXITCODE = if ($line -like '*--source msstore*') { $global:OSSetupTestWingetCode.msstore } else { $global:OSSetupTestWingetCode.winget }
+        }
+        $global:OSSetupTestHost = [System.Collections.Generic.List[string]]::new()
+        $script:InstalledTools = @()
+        $script:SetupPwsh = $null
+        Mock Write-Host { $global:OSSetupTestHost.Add([string]$Object) }
+        Mock Update-SessionPath {}
+        Mock Get-AppxPackage { $null }
+        Mock Get-Command { [pscustomobject]@{ Source = 'C:\OSSetupTest\PowerShell\7\pwsh.exe' } } -ParameterFilter { $Name -eq 'pwsh' }
+        Mock Test-Path { $true } -ParameterFilter { $LiteralPath -eq $script:storeAlias }
+    }
+
+    AfterEach {
+        Remove-Variable -Name OSSetupTestWinget, OSSetupTestWingetCode, OSSetupTestHost -Scope Global -ErrorAction SilentlyContinue
+    }
+
+    It 'installe depuis la source msstore, sans --scope, note le produit et lance le setup par l''alias du Store' {
+        Install-PowerShell
+        $global:OSSetupTestWinget.Count | Should -Be 1
+        $global:OSSetupTestWinget[0] | Should -BeLike 'install --id 9MZ1SNWT0N5D --exact --source msstore --silent*'
+        $global:OSSetupTestWinget[0] | Should -Not -BeLike '*--scope*'
+        $script:InstalledTools | Should -Be @('9MZ1SNWT0N5D')
+        $script:SetupPwsh | Should -Be $script:storeAlias
+    }
+
+    It 'n''installe rien quand le paquet du Store est déjà là, et ne retient pas le MSI qui passe avant dans le PATH' {
+        Mock Get-AppxPackage { [pscustomobject]@{ Name = 'Microsoft.PowerShell' } }
+        Install-PowerShell
+        $global:OSSetupTestWinget.Count | Should -Be 0
+        $script:InstalledTools | Should -BeNullOrEmpty
+        $script:SetupPwsh | Should -Be $script:storeAlias
+    }
+
+    It 'Store indisponible : prévient avec les causes probables, puis installe le MSI et lance le setup avec lui' {
+        $global:OSSetupTestWingetCode.msstore = -1978335212
+        # Aucun pwsh avant l'installation du MSI, puis celui du MSI.
+        $global:OSSetupTestPwshCalls = 0
+        Mock Get-Command {
+            $global:OSSetupTestPwshCalls++
+            if ($global:OSSetupTestPwshCalls -gt 1) { [pscustomobject]@{ Source = 'C:\OSSetupTest\PowerShell\7\pwsh.exe' } }
+        } -ParameterFilter { $Name -eq 'pwsh' }
+        try { Install-PowerShell }
+        finally { Remove-Variable -Name OSSetupTestPwshCalls -Scope Global -ErrorAction SilentlyContinue }
+        $global:OSSetupTestWinget.Count | Should -Be 2
+        $global:OSSetupTestWinget[1] | Should -BeLike 'install --id Microsoft.PowerShell --exact --source winget --silent*--scope machine --installer-type wix'
+        $script:InstalledTools | Should -Be @('Microsoft.PowerShell')
+        $script:SetupPwsh | Should -Be 'C:\OSSetupTest\PowerShell\7\pwsh.exe'
+        $text = $global:OSSetupTestHost -join "`n"
+        $text | Should -BeLike '*ATTENTION*Microsoft Store*9MZ1SNWT0N5D (code 0x8A150014)*'
+        foreach ($cause in 'LTSC', 'debloat', 'winget source list', 'winget source reset --force', 'pare-feu', 'Repli*MSI de PowerShell 7') {
+            $text | Should -BeLike "*$cause*"
+        }
+    }
+
+    It 'Store indisponible sur un poste qui a déjà le MSI : le garde sans rien installer' {
+        $global:OSSetupTestWingetCode.msstore = -1978335212
+        Install-PowerShell
+        $global:OSSetupTestWinget.Count | Should -Be 1
+        $script:InstalledTools | Should -BeNullOrEmpty
+        $script:SetupPwsh | Should -Be 'C:\OSSetupTest\PowerShell\7\pwsh.exe'
+    }
+
+    It 'se replie aussi quand le paquet du Store s''installe sans son alias d''exécution' {
+        Mock Test-Path { $false } -ParameterFilter { $LiteralPath -eq $script:storeAlias }
+        Install-PowerShell
+        $script:SetupPwsh | Should -Be 'C:\OSSetupTest\PowerShell\7\pwsh.exe'
+        $global:OSSetupTestHost -join "`n" | Should -BeLike '*Alias d''exécution du PowerShell du Store introuvable*'
+    }
+
+    It 'ne s''arrête que si le Store et le MSI échouent tous les deux, en donnant les deux codes' {
+        $global:OSSetupTestWingetCode.msstore = -1978335212
+        $global:OSSetupTestWingetCode.winget = -1978335216
+        Mock Get-Command { $null } -ParameterFilter { $Name -eq 'pwsh' }
+        { Install-PowerShell } | Should -Throw -ExpectedMessage '*ni depuis le Microsoft Store (*0x8A150014*) ni par son MSI (*0x8A150010*)*'
+        $script:SetupPwsh | Should -BeNullOrEmpty
+    }
+
+    It 'garde la source winget et la portée machine par défaut (Git)' {
+        Mock Get-Command { $null } -ParameterFilter { $Name -eq 'git' }
+        { Install-WingetPackage -Id 'Git.Git' -Command 'git' } | Should -Throw '*introuvable dans le PATH*'
+        $global:OSSetupTestWinget[0] | Should -BeLike 'install --id Git.Git --exact --source winget --silent*--scope machine'
+    }
+
+    It 'lance le setup par le pwsh retenu, jamais par le premier pwsh du PATH' {
+        $script:bootstrapText | Should -Match '& \$script:SetupPwsh -NoProfile -ExecutionPolicy Bypass -File \$setupScript @SetupArguments'
+        $script:bootstrapText | Should -Not -Match '& pwsh '
+    }
+}
+
 Describe 'bootstrap.ps1 : PATH de la session' {
     BeforeAll {
         $definition = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Update-SessionPath' }, $true)
@@ -165,6 +273,9 @@ Describe 'bootstrap.ps1 -WhatIf : simulation' {
         }
         $script:simulationAst = $ast.Find({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Show-BootstrapSimulation' }, $true)
         $script:simulationParameters = @{ RepoUrl = 'https://example.invalid/repo.git'; Branch = 'main'; Destination = 'C:\OSSetupTest\OS-Setup' }
+        # Module Appx non chargé sous PowerShell 7 : fonction de remplacement, toujours simulée.
+        function Get-AppxPackage { [CmdletBinding()] param([string]$Name) $null = $Name }
+        $script:storeAlias = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'Microsoft\WindowsApps\pwsh.exe'
     }
 
     BeforeEach {
@@ -172,6 +283,7 @@ Describe 'bootstrap.ps1 -WhatIf : simulation' {
         Mock Write-Host { $global:OSSetupTestHost.Add([string]$Object) }
         Mock Test-Elevated { $false }
         Mock Get-Command { $null }
+        Mock Get-AppxPackage { $null }
         Mock Test-Path { $false }
     }
 
@@ -249,16 +361,26 @@ Describe 'bootstrap.ps1 -WhatIf : simulation' {
         $text = $global:OSSetupTestHost -join "`n"
         $text | Should -BeLike '*winget : serait installé*'
         $text | Should -BeLike '*Git.Git : serait installé*'
-        $text | Should -BeLike '*Microsoft.PowerShell : serait installé*'
+        $text | Should -BeLike '*PowerShell 7 (Store) : serait installé (Microsoft Store) ; si le Store est indisponible, repli : le MSI de PowerShell 7 serait installé (winget)*'
         $text | Should -BeLike '*serait cloné dans C:\OSSetupTest\OS-Setup*'
         $text | Should -BeLike '*Simulation du setup impossible (PowerShell 7 absent, pas encore de copie du dépôt)*'
     }
 
-    It 'lance la simulation du setup depuis un clone quand PowerShell 7 est présent' {
+    It 'lance la simulation du setup par le PowerShell 7 du Store quand son paquet est présent, même avec un autre pwsh dans le PATH' {
+        Mock Get-AppxPackage { [pscustomobject]@{ Name = 'Microsoft.PowerShell' } }
+        Mock Get-Command { [pscustomobject]@{ Source = 'C:\OSSetupTest\pwsh.exe' } } -ParameterFilter { $Name -eq 'pwsh' }
+        Mock Test-Path { $true } -ParameterFilter { $LiteralPath -in 'C:\OSSetupTest\clone\setup.ps1', $script:storeAlias }
+        $result = Show-BootstrapSimulation @script:simulationParameters -ScriptRoot 'C:\OSSetupTest\clone'
+        $result.Pwsh | Should -Be $script:storeAlias
+        $global:OSSetupTestHost -join "`n" | Should -BeLike '*PowerShell 7 (Store) : présent*'
+    }
+
+    It 'sans le paquet du Store, l''annonce à installer et simule le setup avec le PowerShell 7 du PATH' {
         Mock Get-Command { [pscustomobject]@{ Source = 'C:\OSSetupTest\pwsh.exe' } } -ParameterFilter { $Name -eq 'pwsh' }
         Mock Test-Path { $true } -ParameterFilter { $LiteralPath -eq 'C:\OSSetupTest\clone\setup.ps1' }
         $result = Show-BootstrapSimulation @script:simulationParameters -ScriptRoot 'C:\OSSetupTest\clone'
         $result.Pwsh | Should -Be 'C:\OSSetupTest\pwsh.exe'
+        $global:OSSetupTestHost -join "`n" | Should -BeLike '*PowerShell 7 (Store) : serait installé (Microsoft Store) ; si le Store est indisponible, repli : un PowerShell 7 est déjà présent (C:\OSSetupTest\pwsh.exe)*'
         $result.SetupScript | Should -Be 'C:\OSSetupTest\clone\setup.ps1'
         $global:OSSetupTestHost -join "`n" | Should -BeLike '*copie utilisée telle quelle (C:\OSSetupTest\clone)*'
         $global:OSSetupTestHost -join "`n" | Should -Not -BeLike '*-Branch serait ignoré*'
@@ -345,7 +467,7 @@ Describe 'bootstrap.ps1 -WhatIf : simulation' {
     It 'n''appelle aucune commande qui modifie la machine' {
         $commands = $script:simulationAst.FindAll({ param($node) $node -is [System.Management.Automation.Language.CommandAst] }, $true)
         $names = $commands | ForEach-Object { $_.GetCommandName() } | Where-Object { $_ } | Sort-Object -Unique
-        $allowed = 'Get-Command', 'git', 'Join-Path', 'Select-Object', 'Test-Elevated', 'Test-Path', 'Write-Host', 'Write-Step'
+        $allowed = 'Get-AppxPackage', 'Get-Command', 'git', 'Join-Path', 'Select-Object', 'Test-Elevated', 'Test-Path', 'Write-Host', 'Write-Step'
         $names | Where-Object { $_ -notin $allowed } | Should -BeNullOrEmpty
         # git en lecture seule.
         $gitCalls = @($commands | Where-Object { $_.GetCommandName() -eq 'git' } | ForEach-Object { "$($_.CommandElements[3])" })
