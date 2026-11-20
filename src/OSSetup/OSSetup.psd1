@@ -5,7 +5,7 @@
     Author            = 'IMSike'
     Copyright         = '(c) 2026 IMSike. Licence MIT.'
     Description       = "Moteur d'OS-Setup : chargement des données, résolution des profils, plan et exécution."
-    PowerShellVersion = '7.4'
+    PowerShellVersion = '7.6'
     FunctionsToExport = @(
         # Claude.ps1
         'Get-OSSetupClaudePlugin'

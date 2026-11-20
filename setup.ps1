@@ -1,4 +1,4 @@
-﻿#Requires -Version 7.4
+﻿#Requires -Version 7.6
 <#
 .SYNOPSIS
     Point d'entrée principal d'OS-Setup.

@@ -1,4 +1,4 @@
-﻿#Requires -Version 7.4
+﻿#Requires -Version 7.6
 <#
 .SYNOPSIS
     Crée (ou recrée) le point de contrôle « prerequis » : la VM après le bootstrap (winget, Git et PowerShell 7

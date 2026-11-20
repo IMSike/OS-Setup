@@ -4,7 +4,7 @@
 
 ## Pour commencer
 
-Prérequis : PowerShell 7.4+, Git, [Pester 5](https://pester.dev), et en option [PSScriptAnalyzer](https://github.com/PowerShell/PSScriptAnalyzer).
+Prérequis : PowerShell 7.6+, Git, [Pester 5](https://pester.dev), et en option [PSScriptAnalyzer](https://github.com/PowerShell/PSScriptAnalyzer).
 
 ```powershell
 git clone https://github.com/IMSike/OS-Setup.git
@@ -28,7 +28,7 @@ Lisez d'abord [Architecture](docs/fr/architecture.md), puis [Ajouter un élémen
 
 ## Conventions de code
 
-- Moteur : PowerShell 7.4+. `bootstrap.ps1` tourne sous Windows PowerShell 5.1, sans module externe.
+- Moteur : PowerShell 7.6+. `bootstrap.ps1` tourne sous Windows PowerShell 5.1, sans module externe.
 - `Set-StrictMode -Version Latest` et `$ErrorActionPreference = 'Stop'` en tête de script.
 - `[CmdletBinding()]` partout, noms `Verbe-Nom` avec des verbes approuvés, paramètres typés, pas d'alias, pas d'arguments positionnels ambigus.
 - Indentation de 4 espaces, accolades style Stroustrup : ouvrante en fin de ligne, fermante seule sur sa ligne, `else`, `elseif`, `catch` et `finally` sur la ligne suivante (vérifié par PSScriptAnalyzer).

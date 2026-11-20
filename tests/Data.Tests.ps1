@@ -443,7 +443,7 @@ Describe 'Read-OSSetupJsonFileSet' {
     }
 
     It 'transmet les bornes QWord du schéma en nombres exacts' {
-        # Un aller-retour par ConvertFrom-Json et ConvertTo-Json les écrirait en objet sous PowerShell 7.4.
+        # Un aller-retour par ConvertFrom-Json et ConvertTo-Json ne les écrit en nombres que depuis PowerShell 7.5.
         Mock -ModuleName OSSetup Test-Json { $true } -ParameterFilter { $Schema }
         $errors = [System.Collections.Generic.List[string]]::new()
         $result = @(Read-OSSetupJsonFileSet -File @(& $newFile 'q.json' (& $itemText 'q')) -SchemaPath $schema -Errors $errors)
@@ -477,12 +477,12 @@ Describe 'Import-OSSetupData : schéma groupé illisible' {
 Describe 'Invoke-OSSetupJsonValidation' {
     BeforeAll {
         $schema = Join-Path -Path $repoRoot -ChildPath 'schemas\answers.schema.json'
-        # Charge JsonSchema.Net, dont une exception sert à simuler PowerShell 7.4 et 7.6.0.
+        # Charge JsonSchema.Net, dont une exception sert à simuler PowerShell 7.6.0.
         $null = Test-Json -Json '1' -Schema '{}'
     }
 
-    It 'traite une référence introuvable signalée en InvalidJson (PowerShell 7.4 et 7.6.0) comme un schéma illisible' {
-        # Ces versions n'ont pas d'identifiant propre à une référence introuvable : seule la cause la distingue.
+    It 'traite une référence introuvable signalée en InvalidJson (PowerShell 7.6.0) comme un schéma illisible' {
+        # Cette version n'a pas d'identifiant propre à une référence introuvable : seule la cause la distingue.
         Mock -ModuleName OSSetup Test-Json {
             Write-Error -Exception ([Exception]::new('JSON invalide.', [Json.Schema.JsonSchemaException]::new('Could not resolve'))) -ErrorId InvalidJson -ErrorAction SilentlyContinue
             $false

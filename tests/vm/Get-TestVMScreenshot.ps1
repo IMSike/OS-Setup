@@ -1,4 +1,4 @@
-﻿#Requires -Version 7.4
+﻿#Requires -Version 7.6
 <#
 .SYNOPSIS
     Capture l'écran de la VM de test dans un fichier PNG, après avoir éventuellement lancé une commande dans la

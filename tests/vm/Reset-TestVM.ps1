@@ -1,4 +1,4 @@
-﻿#Requires -Version 7.4
+﻿#Requires -Version 7.6
 <#
 .SYNOPSIS
     Ramène la VM de test à un point de contrôle : « vierge » (Windows fraîchement installé, par défaut) ou

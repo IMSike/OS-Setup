@@ -1,4 +1,4 @@
-﻿#Requires -Version 7.4
+﻿#Requires -Version 7.6
 <#
 .SYNOPSIS
     Copie l'état courant du dépôt dans la VM de test et y exécute bootstrap.ps1 comme un utilisateur réel.

@@ -1,4 +1,4 @@
-﻿#Requires -Version 7.4
+﻿#Requires -Version 7.6
 <#
 .SYNOPSIS
     Crée une VM Hyper-V Windows vierge pour tester OS-Setup, sans clic, à partir d'une image Windows (install.esd/install.wim ou ISO).

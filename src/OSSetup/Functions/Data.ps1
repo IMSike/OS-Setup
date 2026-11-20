@@ -39,13 +39,13 @@ function Invoke-OSSetupJsonValidation {
     .DESCRIPTION
         Seul endroit qui appelle Test-Json. Un schéma illisible est un défaut du dépôt, pas des données : une erreur
         nommant le schéma est levée aussitôt, au lieu d'accuser chaque fichier. Test-Json le signale de plusieurs façons
-        (TestJsonCommand.cs, PowerShell 7.4 et 7.6), toutes reconnues ici à leur identifiant, jamais à leur texte :
+        (TestJsonCommand.cs, PowerShell 7.6), toutes reconnues ici à leur identifiant, jamais à leur texte :
         - InvalidJsonSchema, non terminante : schéma qui n'est pas du JSON ou mal formé (« { "type": 5 } ») ; Test-Json
           rend alors vrai, ce qui accepterait n'importe quel fichier ;
         - InvalidJsonSchema, terminante : schéma que la bibliothèque ne peut compiler (motif « ( » invalide…) ;
         - JsonSchemaFileOpenFailure, terminante : fichier de schéma absent ou impossible à ouvrir (SchemaFile) ;
         - UnresolvedJsonSchemaRef, non terminante (7.6.10) : référence « $ref » introuvable ; Test-Json rend faux.
-          En 7.4 et 7.6.0, la même erreur sort en InvalidJson, l'identifiant d'un JSON de données invalide : elle n'en
+          En 7.6.0, la même erreur sort en InvalidJson, l'identifiant d'un JSON de données invalide : elle n'en
           est distinguée que par sa cause, une exception de JsonSchema.Net (espace de noms Json.Schema).
         Toute autre erreur terminante est relancée telle quelle ; les autres erreurs non terminantes (InvalidJson,
         InvalidJsonAgainstSchemaDetailed) sont celles du fichier validé. Le texte est validé contre le fichier
@@ -122,10 +122,11 @@ function Format-OSSetupSchemaError {
     .SYNOPSIS
         Message d'un fichier non conforme à son schéma : une ligne du moteur, puis les détails de Test-Json.
     .DESCRIPTION
-        Les détails de Test-Json varient selon la version de PowerShell et sa langue : aucun pour l'échec d'un
-        « oneOf » en 7.4, une ligne par branche essayée en 7.6.10 (plus de 70 pour un provider inconnu). La ligne
-        du moteur est donc toujours présente ; les détails sont dédoublonnés et plafonnés. Sans détail, un élément du
-        catalogue reçoit une piste (ses actions, où sont presque tous les écarts) ; les autres schémas n'en ont pas.
+        Les détails de Test-Json varient selon la version de PowerShell et sa langue : aucun pour un fichier de
+        réponses fautif en 7.6.9, une ligne par branche essayée d'un « oneOf » en 7.6.10 (plus de 70 pour un provider
+        inconnu). La ligne du moteur est donc toujours présente ; les détails sont dédoublonnés et plafonnés. Sans
+        détail, un élément du catalogue reçoit une piste (ses actions, où sont presque tous les écarts) ; les autres
+        schémas n'en ont pas.
     #>
     [CmdletBinding()]
     [OutputType([string])]
@@ -166,9 +167,9 @@ function Get-OSSetupArraySchema {
         restent à la racine, où les références « #/definitions/… » les cherchent.
     .DESCRIPTION
         Composé avec System.Text.Json, sans passer par les types PowerShell : un nombre garde son texte d'origine.
-        ConvertFrom-Json lirait la borne QWord (18446744073709551615) comme un BigInteger, que ConvertTo-Json de
-        PowerShell 7.4 écrit comme un objet, ce qui rendrait le schéma illisible. Un fichier de schéma absent, qui n'est
-        pas du JSON, ou dont la racine n'est pas un objet, lève l'erreur d'un schéma introuvable ou illisible.
+        ConvertFrom-Json lirait la borne QWord (18446744073709551615) comme un BigInteger, que ConvertTo-Json n'écrit
+        en nombre que depuis PowerShell 7.5. Un fichier de schéma absent, qui n'est pas du JSON, ou dont la racine
+        n'est pas un objet, lève l'erreur d'un schéma introuvable ou illisible.
     #>
     [CmdletBinding()]
     [OutputType([string])]
