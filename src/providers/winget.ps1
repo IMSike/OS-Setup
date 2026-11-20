@@ -1,6 +1,8 @@
 ﻿# Provider winget : installation de paquets Windows.
 # Présence : winget list --id, puis winget export en second avis (Test-OSSetupWingetInstalled) ; pour une application
 # du Store (source msstore, packageName), le paquet appx installé pour le compte courant (Test-OSSetupAppxInstalled).
+# Repli (fallbackDisplayName) : si l'installation échoue alors que ce logiciel classique est installé, l'étape est
+# ignorée avec son motif (@{ Skipped = ... }) au lieu d'échouer.
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification = 'Interface commune des providers : chaque bloc reçoit $Action et $Context, utilisés ou non.')]
 param()
@@ -12,6 +14,7 @@ param()
         param($Action, $Context)
         $description = "winget install $($Action['id'])"
         if ((Get-OSSetupWingetSource -Action $Action) -eq 'msstore') { $description += ' (Microsoft Store)' }
+        if ($Action['fallbackDisplayName']) { $description += " ; à défaut, « $($Action['fallbackDisplayName']) » déjà installé est conservé" }
         $description
     }
 
@@ -44,7 +47,15 @@ param()
         $rebootRequired = $exitCode -in -1978334967, 3010
         # 0x8A15002B : déjà installé, aucune mise à jour applicable.
         if ($exitCode -ne 0 -and $exitCode -ne -1978335189 -and -not $rebootRequired) {
-            throw ('winget a échoué (code 0x{0:X8}).' -f $exitCode)
+            $failure = 'winget a échoué (code 0x{0:X8}).' -f $exitCode
+            # Variante de repli déjà installée (ex. MSI de PowerShell 7 quand le Microsoft Store est indisponible) :
+            # l'étape est ignorée avec son motif au lieu d'échouer, et retentée à la prochaine exécution.
+            $fallback = if ($Action['fallbackDisplayName']) { Get-OSSetupUninstallEntry -DisplayName $Action['fallbackDisplayName'] | Select-Object -First 1 }
+            if ($fallback) {
+                $origin = if ($source -eq 'msstore') { 'Microsoft Store indisponible' } else { 'installation impossible' }
+                return @{ Skipped = "$origin : $failure Le poste reste sur « $($fallback.DisplayName) » (variante de repli) ; nouvel essai à la prochaine exécution." }
+            }
+            throw $failure
         }
         # Certains installeurs rendent la main avant d'avoir fini (ex. Squirrel pour Discord : l'installation continue
         # en arrière-plan une dizaine de secondes) : attendre que le paquet soit détecté.

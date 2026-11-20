@@ -144,6 +144,11 @@
           "type": "string",
           "minLength": 1
         },
+        "fallbackDisplayName": {
+          "description": "Variante de repli : nom dans « Programmes et fonctionnalités » d'un logiciel qui rend le même service. Si l'installation échoue alors qu'il est installé, l'étape est ignorée avec son motif au lieu d'échouer, et retentée à la prochaine exécution.",
+          "type": "string",
+          "minLength": 1
+        },
         "scope": { "enum": ["user", "machine"] },
         "installerType": {
           "description": "Force un type d'installeur quand le paquet en propose plusieurs (--installer-type).",
@@ -464,6 +469,7 @@
         "provider": { "const": "win32-uninstall" },
         "description": { "type": "string" },
         "displayName": { "description": "Nom dans « Programmes et fonctionnalités » (caractères génériques * acceptés).", "type": "string", "minLength": 1 },
+        "replacedByPackage": { "description": "Nom du paquet appx qui remplace ce logiciel : il n'est désinstallé qu'une fois ce paquet installé pour le compte courant (conforme d'ici là).", "type": "string", "minLength": 1 },
         "arguments": { "description": "Arguments ajoutés à la commande de désinstallation ordinaire (UninstallString) pour la rendre silencieuse. Ignorés quand l'entrée déclare une commande silencieuse (QuietUninstallString, exécutée telle quelle) et pour un MSI (désinstallé avec /qn).", "type": "string" }
       }
     },

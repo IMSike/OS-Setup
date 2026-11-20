@@ -756,6 +756,84 @@ Describe 'Provider win32-uninstall : PowerShell qui exécute le setup' {
     }
 }
 
+Describe 'Repli sur une variante déjà installée (Microsoft Store indisponible)' {
+    BeforeAll {
+        $script:fallbackData = [pscustomobject]@{
+            Items = @{
+                pwsh  = [ordered]@{
+                    id = 'pwsh'; name = 'PowerShell 7'
+                    actions = @(
+                        [ordered]@{ provider = 'winget'; id = '9MZ1SNWT0N5D'; source = 'msstore'; packageName = 'Microsoft.PowerShell'; fallbackDisplayName = 'PowerShell 7-x64' }
+                        [ordered]@{ provider = 'win32-uninstall'; displayName = 'PowerShell 7-x64'; replacedByPackage = 'Microsoft.PowerShell' }
+                    )
+                }
+                after = [ordered]@{ id = 'after'; name = 'Dépendant'; dependsOn = @('pwsh'); actions = @([ordered]@{ provider = 'win32-uninstall'; displayName = 'Autre' }) }
+            }
+        }
+    }
+
+    BeforeEach {
+        Mock -ModuleName OSSetup Write-OSSetupLog {}
+        Mock -ModuleName OSSetup Start-Process {
+            if ("$ArgumentList" -like '*AA}*') { $global:OSSetupTestMsi = $false } else { $global:OSSetupTestOther = $false }
+            [pscustomobject]@{ ExitCode = 0 }
+        }
+        $global:OSSetupTestOther = $true
+        Mock -ModuleName OSSetup Clear-OSSetupWingetExportCache
+        Mock -ModuleName OSSetup Update-OSSetupSessionPath
+        Mock -ModuleName OSSetup Test-OSSetupUninstallEntryHostsSetup { $false }
+        Mock -ModuleName OSSetup Wait-OSSetupUninstallEntryRemoval { $true }
+        $global:OSSetupTestMsi = $true
+        $global:OSSetupTestStore = $false
+        Mock -ModuleName OSSetup Get-OSSetupUninstallEntry {
+            if ($DisplayName -eq 'PowerShell 7-x64' -and $global:OSSetupTestMsi) {
+                [pscustomobject]@{ DisplayName = 'PowerShell 7-x64'; UninstallString = 'MsiExec.exe /X{0F5E7A11-0000-4000-8000-0000000000AA}' }
+            }
+            elseif ($DisplayName -eq 'Autre' -and $global:OSSetupTestOther) {
+                [pscustomobject]@{ DisplayName = 'Autre'; UninstallString = 'MsiExec.exe /X{0F5E7A11-0000-4000-8000-0000000000BB}' }
+            }
+        }
+        Mock -ModuleName OSSetup Test-OSSetupAppxInstalled { $global:OSSetupTestStore }
+    }
+
+    AfterEach {
+        Remove-Variable -Name OSSetupTestMsi, OSSetupTestStore, OSSetupTestOther -Scope Global -ErrorAction SilentlyContinue
+    }
+
+    It 'garde le logiciel de repli tant que le paquet qui le remplace n''est pas installé' {
+        $action = @{ displayName = 'PowerShell 7-x64'; replacedByPackage = 'Microsoft.PowerShell' }
+        Invoke-TestProviderTest -Name win32-uninstall -Action $action | Should -BeTrue
+        InModuleScope OSSetup -Parameters @{ action = $action } { & (Get-OSSetupProvider -Name win32-uninstall).Describe $action @{} } |
+            Should -Be 'désinstaller PowerShell 7-x64 (conservé tant que le paquet Microsoft.PowerShell du Microsoft Store n''est pas installé)'
+        $global:OSSetupTestStore = $true
+        Invoke-TestProviderTest -Name win32-uninstall -Action $action | Should -BeFalse
+    }
+
+    It 'Store indisponible : étape ignorée avec son motif, MSI conservé, dépendants traités, aucun échec' {
+        Mock -ModuleName OSSetup winget { $global:LASTEXITCODE = -1978335212 }
+        $context = @{ Variables = [ordered]@{} }
+        $plan = @(Get-OSSetupPlan -Data $script:fallbackData -ItemId 'pwsh', 'after' -Context $context)
+        $plan.Status | Should -Be @('todo', 'ok', 'todo')
+        $results = @(Invoke-OSSetupPlan -Plan $plan -Context $context)
+        $results.Status | Should -Be @('skipped', 'ok', 'done')
+        $results[0].Detail | Should -BeLike 'Microsoft Store indisponible*0x8A150014*PowerShell 7-x64*'
+        Should -Invoke -ModuleName OSSetup Start-Process -Times 0 -Exactly -ParameterFilter { "$ArgumentList" -like '*AA}*' }
+        Show-OSSetupSummary -Result $results
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Level -eq 'Warning' -and $Message -like '1 action(s) ignorées' }
+        Should -Invoke -ModuleName OSSetup Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Level -eq 'Warning' -and $Message -like '*PowerShell 7 :*Microsoft Store indisponible*' }
+    }
+
+    It 'Store rétabli : installe le paquet du Store puis désinstalle le MSI dans la même passe' {
+        Mock -ModuleName OSSetup winget { $global:LASTEXITCODE = 0; $global:OSSetupTestStore = $true }
+        $context = @{ Variables = [ordered]@{} }
+        $plan = @(Get-OSSetupPlan -Data $script:fallbackData -ItemId 'pwsh' -Context $context)
+        $plan.Status | Should -Be @('todo', 'ok')
+        $results = @(Invoke-OSSetupPlan -Plan $plan -Context $context)
+        $results.Status | Should -Be @('done', 'done')
+        Should -Invoke -ModuleName OSSetup Start-Process -Times 1 -Exactly -ParameterFilter { "$ArgumentList" -like '*AA}*' }
+    }
+}
+
 Describe 'Test-OSSetupUninstallEntryHostsSetup' {
     BeforeAll {
         $script:msiEntry = [pscustomobject]@{

@@ -113,6 +113,9 @@ function Invoke-OSSetupPlan {
         Fermeture du setup : une action peut confier son travail au nettoyage de fin (le provider retourne
         @{ RunAtClose = @(commandes) }, ex. désinstallation du PowerShell qui exécute le setup) : statut « atclose »,
         commandes dans RunAtClose.
+        Renoncement : un provider peut renoncer sans échec (@{ Skipped = 'motif' }, ex. Microsoft Store indisponible
+        alors que la variante de repli est installée) : statut « skipped » avec ce motif, sans bloquer les étapes
+        suivantes ni les éléments dépendants.
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -199,7 +202,16 @@ function Invoke-OSSetupPlan {
                     $runAtClose = @($outcome | Where-Object { $_ -is [System.Collections.IDictionary] -and $_['RunAtClose'] } |
                             ForEach-Object { $_['RunAtClose'] })
                     if ($runAtClose) { $result.RunAtClose = $runAtClose }
-                    if ($signaled) {
+                    $skipped = @($outcome | Where-Object { $_ -is [System.Collections.IDictionary] -and $_['Skipped'] } |
+                            ForEach-Object { [string]$_['Skipped'] }) | Select-Object -First 1
+                    if ($skipped) {
+                        # Le provider a renoncé sans échec (ex. Store indisponible, variante de repli en place) :
+                        # ni l'élément ni ses dépendants ne sont bloqués, et le code de sortie reste 0.
+                        $result.Status = 'skipped'
+                        $result.Detail = $skipped
+                        Write-OSSetupLog -Level Warning -Message "  ignoré : $skipped"
+                    }
+                    elseif ($signaled) {
                         # L'état final (ex. fonctionnalité « Enable Pending ») ne sera visible qu'après redémarrage.
                         $result.Status = 'reboot'
                         $result.RebootRequired = $true

@@ -2,6 +2,7 @@
 # « Programmes et fonctionnalités » (nom affiché, caractères génériques acceptés). Un logiciel absent est conforme.
 # Le PowerShell qui exécute le setup (ex. MSI de PowerShell 7) n'est pas désinstallé pendant le setup : la commande
 # est confiée au nettoyage de fin, qui la lance après la fermeture du setup (statut « atclose »).
+# replacedByPackage : le logiciel n'est désinstallé qu'une fois ce paquet appx installé pour le compte courant.
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification = 'Interface commune des providers : chaque bloc reçoit $Action et $Context, utilisés ou non.')]
 param()
@@ -12,6 +13,10 @@ param()
     Describe = {
         param($Action, $Context)
         $description = "désinstaller $($Action['displayName'])"
+        # Logiciel de repli : gardé tant que le paquet du Store qui le remplace n'est pas installé pour le compte.
+        if ($Action['replacedByPackage'] -and -not (Test-OSSetupAppxInstalled -Name $Action['replacedByPackage'])) {
+            return "$description (conservé tant que le paquet $($Action['replacedByPackage']) du Microsoft Store n'est pas installé)"
+        }
         # PowerShell qui exécute le setup : le désinstaller maintenant arrêterait le setup en cours.
         if (Get-OSSetupUninstallEntry -DisplayName $Action['displayName'] | Where-Object { Test-OSSetupUninstallEntryHostsSetup -Entry $_ }) {
             $description += ' (à la fermeture du setup, qui s''exécute sous ce PowerShell)'
@@ -21,6 +26,8 @@ param()
 
     Test     = {
         param($Action, $Context)
+        # replacedByPackage : rien à désinstaller tant que le remplaçant n'est pas là (le poste garderait sinon aucun des deux).
+        if ($Action['replacedByPackage'] -and -not (Test-OSSetupAppxInstalled -Name $Action['replacedByPackage'])) { return $true }
         -not (Get-OSSetupUninstallEntry -DisplayName $Action['displayName'])
     }
 

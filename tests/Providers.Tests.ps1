@@ -604,6 +604,30 @@ Describe 'Provider winget : installation' {
         Should -Invoke -ModuleName OSSetup -CommandName Get-OSSetupWingetExportId -Times 0 -Exactly
     }
 
+    It 'Store indisponible et variante de repli installée : renonce avec son motif au lieu d''échouer' {
+        Mock -ModuleName OSSetup -CommandName winget -MockWith { $global:LASTEXITCODE = -1978335212 }
+        Mock -ModuleName OSSetup -CommandName Get-OSSetupUninstallEntry -MockWith { [pscustomobject]@{ DisplayName = 'PowerShell 7-x64' } }
+        $outcome = InModuleScope OSSetup {
+            & (Get-OSSetupProvider -Name 'winget').Invoke @{ id = '9MZ1SNWT0N5D'; source = 'msstore'; packageName = 'Microsoft.PowerShell'; fallbackDisplayName = 'PowerShell 7-x64' } @{}
+        }
+        $outcome['Skipped'] | Should -BeLike 'Microsoft Store indisponible*0x8A150014*PowerShell 7-x64*variante de repli*'
+        Should -Invoke -ModuleName OSSetup -CommandName Get-OSSetupUninstallEntry -Times 1 -Exactly -ParameterFilter { $DisplayName -eq 'PowerShell 7-x64' }
+    }
+
+    It 'Store indisponible sans variante de repli installée : échoue' {
+        Mock -ModuleName OSSetup -CommandName winget -MockWith { $global:LASTEXITCODE = -1978335212 }
+        Mock -ModuleName OSSetup -CommandName Get-OSSetupUninstallEntry -MockWith {}
+        { InModuleScope OSSetup {
+                & (Get-OSSetupProvider -Name 'winget').Invoke @{ id = '9MZ1SNWT0N5D'; source = 'msstore'; packageName = 'Microsoft.PowerShell'; fallbackDisplayName = 'PowerShell 7-x64' } @{}
+            } } | Should -Throw '*0x8A150014*'
+    }
+
+    It 'annonce la variante de repli dans le plan' {
+        InModuleScope OSSetup {
+            & (Get-OSSetupProvider -Name 'winget').Describe @{ id = '9MZ1SNWT0N5D'; source = 'msstore'; fallbackDisplayName = 'PowerShell 7-x64' } @{}
+        } | Should -Be 'winget install 9MZ1SNWT0N5D (Microsoft Store) ; à défaut, « PowerShell 7-x64 » déjà installé est conservé'
+    }
+
     It 'installe depuis la source winget par défaut' {
         Mock -ModuleName OSSetup -CommandName winget -MockWith { $global:LASTEXITCODE = 0 }
         InModuleScope OSSetup { & (Get-OSSetupProvider -Name 'winget').Invoke @{ id = 'Some.App' } @{} } | Should -BeNullOrEmpty
