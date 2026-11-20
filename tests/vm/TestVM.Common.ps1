@@ -89,9 +89,13 @@ function Wait-TestVMReady {
     $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
     while ((Get-Date) -lt $deadline) {
         try {
-            # Session stable : explorer.exe lancé depuis au moins 30 s (il redémarre parfois juste après l'ouverture).
-            $ready = Invoke-Command -VMName $Name -Credential $credential -ErrorAction Stop -ScriptBlock {
-                $explorer = Get-Process -Name explorer -ErrorAction SilentlyContinue | Select-Object -First 1
+            # Session stable : explorer.exe de l'utilisateur de test lancé depuis au moins 30 s (il redémarre parfois
+            # juste après l'ouverture). Au premier démarrage depuis « vierge », la fin de l'installation de Windows
+            # ouvre d'abord une session « defaultuser0 », qui a aussi son explorer.exe : elle ne compte pas.
+            $ready = Invoke-Command -VMName $Name -Credential $credential -ArgumentList $script:TestUserName -ErrorAction Stop -ScriptBlock {
+                param($UserName)
+                $explorer = Get-Process -Name explorer -IncludeUserName -ErrorAction SilentlyContinue |
+                    Where-Object { ($_.UserName -split '\\')[-1] -eq $UserName } | Select-Object -First 1
                 $explorer -and ((Get-Date) - $explorer.StartTime).TotalSeconds -ge 30
             }
             if ($ready) { return }
