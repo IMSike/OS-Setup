@@ -963,6 +963,20 @@ Describe 'Test-OSSetupWingetInstalled' {
         Should -Invoke -ModuleName OSSetup Get-OSSetupWingetExportId -Times 2 -Exactly
     }
 
+    It 'ne lit pas l''export pour un paquet de la source msstore' {
+        Mock -ModuleName OSSetup winget { $global:LASTEXITCODE = -1978335212 }
+        Mock -ModuleName OSSetup Get-OSSetupWingetExportId { @('9MZ1SNWT0N5D') }
+        InModuleScope OSSetup { Test-OSSetupWingetInstalled -Id '9MZ1SNWT0N5D' -Source msstore } | Should -BeFalse
+        InModuleScope OSSetup { Test-OSSetupWingetInstalled -Id '9MZ1SNWT0N5D' -Source msstore -ExportFirst } | Should -BeFalse
+        Should -Invoke -ModuleName OSSetup Get-OSSetupWingetExportId -Times 0
+        Should -Invoke -ModuleName OSSetup winget -Times 2 -Exactly
+    }
+
+    It 'Get-OSSetupWingetSource rend winget par défaut, sinon la source de l''action' {
+        InModuleScope OSSetup { Get-OSSetupWingetSource -Action @{ id = 'Git.Git' } } | Should -Be 'winget'
+        InModuleScope OSSetup { Get-OSSetupWingetSource -Action @{ id = '9MZ1SNWT0N5D'; source = 'msstore' } } | Should -Be 'msstore'
+    }
+
     It 'Clear-OSSetupWingetExportCache fait relire l''export' {
         InModuleScope OSSetup {
             $script:WingetExportId = @('Ancien.Paquet')
@@ -979,5 +993,49 @@ Describe 'Provider winget : présence' {
         Should -Invoke -ModuleName OSSetup Test-OSSetupWingetInstalled -Times 1 -Exactly -ParameterFilter { $ExportFirst }
         Invoke-TestProviderTest -Name winget -Action @{ id = 'Git.Git' } | Should -BeTrue
         Should -Invoke -ModuleName OSSetup Test-OSSetupWingetInstalled -Times 1 -Exactly -ParameterFilter { -not $ExportFirst }
+    }
+
+    It 'juge une application du Store par son paquet appx, sans interroger winget' {
+        # winget list --id 9MZ1SNWT0N5D répond « installé » quand seul le MSI de PowerShell 7 est présent.
+        Mock -ModuleName OSSetup Test-OSSetupWingetInstalled { $true }
+        Mock -ModuleName OSSetup Test-OSSetupAppxInstalled { $false }
+        $action = @{ id = '9MZ1SNWT0N5D'; source = 'msstore'; packageName = 'Microsoft.PowerShell' }
+        Invoke-TestProviderTest -Name winget -Action $action | Should -BeFalse
+        Should -Invoke -ModuleName OSSetup Test-OSSetupAppxInstalled -Times 1 -Exactly -ParameterFilter { $Name -eq 'Microsoft.PowerShell' }
+        Should -Invoke -ModuleName OSSetup Test-OSSetupWingetInstalled -Times 0
+    }
+
+    It 'passe la source de l''action à la recherche du paquet' {
+        Mock -ModuleName OSSetup Test-OSSetupWingetInstalled { $true }
+        Invoke-TestProviderTest -Name winget -Action @{ id = '9NBLGGH4NNS1'; source = 'msstore' } | Should -BeTrue
+        Should -Invoke -ModuleName OSSetup Test-OSSetupWingetInstalled -Times 1 -Exactly -ParameterFilter { $Source -eq 'msstore' }
+    }
+
+    It 'décrit une installation depuis le Microsoft Store' {
+        InModuleScope OSSetup { & (Get-OSSetupProvider -Name winget).Describe @{ id = '9MZ1SNWT0N5D'; source = 'msstore' } @{} } | Should -Be 'winget install 9MZ1SNWT0N5D (Microsoft Store)'
+        InModuleScope OSSetup { & (Get-OSSetupProvider -Name winget).Describe @{ id = 'Git.Git' } @{} } | Should -Be 'winget install Git.Git'
+    }
+}
+
+Describe 'Test-OSSetupAppxInstalled' {
+    BeforeAll {
+        # Pester ne simule qu'une commande existante : le module Appx n'est pas chargé dans une session de test.
+        $script:appxInstalledStub = -not (Get-Command -Name Get-AppxPackage -ErrorAction SilentlyContinue)
+        if ($script:appxInstalledStub) {
+            function global:Get-AppxPackage { [CmdletBinding()] param([string]$Name, [switch]$AllUsers) }
+        }
+    }
+
+    AfterAll {
+        if ($script:appxInstalledStub) { Remove-Item -Path Function:\Get-AppxPackage -ErrorAction SilentlyContinue }
+    }
+
+    It 'lit le paquet du compte courant par son nom exact' {
+        Mock -ModuleName OSSetup Import-OSSetupAppxModule { }
+        Mock -ModuleName OSSetup Get-AppxPackage { [pscustomobject]@{ Name = 'Microsoft.PowerShell' } } -ParameterFilter { $Name -eq 'Microsoft.PowerShell' }
+        Mock -ModuleName OSSetup Get-AppxPackage { }
+        InModuleScope OSSetup { Test-OSSetupAppxInstalled -Name 'Microsoft.PowerShell' } | Should -BeTrue
+        InModuleScope OSSetup { Test-OSSetupAppxInstalled -Name 'Absent.Paquet' } | Should -BeFalse
+        Should -Invoke -ModuleName OSSetup Import-OSSetupAppxModule -Times 2 -Exactly
     }
 }

@@ -14,7 +14,9 @@ Behaviors observed during development, and how the engine handles them. Read bef
 | Installed program that does not start, code `-1073741515` (`0xC0000135`) with no message | Missing DLL, most often the Visual C++ runtime (absent from a fresh Windows, rarely declared by portable packages, e.g. rtk): `vcredist` dependency. |
 | Package missing from winget (e.g. NVIDIA App) | Would need another provider (direct download), to be validated before adding one. |
 | Corrupted accents in captured output (`Trouv├®`) | winget and the other command-line tools launched by the providers (gh, npm, herdr, code, fnm, rtk, claude, playwright-cli) write UTF-8: set `[Console]::OutputEncoding` to UTF-8 for the duration of the call (`Invoke-OSSetupNativeCommand -Utf8`). |
-| Package found in the `msstore` source instead of `winget` | Always specify `--source winget`. |
+| Package found in the `msstore` source instead of `winget` | Always specify the source: `--source winget` by default, `--source msstore` for an action that declares `"source": "msstore"`. |
+| `winget list --id <Store product>` answers "installed" while the Store app is absent (observed: `9MZ1SNWT0N5D` when only the "PowerShell 7-x64" MSI is installed, even with `--source msstore`) | winget links the MSI to the Store product. An `msstore` action declares `packageName`: presence is judged on the appx package of the current account (`Test-OSSetupAppxInstalled`). |
+| Store app missing from `winget export --source winget` | The export only covers the `winget` source: it is not consulted for an `msstore` action. |
 | Installed package that `winget list --id` does not find (`0x8A150014`), while `winget list --name` shows it with its identifier (observed: PowerShell 7 updated by Microsoft Update) | The plan wanted to reinstall it. `winget export` does make the link: second opinion in `Test-OSSetupWingetInstalled`. |
 
 Under Windows PowerShell 5.1, do not capture or redirect winget's output (`| Out-Host`, assignment): it would be decoded with the OEM code page. Let it write directly to the console, or set `[Console]::OutputEncoding` to UTF-8.

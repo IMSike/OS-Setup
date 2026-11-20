@@ -27,7 +27,7 @@ Les providers disponibles et leurs paramètres sont décrits dans [Comment le se
 
 ## Étapes
 
-1. **Paquet winget** : trouver l'identifiant exact avec `winget search <nom>`, puis `winget show --id <Id> --exact`. Le provider utilise toujours `--exact --id`, `--source winget`, `--accept-package-agreements`, `--accept-source-agreements` et `--silent`. Préciser le `scope` (`user` ou `machine`). Voir les [pièges de winget](pitfalls.md#winget-windows-10-winget-129).
+1. **Paquet winget** : trouver l'identifiant exact avec `winget search <nom>`, puis `winget show --id <Id> --exact`. Le provider utilise toujours `--exact --id`, `--source winget`, `--accept-package-agreements`, `--accept-source-agreements` et `--silent`. Préciser le `scope` (`user` ou `machine`). Une application du Microsoft Store se déclare avec son identifiant de produit (`winget search <nom> --source msstore`), `"source": "msstore"`, sans `scope` (elle s'installe pour le compte courant), et `packageName`, le nom de son paquet appx (`Get-AppxPackage`), sur lequel la présence est jugée. Voir les [pièges de winget](pitfalls.md#winget-windows-10-winget-129).
 2. **Créer le fichier** dans la bonne catégorie :
 
    | Catégorie | Contenu | Documentation |

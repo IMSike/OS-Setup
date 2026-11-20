@@ -128,6 +128,26 @@ function Get-OSSetupInstalledAppxPackage {
     $script:StateCache[$key]
 }
 
+function Test-OSSetupAppxInstalled {
+    <#
+    .SYNOPSIS
+        Vrai si le paquet appx est installé pour le compte courant (une application du Store s'installe par compte).
+    .DESCRIPTION
+        Sert à juger la présence d'une application installée depuis la source msstore : `winget list --id <produit>`
+        rattache aussi un MSI au produit du Store (ex. « PowerShell 7-x64 » et 9MZ1SNWT0N5D), même avec --source msstore.
+        Lecture directe, par nom exact, sans la liste gardée pour la passe : elle sert aussi à l'attente qui suit une
+        installation.
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Name
+    )
+    Import-OSSetupAppxModule
+    @(Get-AppxPackage -Name $Name -ErrorAction Stop).Count -gt 0
+}
+
 function Get-OSSetupProvisionedPackage {
     <#
     .SYNOPSIS

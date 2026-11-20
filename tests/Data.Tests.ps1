@@ -62,6 +62,18 @@ Describe 'Données du dépôt' {
         $data | Should -Not -BeNullOrEmpty
     }
 
+    It 'chaque action winget de la source msstore nomme son paquet appx' {
+        # winget list --id <produit> rattache aussi un MSI au produit du Store : la présence est jugée sur le paquet appx.
+        $missing = @(
+            foreach ($item in $data.Items.Values) {
+                foreach ($action in @($item['actions'])) {
+                    if ($action -and $action['provider'] -eq 'winget' -and $action['source'] -eq 'msstore' -and -not $action['packageName']) { $item['id'] }
+                }
+            }
+        )
+        $missing | Should -BeNullOrEmpty
+    }
+
     It 'chaque tâche logon-task, lancée avec les droits les plus élevés, exécute un script sous {{ProgramFiles}}\OS-Setup' {
         $variables = Resolve-OSSetupVariable -Data $data -Answers @{ profiles = @($data.Profiles.Keys) }
         $found = @(Get-UnsafeLogonTaskScript -Data $data -Variables $variables)

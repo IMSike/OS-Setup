@@ -591,6 +591,25 @@ Describe 'Provider winget : installation' {
         Should -Invoke -ModuleName OSSetup -CommandName Write-OSSetupLog -Times 1 -Exactly -ParameterFilter { $Message -eq '  Trouvé Some App [Some.App]' }
     }
 
+    It 'installe depuis la source de l''action et attend le paquet appx d''une application du Store' {
+        Mock -ModuleName OSSetup -CommandName winget -MockWith { $global:LASTEXITCODE = 0 }
+        Mock -ModuleName OSSetup -CommandName Test-OSSetupAppxInstalled -MockWith { $true }
+        Mock -ModuleName OSSetup -CommandName Get-OSSetupWingetExportId
+        InModuleScope OSSetup {
+            & (Get-OSSetupProvider -Name 'winget').Invoke @{ id = '9MZ1SNWT0N5D'; source = 'msstore'; packageName = 'Microsoft.PowerShell' } @{}
+        } | Should -BeNullOrEmpty
+        Should -Invoke -ModuleName OSSetup -CommandName winget -Times 1 -Exactly -ParameterFilter { ($args -join ' ') -like 'install --id 9MZ1SNWT0N5D --exact --source msstore --silent*' }
+        Should -Invoke -ModuleName OSSetup -CommandName Test-OSSetupAppxInstalled -Times 1 -Exactly -ParameterFilter { $Name -eq 'Microsoft.PowerShell' }
+        Should -Invoke -ModuleName OSSetup -CommandName Test-OSSetupWingetInstalled -Times 0 -Exactly
+        Should -Invoke -ModuleName OSSetup -CommandName Get-OSSetupWingetExportId -Times 0 -Exactly
+    }
+
+    It 'installe depuis la source winget par défaut' {
+        Mock -ModuleName OSSetup -CommandName winget -MockWith { $global:LASTEXITCODE = 0 }
+        InModuleScope OSSetup { & (Get-OSSetupProvider -Name 'winget').Invoke @{ id = 'Some.App' } @{} } | Should -BeNullOrEmpty
+        Should -Invoke -ModuleName OSSetup -CommandName winget -Times 1 -Exactly -ParameterFilter { ($args -join ' ') -like 'install --id Some.App --exact --source winget --silent*' }
+    }
+
     It 'traite 0x8A15002B (déjà installé) comme un succès et signale le redémarrage demandé (0x8A150109)' {
         Mock -ModuleName OSSetup -CommandName winget -MockWith { $global:LASTEXITCODE = -1978335189 }
         InModuleScope OSSetup { & (Get-OSSetupProvider -Name 'winget').Invoke @{ id = 'Some.App' } @{} } | Should -BeNullOrEmpty

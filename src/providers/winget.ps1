@@ -1,5 +1,6 @@
 ﻿# Provider winget : installation de paquets Windows.
-# Présence : winget list --id, puis winget export en second avis (Test-OSSetupWingetInstalled).
+# Présence : winget list --id, puis winget export en second avis (Test-OSSetupWingetInstalled) ; pour une application
+# du Store (source msstore, packageName), le paquet appx installé pour le compte courant (Test-OSSetupAppxInstalled).
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification = 'Interface commune des providers : chaque bloc reçoit $Action et $Context, utilisés ou non.')]
 param()
@@ -9,19 +10,24 @@ param()
 
     Describe = {
         param($Action, $Context)
-        "winget install $($Action['id'])"
+        $description = "winget install $($Action['id'])"
+        if ((Get-OSSetupWingetSource -Action $Action) -eq 'msstore') { $description += ' (Microsoft Store)' }
+        $description
     }
 
     Test     = {
         param($Action, $Context)
+        # Application du Store : jugée par son paquet appx, car winget list rattache aussi un MSI au produit du Store.
+        if ($Action['packageName']) { return Test-OSSetupAppxInstalled -Name $Action['packageName'] }
         # Pendant le plan, l'export (lu une fois) est consulté avant winget list, lent pour chaque paquet.
-        Test-OSSetupWingetInstalled -Id $Action['id'] -ExportFirst:([bool]$Context['Planning'])
+        Test-OSSetupWingetInstalled -Id $Action['id'] -Source (Get-OSSetupWingetSource -Action $Action) -ExportFirst:([bool]$Context['Planning'])
     }
 
     Invoke   = {
         param($Action, $Context)
+        $source = Get-OSSetupWingetSource -Action $Action
         $arguments = @(
-            'install', '--id', $Action['id'], '--exact', '--source', 'winget', '--silent',
+            'install', '--id', $Action['id'], '--exact', '--source', $source, '--silent',
             '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity'
         )
         if ($Action['scope']) { $arguments += @('--scope', $Action['scope']) }
@@ -48,12 +54,14 @@ param()
         $found = $false
         $firstPoll = $true
         while (-not $rebootRequired -and (Get-Date) -lt $deadline) {
-            $found = Test-OSSetupWingetInstalled -Id $Action['id'] -Refresh:$firstPoll -ListOnly:(-not $firstPoll)
+            $found = if ($Action['packageName']) { Test-OSSetupAppxInstalled -Name $Action['packageName'] }
+            else { Test-OSSetupWingetInstalled -Id $Action['id'] -Source $source -Refresh:$firstPoll -ListOnly:(-not $firstPoll) }
             if ($found) { break }
             $firstPoll = $false
             Start-Sleep -Seconds 3
         }
-        if (-not $rebootRequired -and -not $found -and -not $firstPoll) {
+        # L'export ne couvre que la source winget.
+        if (-not $rebootRequired -and -not $found -and -not $firstPoll -and -not $Action['packageName'] -and $source -eq 'winget') {
             Get-OSSetupWingetExportId -Refresh | Out-Null
         }
         # L'installeur a pu modifier le PATH dans le registre : la session doit le voir pour les étapes suivantes.

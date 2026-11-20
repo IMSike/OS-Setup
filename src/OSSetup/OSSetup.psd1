@@ -172,6 +172,7 @@
         'Set-OSSetupPowerValue'
         'Split-OSSetupTaskPath'
         'Stop-OSSetupStoreUpdate'
+        'Test-OSSetupAppxInstalled'
         'Test-OSSetupPackagedPowerShell'
         'Wait-OSSetupUninstallEntryRemoval'
         # Variables.ps1
@@ -185,6 +186,7 @@
         # Winget.ps1
         'Clear-OSSetupWingetExportCache'
         'Get-OSSetupWingetExportId'
+        'Get-OSSetupWingetSource'
         'Test-OSSetupWingetInstalled'
         # Wsl.ps1
         'Get-OSSetupIniValue'
