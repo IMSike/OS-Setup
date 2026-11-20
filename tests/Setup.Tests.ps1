@@ -233,6 +233,29 @@ Describe 'setup.ps1 : outils du bootstrap gardés au nettoyage de fin' {
     }
 }
 
+Describe 'setup.ps1 : actions reportées à la fermeture du setup' {
+    It 'confie au nettoyage de fin les commandes des actions « atclose », sans échec' {
+        $result = Invoke-TestSetup -Argument '-Profiles', 'base', '-AcceptDefaults', '-Yes', '-NoPause' -Returns @{
+            'Invoke-OSSetupPlan' = @(
+                @{ Status = 'done'; RebootRequired = $false; RequiresLogoff = $false }
+                @{ Status = 'atclose'; RebootRequired = $false; RequiresLogoff = $false; RunAtClose = @('commande-reportée') }
+            )
+        }
+        $result.ExitCode | Should -Be 0
+        $arguments = Get-TestCallArgument -Result $result -Name 'Invoke-OSSetupCleanup'
+        $index = [array]::IndexOf($arguments, '-RunAtClose')
+        $index | Should -BeGreaterOrEqual 0
+        $arguments[$index + 1] | Should -Be 'commande-reportée'
+    }
+
+    It 'ne transmet aucune commande quand aucune action n''est reportée' {
+        $result = Invoke-TestSetup -Argument '-Profiles', 'base', '-AcceptDefaults', '-Yes', '-NoPause'
+        $arguments = Get-TestCallArgument -Result $result -Name 'Invoke-OSSetupCleanup'
+        $index = [array]::IndexOf($arguments, '-RunAtClose')
+        $arguments[$index + 1] | Should -BeNullOrEmpty
+    }
+}
+
 Describe 'setup.ps1 : code de sortie' {
     It 'sort avec son propre code quand il n''y a rien à faire, pas avec celui d''une commande native antérieure' {
         # Comme la relance en administrateur : « & setup.ps1 …; exit $LASTEXITCODE ».

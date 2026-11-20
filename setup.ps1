@@ -172,6 +172,8 @@ $logoff = $false
 # Catalogue et éléments retenus : $null tant qu'ils ne sont pas connus (lus par le nettoyage de fin).
 $data = $null
 $itemIds = $null
+# Résultats des actions : ceux de statut « atclose » portent les commandes confiées au nettoyage de fin.
+$results = @()
 try {
     if ($Resume) {
         $runState['pass']++
@@ -305,6 +307,10 @@ try {
                 $waitingForRestart = $true
                 Write-OSSetupLog -Message ''
                 Write-OSSetupLog -Level Warning -Message 'Un redémarrage est nécessaire pour terminer. Le setup reprendra automatiquement à l''ouverture de session.'
+                if ($results | Where-Object { $_.Status -eq 'atclose' }) {
+                    # Pas de nettoyage de fin avant le redémarrage : la reprise, sous le PowerShell du Store, s'en charge.
+                    Write-OSSetupLog -Level Detail -Message 'Les désinstallations reportées à la fermeture du setup seront faites à la reprise.'
+                }
                 # Reporté : l'état et la tâche restent en place, la reprise aura lieu après le prochain redémarrage.
                 [void](Request-OSSetupRestart -Immediate:$Yes)
             }
@@ -347,8 +353,10 @@ finally {
             if ($null -ne $itemIds -and $null -ne $data) {
                 $selectedWingetIds = [string[]]@(Get-OSSetupSelectedWingetId -Data $data -ItemId $itemIds)
             }
+            # Actions confiées au nettoyage de fin (ex. désinstallation du PowerShell qui exécute le setup).
+            $runAtClose = @($results | Where-Object { $_.Status -eq 'atclose' } | ForEach-Object { $_.RunAtClose })
             try {
-                Invoke-OSSetupCleanup -Root $dataRoot -CodeRoot $root -RunId $runId -SelectedWingetId $selectedWingetIds -Yes:$Yes -Logoff:$logoff
+                Invoke-OSSetupCleanup -Root $dataRoot -CodeRoot $root -RunId $runId -SelectedWingetId $selectedWingetIds -RunAtClose $runAtClose -Yes:$Yes -Logoff:$logoff
             }
             catch {
                 Write-OSSetupLog -Level Warning -Message "Nettoyage de fin impossible : $($_.Exception.Message)"

@@ -43,6 +43,11 @@ Describe 'Get-OSSetupToolToRemove' {
             Should -Be @('Git.Git')
     }
 
+    It 'garde le PowerShell noté par un ancien bootstrap quand celui du Store est retenu' {
+        Get-OSSetupToolToRemove -InstalledTool 'Git.Git', 'Microsoft.PowerShell' -SelectedWingetId '9MZ1SNWT0N5D' |
+            Should -Be @('Git.Git')
+    }
+
     It 'ne retire rien si le bootstrap n''a rien installé' {
         Get-OSSetupToolToRemove -InstalledTool @() -SelectedWingetId @() | Should -BeNullOrEmpty
     }
@@ -154,6 +159,20 @@ Describe 'Invoke-OSSetupCleanup' {
         Should -Invoke -ModuleName OSSetup Start-Process -Times 0 -Exactly
     }
 
+    It 'transmet les désinstallations reportées à la fermeture du setup, même sur un clone de développement' {
+        $root = Join-Path -Path $TestDrive -ChildPath 'dev-clone-atclose'
+        New-Item -Path "$root\src" -ItemType Directory -Force | Out-Null
+        Copy-Item -LiteralPath (Join-Path -Path $repoRoot -ChildPath 'src\cleanup.ps1') -Destination "$root\src\cleanup.ps1"
+        $command = [ordered]@{ displayName = 'PowerShell 7-x64'; registryKey = 'HKLM:\x\{GUID}'; filePath = 'C:\Windows\System32\msiexec.exe'; arguments = '/x {GUID} /qn /norestart' }
+        Invoke-OSSetupCleanup -Root $root -RunId 'r1' -SelectedWingetId @() -RunAtClose @($command) -Yes
+        $config = Get-LaunchedConfig
+        @($config.run).Count | Should -Be 1
+        $config.run[0].displayName | Should -Be 'PowerShell 7-x64'
+        $config.run[0].filePath | Should -Be 'C:\Windows\System32\msiexec.exe'
+        $config.run[0].arguments | Should -Be '/x {GUID} /qn /norestart'
+        $config.run[0].registryKey | Should -Be 'HKLM:\x\{GUID}'
+    }
+
     It 'sur un clone de développement, lance seulement la fermeture de session demandée' {
         $root = Join-Path -Path $TestDrive -ChildPath 'dev-clone-logoff'
         New-Item -Path "$root\src" -ItemType Directory -Force | Out-Null
@@ -243,14 +262,48 @@ Describe 'src/cleanup.ps1' {
 
         function Save-TestCleanupConfig {
             # Rien à attendre : le processus noté n'existe pas.
-            param([string]$Path, [string[]]$Remove = @(), [string]$LogPath)
-            [ordered]@{ waitPid = [int]::MaxValue; uninstall = @(); remove = @($Remove); logPath = $LogPath; logoff = $false } |
-                ConvertTo-Json | Set-Content -LiteralPath $Path -Encoding utf8
+            param([string]$Path, [string[]]$Remove = @(), [string]$LogPath, [object[]]$Run = @())
+            [ordered]@{ waitPid = [int]::MaxValue; run = @($Run); uninstall = @(); remove = @($Remove); logPath = $LogPath; logoff = $false } |
+                ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $Path -Encoding utf8
         }
     }
 
     BeforeEach {
         if (-not (Test-Path -LiteralPath $windowsPowerShell)) { Set-ItResult -Skipped -Because 'Windows PowerShell 5.1 absent' }
+    }
+
+    It 'lance une désinstallation reportée tant que son entrée existe, et consigne le résultat' {
+        $test = New-TestCleanupWork
+        # Commande inoffensive (cmd /c exit 7) et clé de registre toujours présente : rien n'est désinstallé.
+        $command = [ordered]@{
+            displayName = 'Logiciel de test'
+            registryKey = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+            filePath    = (Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'cmd.exe')
+            arguments   = '/c exit 7'
+        }
+        Save-TestCleanupConfig -Path $test.Config -LogPath "$($test.Work)\setup.log" -Run $command
+
+        Invoke-TestCleanupScript -Script $test.Script -ConfigPath $test.Config
+
+        Get-Content -LiteralPath "$($test.Work)\setup.log" -Raw -Encoding utf8 | Should -BeLike '*Désinstallation de Logiciel de test : toujours présent (code 7)*'
+        Test-Path -LiteralPath $test.Config | Should -BeFalse
+    }
+
+    It 'ne relance pas une désinstallation reportée dont l''entrée a déjà disparu' {
+        $test = New-TestCleanupWork
+        $marker = Join-Path -Path $test.Work -ChildPath 'lancé.txt'
+        $command = [ordered]@{
+            displayName = 'Logiciel de test'
+            registryKey = 'HKLM:\SOFTWARE\OSSetupTest-absent\{00000000-0000-0000-0000-000000000000}'
+            filePath    = (Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'cmd.exe')
+            arguments   = "/c echo x > `"$marker`""
+        }
+        Save-TestCleanupConfig -Path $test.Config -LogPath "$($test.Work)\setup.log" -Run $command
+
+        Invoke-TestCleanupScript -Script $test.Script -ConfigPath $test.Config
+
+        Test-Path -LiteralPath $marker | Should -BeFalse
+        Get-Content -LiteralPath "$($test.Work)\setup.log" -Raw -Encoding utf8 | Should -BeLike '*Désinstallation de Logiciel de test : déjà faite*'
     }
 
     It 'supprime le dossier, ses fichiers en lecture seule et la jonction, sans toucher la cible de la jonction' {
