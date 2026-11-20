@@ -78,11 +78,16 @@ Key by key: the user's other settings are kept, and a key changed on the machine
 
 ## PowerShell 7 — `pwsh`
 
-✔ · admin · winget `Microsoft.PowerShell` (MSI, machine-wide)
+✔ · for the account · admin · winget `9MZ1SNWT0N5D` (Microsoft Store, `msstore` source) · uninstalls the "PowerShell 7-x64" MSI
 
-- **Effect**: installs PowerShell 7 alongside Windows PowerShell 5.1 (which stays: it is a Windows component). Not pinned to the taskbar: it is used from Windows Terminal.
-- **Implications**: the default package is an MSIX, which cannot be installed machine-wide on Windows 10: the MSI is forced.
-- **Rollback**: Settings > Apps > PowerShell 7 > Uninstall.
+- **Effect**: installs PowerShell 7 from the Microsoft Store, alongside Windows PowerShell 5.1 (which stays: it is a Windows component), then uninstalls the PowerShell 7 MSI if there is one, so that a machine already in use ends up like a new one. Not pinned to the taskbar: it is used from Windows Terminal. The choice is explained in [ADR 0004](../adr/0004-powershell-from-the-store.md).
+- **Implications**:
+  - installed **for the current account** (appx package `Microsoft.PowerShell`, `pwsh` command through the alias `%LOCALAPPDATA%\Microsoft\WindowsApps\pwsh.exe`): another account of the machine does not get it. The MSI, however, is removed machine-wide;
+  - updated by the Store, without the setup being involved, including beyond 7.6. The Store may close open PowerShell sessions to apply an update postponed for several days;
+  - if the setup runs under the MSI (machine already installed), the MSI is uninstalled when the setup closes: action "reportée à la fermeture du setup" ("postponed until the setup closes") in the summary;
+  - **Microsoft Store unavailable** (edition without the Store, Store blocked, `msstore` source disabled, filtered network): the MSI installed by the bootstrap is kept and the machine stays usable. The plan says the MSI is kept as long as the Store package is not installed; the installation shows as "ignorée" ("skipped") in the summary, with the winget error code, without making the setup fail. It is tried again on every run: once the Store is back, running the setup again installs the Store package and removes the MSI. This fallback stops at PowerShell 7.6, the last version published as an MSI.
+- **Changed value**: the account's `Microsoft.PowerShell` appx package; "PowerShell 7-x64" entry of "Programs and Features" removed.
+- **Rollback**: Settings > Apps > PowerShell > Uninstall. To get the MSI back: `winget install --id Microsoft.PowerShell --source winget --installer-type wix` (the setup will remove it again as long as the `pwsh` item is chosen).
 
 ### PowerShell 7 profile — `pwsh-profile`
 

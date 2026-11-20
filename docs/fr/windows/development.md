@@ -78,11 +78,16 @@ Clé par clé : les autres réglages de l'utilisateur sont conservés, et une cl
 
 ## PowerShell 7 — `pwsh`
 
-✔ · admin · winget `Microsoft.PowerShell` (MSI, pour toute la machine)
+✔ · pour le compte · admin · winget `9MZ1SNWT0N5D` (Microsoft Store, source `msstore`) · désinstalle le MSI « PowerShell 7-x64 »
 
-- **Effet** : installe PowerShell 7 à côté de Windows PowerShell 5.1 (qui reste : composant de Windows). Pas épinglé à la barre des tâches : on l'utilise depuis Windows Terminal.
-- **Implications** : le paquet par défaut est un MSIX, non installable pour toute la machine sous Windows 10 : le MSI est forcé.
-- **Revenir en arrière** : Paramètres > Applications > PowerShell 7 > Désinstaller.
+- **Effet** : installe PowerShell 7 depuis le Microsoft Store, à côté de Windows PowerShell 5.1 (qui reste : composant de Windows), puis désinstalle le MSI de PowerShell 7 s'il y en a un, pour qu'un poste déjà utilisé finisse comme un poste neuf. Pas épinglé à la barre des tâches : on l'utilise depuis Windows Terminal. Choix expliqué dans l'[ADR 0004](../adr/0004-powershell-from-the-store.md).
+- **Implications** :
+  - installé **pour le compte courant** (paquet appx `Microsoft.PowerShell`, commande `pwsh` par l'alias `%LOCALAPPDATA%\Microsoft\WindowsApps\pwsh.exe`) : un autre compte du poste ne l'a pas. Le MSI, lui, est retiré pour toute la machine ;
+  - mis à jour par le Store, sans intervention du setup, y compris au-delà de la 7.6. Le Store peut fermer les sessions PowerShell ouvertes pour appliquer une mise à jour reportée plusieurs jours ;
+  - si le setup s'exécute sous le MSI (poste déjà installé), celui-ci est désinstallé à la fermeture du setup : action « reportée à la fermeture du setup » dans le récapitulatif ;
+  - **Microsoft Store indisponible** (édition sans Store, Store bloqué, source `msstore` désactivée, réseau filtré) : le MSI installé par le bootstrap est conservé et le poste reste utilisable. Le plan indique que le MSI est conservé tant que le paquet du Store n'est pas installé ; l'installation apparaît « ignorée » dans le récapitulatif, avec le code d'erreur de winget, sans mettre le setup en échec. Elle est retentée à chaque exécution : une fois le Store rétabli, relancer le setup installe le paquet du Store et retire le MSI. Ce repli s'arrête à PowerShell 7.6, dernière version publiée en MSI.
+- **Valeur modifiée** : paquet appx `Microsoft.PowerShell` du compte ; entrée « PowerShell 7-x64 » de « Programmes et fonctionnalités » retirée.
+- **Revenir en arrière** : Paramètres > Applications > PowerShell > Désinstaller. Pour retrouver le MSI : `winget install --id Microsoft.PowerShell --source winget --installer-type wix` (le setup le retirera à nouveau tant que l'élément `pwsh` est choisi).
 
 ### Profil PowerShell 7 — `pwsh-profile`
 
